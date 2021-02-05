@@ -1,5 +1,4 @@
-// Copyright (C) 2012 - 2020 Austin Robot Technology, Jesse Vera, Jack O'Quin, Piyush Khandelwal,
-//    Joshua Whitley, Sebastian Pütz
+// Copyright (C) 2012, 2019 Austin Robot Technology, Jack O'Quin, Joshua Whitley, Sebastian Pütz
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -31,32 +30,42 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-/** \file
- *
- *  Point Cloud Library point structures for Velodyne data.
- *
- *  @author Jesse Vera
- *  @author Jack O'Quin
- *  @author Piyush Khandelwal
- *  @author Sebastian Pütz
- */
-
 #pragma once
 
-#include <pcl/point_types.h>
+#include "velodyne_decoder/types.h"
 
-namespace velodyne_pcl {
-struct PointXYZIRT {
-  PCL_ADD_POINT4D;                // quad-word XYZ
-  float intensity;                ///< laser intensity reading
-  uint16_t ring;                  ///< laser ring number
-  float time;                     ///< laser time reading
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW // ensure proper alignment
-} EIGEN_ALIGN16;
-} // namespace velodyne_pcl
+#include <string>
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(velodyne_pcl::PointXYZIRT,
-                                  (float, x, x)(float, y, y)(float, z,
-                                                             z)(float, intensity,
-                                                                intensity)(uint16_t, ring,
-                                                                           ring)(float, time, time))
+namespace velodyne_decoder {
+
+class PointCloudAggregator {
+public:
+  PointCloudAggregator(float max_range, float min_range, int scans_per_packet)
+      : max_range(max_range), min_range(min_range), scans_per_packet(scans_per_packet) {}
+
+  float max_range;
+  float min_range;
+  int scans_per_packet;
+
+  virtual void init(const VelodyneScan &scan_msg) {
+    cloud.clear();
+    cloud.reserve(scan_msg.packets.size() * scans_per_packet);
+  }
+
+  void newLine() {}
+
+  void addPoint(float x, float y, float z, uint16_t ring, uint16_t /*azimuth*/, float distance,
+                float intensity, float time) {
+    if (pointInRange(distance)) {
+      cloud.emplace_back(PointXYZIRT{x, y, z, intensity, ring, time});
+    }
+  }
+
+  constexpr bool pointInRange(float range) const {
+    return range >= min_range && range <= max_range;
+  }
+
+  PointCloud cloud;
+};
+
+} /* namespace velodyne_decoder */

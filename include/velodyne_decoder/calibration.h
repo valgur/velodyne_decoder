@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-namespace velodyne_pointcloud {
+namespace velodyne_decoder {
 
 /** \brief correction values for a single laser
  *
@@ -93,4 +93,4 @@ public:
   void write(const std::string &calibration_file);
 };
 
-} // namespace velodyne_pointcloud
+} // namespace velodyne_decoder

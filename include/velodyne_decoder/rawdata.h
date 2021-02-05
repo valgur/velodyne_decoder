@@ -41,40 +41,39 @@
 
 #pragma once
 
-#include <boost/format.hpp>
-#include <errno.h>
-#include <math.h>
-#include <stdint.h>
+#include <cerrno>
+#include <cmath>
+#include <cstdint>
 #include <string>
 #include <vector>
 
-#include <ros/ros.h>
-#include <velodyne_msgs/VelodyneScan.h>
-#include <velodyne_pointcloud/calibration.h>
-#include <velodyne_pointcloud/datacontainerbase.h>
+#include "velodyne_decoder/calibration.h"
+#include "velodyne_decoder/config.h"
+#include "velodyne_decoder/pointcloud_aggregator.h"
+#include "velodyne_decoder/types.h"
 
-namespace velodyne_rawdata {
+namespace velodyne_decoder {
 /**
  * Raw Velodyne packet constants and structures.
  */
-static const int SIZE_BLOCK      = 100;
-static const int RAW_SCAN_SIZE   = 3;
-static const int SCANS_PER_BLOCK = 32;
-static const int BLOCK_DATA_SIZE = (SCANS_PER_BLOCK * RAW_SCAN_SIZE);
+constexpr int SIZE_BLOCK      = 100;
+constexpr int RAW_SCAN_SIZE   = 3;
+constexpr int SCANS_PER_BLOCK = 32;
+constexpr int BLOCK_DATA_SIZE = (SCANS_PER_BLOCK * RAW_SCAN_SIZE);
 
-static const float ROTATION_RESOLUTION   = 0.01f;  // [deg]
-static const uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
+constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
+constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
 
 /** @todo make this work for both big and little-endian machines */
-static const uint16_t UPPER_BANK = 0xeeff;
-static const uint16_t LOWER_BANK = 0xddff;
+constexpr uint16_t UPPER_BANK = 0xeeff;
+constexpr uint16_t LOWER_BANK = 0xddff;
 
 /** Special Defines for VLP16 support **/
-static const int VLP16_FIRINGS_PER_BLOCK = 2;
-static const int VLP16_SCANS_PER_FIRING  = 16;
-static const float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
-static const float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
-static const float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
+constexpr int VLP16_FIRINGS_PER_BLOCK = 2;
+constexpr int VLP16_SCANS_PER_FIRING  = 16;
+constexpr float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
+constexpr float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
+constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 
 /** \brief Raw Velodyne data block.
  *
@@ -83,11 +82,11 @@ static const float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
  *
  *  use stdint.h types, so things work with both 64 and 32-bit machines
  */
-typedef struct raw_block {
+struct raw_block_t {
   uint16_t header;   ///< UPPER_BANK or LOWER_BANK
   uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
   uint8_t data[BLOCK_DATA_SIZE];
-} raw_block_t;
+};
 
 /** used for unpacking the first two data bytes in a block
  *
@@ -99,26 +98,25 @@ union two_bytes {
   uint8_t bytes[2];
 };
 
-static const int PACKET_SIZE        = 1206;
-static const int BLOCKS_PER_PACKET  = 12;
-static const int PACKET_STATUS_SIZE = 4;
-static const int SCANS_PER_PACKET   = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
+constexpr int PACKET_SIZE        = 1206;
+constexpr int BLOCKS_PER_PACKET  = 12;
+constexpr int PACKET_STATUS_SIZE = 4;
+constexpr int SCANS_PER_PACKET   = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
 
 /** Special Definitions for VLS128 support **/
 // These are used to detect which bank of 32 lasers is in this block
-static const uint16_t VLS128_BANK_1 = 0xeeff;
-static const uint16_t VLS128_BANK_2 = 0xddff;
-static const uint16_t VLS128_BANK_3 = 0xccff;
-static const uint16_t VLS128_BANK_4 = 0xbbff;
+constexpr uint16_t VLS128_BANK_1 = 0xeeff;
+constexpr uint16_t VLS128_BANK_2 = 0xddff;
+constexpr uint16_t VLS128_BANK_3 = 0xccff;
+constexpr uint16_t VLS128_BANK_4 = 0xbbff;
 
-static const float VLS128_CHANNEL_TDURATION =
-    2.665f; // [µs] Channels corresponds to one laser firing
-static const float VLS128_SEQ_TDURATION =
+constexpr float VLS128_CHANNEL_TDURATION = 2.665f; // [µs] Channels corresponds to one laser firing
+constexpr float VLS128_SEQ_TDURATION =
     53.3f; // [µs] Sequence is a set of laser firings including recharging
-static const float VLS128_TOH_ADJUSTMENT =
+constexpr float VLS128_TOH_ADJUSTMENT =
     8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
-static const float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
-static const float VLS128_MODEL_ID            = 161;
+constexpr float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
+constexpr float VLS128_MODEL_ID            = 161;
 
 /** \brief Raw Velodyne packet.
  *
@@ -132,73 +130,32 @@ static const float VLS128_MODEL_ID            = 161;
  *
  *  status has either a temperature encoding or the microcode level
  */
-typedef struct raw_packet {
+struct raw_packet_t {
   raw_block_t blocks[BLOCKS_PER_PACKET];
   uint16_t revolution;
   uint8_t status[PACKET_STATUS_SIZE];
-} raw_packet_t;
+};
 
 /** \brief Velodyne data conversion class */
 class RawData {
 public:
-  RawData();
-  ~RawData() {}
+  explicit RawData(const Config &config);
 
-  /** \brief Set up for data processing.
-   *
-   *  Perform initializations needed before data processing can
-   *  begin:
-   *
-   *    - read device-specific angles calibration
-   *
-   *  @param private_nh private node handle for ROS parameters
-   *  @returns an optional calibration
-   */
-  boost::optional<velodyne_pointcloud::Calibration> setup(ros::NodeHandle private_nh);
-
-  void setupSinCosCache();
-  void setupAzimuthCache();
-  bool loadCalibration();
-
-  /** \brief Set up for data processing offline.
-   * Performs the same initialization as in setup, in the abscence of a ros::NodeHandle.
-   * this method is useful if unpacking data directly from bag files, without passing
-   * through a communication overhead.
-   *
-   * @param calibration_file path to the calibration file
-   * @param max_range_ cutoff for maximum range
-   * @param min_range_ cutoff for minimum range
-   * @returns 0 if successful;
-   *           errno value for failure
-   */
-  int setupOffline(std::string calibration_file, double max_range_, double min_range_);
-
-  void unpack(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-              const ros::Time &scan_start_time);
+  void unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
 
   void setParameters(double min_range, double max_range, double view_direction, double view_width);
 
   int scansPerPacket() const;
 
-private:
   /** configuration parameters */
-  typedef struct {
-    std::string model;
-    std::string calibrationFile; ///< calibration file name
-    double max_range;            ///< maximum range to publish
-    double min_range;            ///< minimum range to publish
-    int min_angle;               ///< minimum angle to publish
-    int max_angle;               ///< maximum angle to publish
-
-    double tmp_min_angle;
-    double tmp_max_angle;
-  } Config;
   Config config_;
 
   /**
    * Calibration file
    */
-  velodyne_pointcloud::Calibration calibration_;
+  velodyne_decoder::Calibration calibration_;
+
+protected:
   float sin_rot_table_[ROTATION_MAX_UNITS];
   float cos_rot_table_[ROTATION_MAX_UNITS];
 
@@ -211,22 +168,21 @@ private:
   /** \brief setup per-point timing offsets
    *
    *  Runs during initialization and determines the firing time for each point in the scan
-   *
-   *  NOTE: Does not support all sensors yet (vlp16, vlp32, and hdl32 are currently supported)
    */
-  bool buildTimings();
+  static std::vector<std::vector<float>> buildTimings(const std::string &model);
+
+  void setupSinCosCache();
+  void setupAzimuthCache();
 
   /** add private function to handle the VLP16 **/
-  void unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-                    const ros::Time &scan_start_time);
+  void unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
 
-  void unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-                     const ros::Time &scan_start_time);
+  void unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
 
   /** in-line test whether a point is in range */
-  inline bool pointInRange(float range) {
-    return (range >= config_.min_range && range <= config_.max_range);
+  constexpr bool pointInRange(float range) const {
+    return range >= config_.min_range && range <= config_.max_range;
   }
 };
 
-} // namespace velodyne_rawdata
+} // namespace velodyne_decoder

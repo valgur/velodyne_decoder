@@ -25,17 +25,14 @@
  *  HDL-64E S2 calibration support provided by Nick Hillier
  */
 
+#include "velodyne_decoder/rawdata.h"
+
+#include <cmath>
+#include <exception>
 #include <fstream>
-#include <math.h>
 
-#include <angles/angles.h>
-#include <ros/package.h>
-#include <ros/ros.h>
-
-#include <velodyne_pointcloud/rawdata.h>
-
-namespace velodyne_rawdata {
-inline float SQR(float val) { return val * val; }
+namespace velodyne_decoder {
+template <typename T> constexpr T SQR(T val) { return val * val; }
 
 ////////////////////////////////////////////////////////////////////////
 //
@@ -43,7 +40,26 @@ inline float SQR(float val) { return val * val; }
 //
 ////////////////////////////////////////////////////////////////////////
 
-RawData::RawData() {}
+RawData::RawData(const Config &config) : config_(config) {
+  if (config_.model.empty()) {
+    throw std::runtime_error("No Velodyne sensor model specified!");
+  }
+
+  timing_offsets = buildTimings(config_.model);
+
+  // get path to angles.config file for this device
+  if (!config_.calibrationFile.empty()) {
+    throw std::runtime_error("Calibration config file not provided ");
+  }
+
+  calibration_.read(config_.calibrationFile);
+  if (!calibration_.initialized) {
+    throw std::runtime_error("Unable to open calibration file: " + config_.calibrationFile);
+  }
+
+  setupSinCosCache();
+  setupAzimuthCache();
+}
 
 /** Update parameters: conversions and update */
 void RawData::setParameters(double min_range, double max_range, double view_direction,
@@ -52,17 +68,17 @@ void RawData::setParameters(double min_range, double max_range, double view_dire
   config_.max_range = max_range;
 
   // converting angle parameters into the velodyne reference (rad)
-  config_.tmp_min_angle = view_direction + view_width / 2;
-  config_.tmp_max_angle = view_direction - view_width / 2;
+  double tmp_min_angle = view_direction + view_width / 2;
+  double tmp_max_angle = view_direction - view_width / 2;
 
   // computing positive modulo to keep theses angles into [0;2*M_PI]
-  config_.tmp_min_angle = fmod(fmod(config_.tmp_min_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
-  config_.tmp_max_angle = fmod(fmod(config_.tmp_max_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
+  tmp_min_angle = fmod(fmod(tmp_min_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
+  tmp_max_angle = fmod(fmod(tmp_max_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
 
   // converting into the hardware velodyne ref (negative yaml and degrees)
-  // adding 0.5 perfomrs a centered double to int conversion
-  config_.min_angle = 100 * (2 * M_PI - config_.tmp_min_angle) * 180 / M_PI + 0.5;
-  config_.max_angle = 100 * (2 * M_PI - config_.tmp_max_angle) * 180 / M_PI + 0.5;
+  // adding 0.5 performs a centered double to int conversion
+  config_.min_angle = 100 * (2 * M_PI - tmp_min_angle) * 180 / M_PI + 0.5;
+  config_.max_angle = 100 * (2 * M_PI - tmp_max_angle) * 180 / M_PI + 0.5;
   if (config_.min_angle == config_.max_angle) {
     // avoid returning empty cloud if min_angle = max_angle
     config_.min_angle = 0;
@@ -79,15 +95,16 @@ int RawData::scansPerPacket() const {
 }
 
 /**
- * Build a timing table for each block/firing. Stores in timing_offsets vector
+ * Build a timing table for each block/firing.
  */
-bool RawData::buildTimings() {
+std::vector<std::vector<float>> RawData::buildTimings(const std::string &model) {
+  std::vector<std::vector<float>> timing_offsets;
   // vlp16
-  if (config_.model == "VLP16") {
+  if (model == "VLP16") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
-    for (size_t i = 0; i < timing_offsets.size(); ++i) {
-      timing_offsets[i].resize(32);
+    for (auto &timing_offset : timing_offsets) {
+      timing_offset.resize(32);
     }
     // constants
     double full_firing_cycle = 55.296 * 1e-6; // seconds
@@ -110,11 +127,11 @@ bool RawData::buildTimings() {
     }
   }
   // vlp32
-  else if (config_.model == "32C") {
+  else if (model == "32C") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
-    for (size_t i = 0; i < timing_offsets.size(); ++i) {
-      timing_offsets[i].resize(32);
+    for (auto &timing_offset : timing_offsets) {
+      timing_offset.resize(32);
     }
     // constants
     double full_firing_cycle = 55.296 * 1e-6; // seconds
@@ -136,11 +153,11 @@ bool RawData::buildTimings() {
     }
   }
   // hdl32
-  else if (config_.model == "32E") {
+  else if (model == "32E") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
-    for (size_t i = 0; i < timing_offsets.size(); ++i) {
-      timing_offsets[i].resize(32);
+    for (auto &timing_offset : timing_offsets) {
+      timing_offset.resize(32);
     }
     // constants
     double full_firing_cycle = 46.080 * 1e-6; // seconds
@@ -160,11 +177,10 @@ bool RawData::buildTimings() {
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (config_.model == "VLS128") {
-
+  } else if (model == "VLS128") {
     timing_offsets.resize(3);
-    for (size_t i = 0; i < timing_offsets.size(); ++i) {
-      timing_offsets[i].resize(17); // 17 (+1 for the maintenance time after firing group 8)
+    for (auto &timing_offset : timing_offsets) {
+      timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
     }
 
     double full_firing_cycle = VLS128_SEQ_TDURATION * 1e-6;     // seconds
@@ -179,97 +195,18 @@ bool RawData::buildTimings() {
         firingGroupIndex     = y;
         timing_offsets[x][y] = (full_firing_cycle * sequenceIndex) +
                                (single_firing * firingGroupIndex) - offset_paket_time;
-        ROS_DEBUG(" firing_seque %lu firing_group %lu offset %f", x, y, timing_offsets[x][y]);
       }
     }
   } else {
-    timing_offsets.clear();
-    ROS_WARN("Timings not supported for model %s", config_.model.c_str());
+    throw std::runtime_error("Timings not available for Velodyne model " + model);
   }
-
-  if (timing_offsets.size()) {
-    // ROS_INFO("VELODYNE TIMING TABLE:");
-    for (size_t x = 0; x < timing_offsets.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        printf("%04.3f ", timing_offsets[x][y] * 1e6);
-      }
-      printf("\n");
-    }
-    return true;
-  } else {
-    ROS_WARN("NO TIMING OFFSETS CALCULATED. ARE YOU USING A SUPPORTED VELODYNE SENSOR?");
-  }
-  return false;
+  return timing_offsets;
 }
 
-/** Set up for on-line operation. */
-boost::optional<velodyne_pointcloud::Calibration> RawData::setup(ros::NodeHandle private_nh) {
-
-  if (!private_nh.getParam("model", config_.model)) {
-    config_.model = std::string("64E");
-    ROS_ERROR("No Velodyne Sensor Model specified using default %s!", config_.model.c_str());
-  }
-
-  buildTimings();
-
-  // get path to angles.config file for this device
-  if (!private_nh.getParam("calibration", config_.calibrationFile)) {
-    ROS_ERROR_STREAM("No calibration angles specified! Using test values!");
-
-    // have to use something: grab unit test version as a default
-    std::string pkgPath     = ros::package::getPath("velodyne_pointcloud");
-    config_.calibrationFile = pkgPath + "/params/64e_utexas.yaml";
-  }
-
-  ROS_INFO_STREAM("correction angles: " << config_.calibrationFile);
-
-  if (!loadCalibration()) {
-    return boost::none;
-  }
-  ROS_INFO_STREAM("Number of lasers: " << calibration_.num_lasers << ".");
-
-  setupSinCosCache();
-  setupAzimuthCache();
-
-  return calibration_;
-}
-
-/** Set up for offline operation */
-int RawData::setupOffline(std::string calibration_file, double max_range_, double min_range_) {
-
-  config_.max_range = max_range_;
-  config_.min_range = min_range_;
-  ROS_INFO_STREAM("data ranges to publish: [" << config_.min_range << ", " << config_.max_range
-                                              << "]");
-
-  config_.calibrationFile = calibration_file;
-
-  ROS_INFO_STREAM("correction angles: " << config_.calibrationFile);
-
-  if (!loadCalibration()) {
-    return -1;
-  }
-  ROS_INFO_STREAM("Number of lasers: " << calibration_.num_lasers << ".");
-
-  setupSinCosCache();
-  setupAzimuthCache();
-
-  return 0;
-}
-
-bool RawData::loadCalibration() {
-
-  calibration_.read(config_.calibrationFile);
-  if (!calibration_.initialized) {
-    ROS_ERROR_STREAM("Unable to open calibration file: " << config_.calibrationFile);
-    return false;
-  }
-  return true;
-}
 void RawData::setupSinCosCache() {
   // Set up cached values for sin and cos of all the possible headings
   for (uint16_t rot_index = 0; rot_index < ROTATION_MAX_UNITS; ++rot_index) {
-    float rotation            = angles::from_degrees(ROTATION_RESOLUTION * rot_index);
+    float rotation            = ROTATION_RESOLUTION * rot_index * M_PI / 180.;
     cos_rot_table_[rot_index] = cosf(rotation);
     sin_rot_table_[rot_index] = sinf(rotation);
   }
@@ -288,8 +225,6 @@ void RawData::setupAzimuthCache() {
       vls_128_laser_azimuth_cache[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
     }
-  } else {
-    ROS_WARN("No Azimuth Cache configured for model %s", config_.model.c_str());
   }
 }
 
@@ -298,11 +233,7 @@ void RawData::setupAzimuthCache() {
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-                     const ros::Time &scan_start_time) {
-  using velodyne_pointcloud::LaserCorrection;
-  ROS_DEBUG_STREAM("Received packet, time: " << pkt.stamp);
-
+void RawData::unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time) {
   /** special parsing for the VLS128 **/
   if (pkt.data[1205] == VLS128_MODEL_ID) { // VLS 128
     unpack_vls128(pkt, data, scan_start_time);
@@ -315,7 +246,7 @@ void RawData::unpack(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase
     return;
   }
 
-  float time_diff_start_to_this_packet = (pkt.stamp - scan_start_time).toSec();
+  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
 
   const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
 
@@ -473,12 +404,11 @@ void RawData::unpack(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-                            const ros::Time &scan_start_time) {
+void RawData::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
+                            Time scan_start_time) {
   float azimuth_diff, azimuth_corrected_f;
   float last_azimuth_diff = 0;
   uint16_t azimuth, azimuth_next, azimuth_corrected;
-  float x_coord, y_coord, z_coord;
   float distance;
   const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
   union two_bytes tmp;
@@ -487,7 +417,7 @@ void RawData::unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContai
   float cos_rot_angle, sin_rot_angle;
   float xy_distance;
 
-  float time_diff_start_to_this_packet = (pkt.stamp - scan_start_time).toSec();
+  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
 
   uint8_t laser_number, firing_order;
   bool dual_return = (pkt.data[1204] == 57);
@@ -513,12 +443,6 @@ void RawData::unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContai
       bank_origin = 96;
       break;
     default:
-      // ignore packets with mangled or otherwise different contents
-      // Do not flood the log with messages, only issue at most one
-      // of these warnings per minute.
-      ROS_WARN_STREAM_THROTTLE(60, "skipping invalid VLS-128 packet: block "
-                                       << block << " header value is "
-                                       << raw->blocks[block].header);
       return; // bad packet: skip the rest
     }
 
@@ -564,7 +488,7 @@ void RawData::unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContai
                    time_diff_start_to_this_packet;
           }
 
-          velodyne_pointcloud::LaserCorrection &corrections =
+          velodyne_decoder::LaserCorrection &corrections =
               calibration_.laser_corrections[laser_number];
 
           // correct for the laser rotation as a function of timing during the firings
@@ -603,8 +527,7 @@ void RawData::unpack_vls128(const velodyne_msgs::VelodynePacket &pkt, DataContai
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContainerBase &data,
-                           const ros::Time &scan_start_time) {
+void RawData::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time) {
   float azimuth;
   float azimuth_diff;
   int raw_azimuth_diff;
@@ -614,7 +537,7 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
   float x, y, z;
   float intensity;
 
-  float time_diff_start_to_this_packet = (pkt.stamp - scan_start_time).toSec();
+  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
 
   const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
 
@@ -622,11 +545,6 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
 
     // ignore packets with mangled or otherwise different contents
     if (UPPER_BANK != raw->blocks[block].header) {
-      // Do not flood the log with messages, only issue at most one
-      // of these warnings per minute.
-      ROS_WARN_STREAM_THROTTLE(60, "skipping invalid VLP-16 packet: block "
-                                       << block << " header value is "
-                                       << raw->blocks[block].header);
       return; // bad packet: skip the rest
     }
 
@@ -638,9 +556,6 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
       // some packets contain an angle overflow where azimuth_diff < 0
       if (raw_azimuth_diff < 0) // raw->blocks[block+1].rotation - raw->blocks[block].rotation < 0)
       {
-        ROS_WARN_STREAM_THROTTLE(60, "Packet containing angle overflow, first angle: "
-                                         << raw->blocks[block].rotation
-                                         << " second angle: " << raw->blocks[block + 1].rotation);
         // if last_azimuth_diff was not zero, we can assume that the velodyne's speed did not change
         // very much and use the same difference
         if (last_azimuth_diff > 0) {
@@ -659,7 +574,7 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
 
     for (int firing = 0, k = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, k += RAW_SCAN_SIZE) {
-        velodyne_pointcloud::LaserCorrection &corrections = calibration_.laser_corrections[dsr];
+        velodyne_decoder::LaserCorrection &corrections = calibration_.laser_corrections[dsr];
 
         /** Position Calculation */
         union two_bytes tmp;
@@ -766,14 +681,16 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
 
           intensity = raw->blocks[block].data[k + 2];
 
-          float focal_offset = 256 * SQR(1 - corrections.focal_distance / 13100);
+          float focal_offset = 256 * SQR(1 - corrections.focal_distance / 13100.f);
           float focal_slope  = corrections.focal_slope;
-          intensity += focal_slope * (std::abs(focal_offset - 256 * SQR(1 - tmp.uint / 65535)));
+          intensity +=
+              focal_slope *
+              (std::abs(focal_offset - 256 * SQR(1.f - static_cast<float>(tmp.uint) / 65535.f)));
           intensity = (intensity < min_intensity) ? min_intensity : intensity;
           intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
           float time = 0;
-          if (timing_offsets.size())
+          if (!timing_offsets.empty())
             time = timing_offsets[block][firing * 16 + dsr] + time_diff_start_to_this_packet;
 
           data.addPoint(x_coord, y_coord, z_coord, corrections.laser_ring, azimuth_corrected,
@@ -784,4 +701,4 @@ void RawData::unpack_vlp16(const velodyne_msgs::VelodynePacket &pkt, DataContain
     }
   }
 }
-} // namespace velodyne_rawdata
+} // namespace velodyne_decoder
