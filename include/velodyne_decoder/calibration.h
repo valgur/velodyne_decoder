@@ -30,15 +30,13 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef VELODYNE_POINTCLOUD_CALIBRATION_H
-#define VELODYNE_POINTCLOUD_CALIBRATION_H
+#pragma once
 
 #include <map>
-#include <vector>
 #include <string>
+#include <vector>
 
-namespace velodyne_pointcloud
-{
+namespace velodyne_pointcloud {
 
 /** \brief correction values for a single laser
  *
@@ -49,8 +47,7 @@ namespace velodyne_pointcloud
  */
 
 /** \brief Correction information for a single laser. */
-struct LaserCorrection
-{
+struct LaserCorrection {
   /** parameters in db.xml */
   float rot_correction;
   float vert_correction;
@@ -66,17 +63,16 @@ struct LaserCorrection
   float focal_slope;
 
   /** cached values calculated when the calibration file is read */
-  float cos_rot_correction;              ///< cosine of rot_correction
-  float sin_rot_correction;              ///< sine of rot_correction
-  float cos_vert_correction;             ///< cosine of vert_correction
-  float sin_vert_correction;             ///< sine of vert_correction
+  float cos_rot_correction;  ///< cosine of rot_correction
+  float sin_rot_correction;  ///< sine of rot_correction
+  float cos_vert_correction; ///< cosine of vert_correction
+  float sin_vert_correction; ///< sine of vert_correction
 
-  int laser_ring;                        ///< ring number for this laser
+  int laser_ring; ///< ring number for this laser
 };
 
 /** \brief Calibration information for the entire device. */
-class Calibration
-{
+class Calibration {
 public:
   float distance_resolution_m;
   std::map<int, LaserCorrection> laser_corrections_map;
@@ -87,23 +83,14 @@ public:
 
 public:
   explicit Calibration(bool info = true)
-  : distance_resolution_m(0.002f),
-    num_lasers(0),
-    initialized(false),
-    ros_info(info) {}
-  explicit Calibration(
-    const std::string& calibration_file,
-    bool info = true)
-  : distance_resolution_m(0.002f),
-    ros_info(info)
-  {
+      : distance_resolution_m(0.002f), num_lasers(0), initialized(false), ros_info(info) {}
+  explicit Calibration(const std::string &calibration_file, bool info = true)
+      : distance_resolution_m(0.002f), ros_info(info) {
     read(calibration_file);
   }
 
-  void read(const std::string& calibration_file);
-  void write(const std::string& calibration_file);
+  void read(const std::string &calibration_file);
+  void write(const std::string &calibration_file);
 };
 
-}  // namespace velodyne_pointcloud
-
-#endif  // VELODYNE_POINTCLOUD_CALIBRATION_H
+} // namespace velodyne_pointcloud

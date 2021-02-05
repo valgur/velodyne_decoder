@@ -1,4 +1,5 @@
-// Copyright (C) 2012 - 2020 Austin Robot Technology, Jesse Vera, Jack O'Quin, Piyush Khandelwal, Joshua Whitley, Sebastian Pütz  // NOLINT
+// Copyright (C) 2012 - 2020 Austin Robot Technology, Jesse Vera, Jack O'Quin, Piyush Khandelwal,
+//    Joshua Whitley, Sebastian Pütz
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -40,30 +41,22 @@
  *  @author Sebastian Pütz
  */
 
-#ifndef VELODYNE_PCL_POINT_TYPES_H
-#define VELODYNE_PCL_POINT_TYPES_H
+#pragma once
 
 #include <pcl/point_types.h>
 
-namespace velodyne_pcl
-{
-struct PointXYZIRT
-{
-  PCL_ADD_POINT4D;                    // quad-word XYZ
-  float    intensity;                 ///< laser intensity reading
-  uint16_t ring;                      ///< laser ring number
-  float    time;                      ///< laser time reading
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW     // ensure proper alignment
-}
-EIGEN_ALIGN16;
-}  // namespace velodyne_pcl
+namespace velodyne_pcl {
+struct PointXYZIRT {
+  PCL_ADD_POINT4D;                // quad-word XYZ
+  float intensity;                ///< laser intensity reading
+  uint16_t ring;                  ///< laser ring number
+  float time;                     ///< laser time reading
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW // ensure proper alignment
+} EIGEN_ALIGN16;
+} // namespace velodyne_pcl
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(velodyne_pcl::PointXYZIRT,
-                                  (float, x, x)
-                                  (float, y, y)
-                                  (float, z, z)
-                                  (float, intensity, intensity)
-                                  (uint16_t, ring, ring)
-                                  (float, time, time))
-
-#endif  // VELODYNE_PCL_POINT_TYPES_H
+                                  (float, x, x)(float, y, y)(float, z,
+                                                             z)(float, intensity,
+                                                                intensity)(uint16_t, ring,
+                                                                           ring)(float, time, time))
