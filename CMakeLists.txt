@@ -11,8 +11,8 @@ include_directories(include)
 
 add_library(${PROJECT_NAME}_lib
   src/calibration.cpp
-  src/convert.cpp
-  src/rawdata.cpp
+  src/packet_decoder.cpp
+  src/scan_decoder.cpp
   )
 
 #include(FetchContent)

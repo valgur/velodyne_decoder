@@ -137,9 +137,9 @@ struct raw_packet_t {
 };
 
 /** \brief Velodyne data conversion class */
-class RawData {
+class PacketDecoder {
 public:
-  explicit RawData(const Config &config);
+  explicit PacketDecoder(const Config &config);
 
   void unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
 

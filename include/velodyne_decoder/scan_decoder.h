@@ -36,17 +36,19 @@
 #include <string>
 
 #include "velodyne_decoder/config.h"
-#include "velodyne_decoder/rawdata.h"
+#include "velodyne_decoder/packet_decoder.h"
 #include "velodyne_decoder/types.h"
 
 namespace velodyne_decoder {
-class Convert {
+
+class ScanDecoder {
 public:
-  Convert(const Config &config);
+  explicit ScanDecoder(const Config &config);
 
   PointCloud processScan(const VelodyneScan &scanMsg);
 
-  velodyne_decoder::RawData packet_decoder_;
+  velodyne_decoder::PacketDecoder packet_decoder_;
   velodyne_decoder::PointCloudAggregator cloud_aggregator_;
 };
+
 } // namespace velodyne_decoder

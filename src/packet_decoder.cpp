@@ -25,7 +25,7 @@
  *  HDL-64E S2 calibration support provided by Nick Hillier
  */
 
-#include "velodyne_decoder/rawdata.h"
+#include "velodyne_decoder/packet_decoder.h"
 
 #include <cmath>
 #include <exception>
@@ -40,7 +40,7 @@ template <typename T> constexpr T SQR(T val) { return val * val; }
 //
 ////////////////////////////////////////////////////////////////////////
 
-RawData::RawData(const Config &config) : config_(config) {
+PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   if (config_.model.empty()) {
     throw std::runtime_error("No Velodyne sensor model specified!");
   }
@@ -62,8 +62,8 @@ RawData::RawData(const Config &config) : config_(config) {
 }
 
 /** Update parameters: conversions and update */
-void RawData::setParameters(double min_range, double max_range, double view_direction,
-                            double view_width) {
+void PacketDecoder::setParameters(double min_range, double max_range, double view_direction,
+                                  double view_width) {
   config_.min_range = min_range;
   config_.max_range = max_range;
 
@@ -86,7 +86,7 @@ void RawData::setParameters(double min_range, double max_range, double view_dire
   }
 }
 
-int RawData::scansPerPacket() const {
+int PacketDecoder::scansPerPacket() const {
   if (calibration_.num_lasers == 16) {
     return BLOCKS_PER_PACKET * VLP16_FIRINGS_PER_BLOCK * VLP16_SCANS_PER_FIRING;
   } else {
@@ -97,7 +97,7 @@ int RawData::scansPerPacket() const {
 /**
  * Build a timing table for each block/firing.
  */
-std::vector<std::vector<float>> RawData::buildTimings(const std::string &model) {
+std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &model) {
   std::vector<std::vector<float>> timing_offsets;
   // vlp16
   if (model == "VLP16") {
@@ -203,7 +203,7 @@ std::vector<std::vector<float>> RawData::buildTimings(const std::string &model) 
   return timing_offsets;
 }
 
-void RawData::setupSinCosCache() {
+void PacketDecoder::setupSinCosCache() {
   // Set up cached values for sin and cos of all the possible headings
   for (uint16_t rot_index = 0; rot_index < ROTATION_MAX_UNITS; ++rot_index) {
     float rotation            = ROTATION_RESOLUTION * rot_index * M_PI / 180.;
@@ -219,7 +219,7 @@ void RawData::setupSinCosCache() {
   }
 }
 
-void RawData::setupAzimuthCache() {
+void PacketDecoder::setupAzimuthCache() {
   if (config_.model == "VLS128") {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache[i] =
@@ -233,7 +233,8 @@ void RawData::setupAzimuthCache() {
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time) {
+void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data,
+                           Time scan_start_time) {
   /** special parsing for the VLS128 **/
   if (pkt.data[1205] == VLS128_MODEL_ID) { // VLS 128
     unpack_vls128(pkt, data, scan_start_time);
@@ -404,8 +405,8 @@ void RawData::unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
-                            Time scan_start_time) {
+void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
+                                  Time scan_start_time) {
   float azimuth_diff, azimuth_corrected_f;
   float last_azimuth_diff = 0;
   uint16_t azimuth, azimuth_next, azimuth_corrected;
@@ -527,7 +528,8 @@ void RawData::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &dat
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time) {
+void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data,
+                                 Time scan_start_time) {
   float azimuth;
   float azimuth_diff;
   int raw_azimuth_diff;

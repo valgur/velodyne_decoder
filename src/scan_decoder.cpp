@@ -5,15 +5,15 @@
  *  License: Modified BSD Software License Agreement
  */
 
-#include "velodyne_decoder/convert.h"
+#include "velodyne_decoder/scan_decoder.h"
 
 namespace velodyne_decoder {
 
-Convert::Convert(const Config &config)
+ScanDecoder::ScanDecoder(const Config &config)
     : packet_decoder_(config),
       cloud_aggregator_(config.max_range, config.min_range, packet_decoder_.scansPerPacket()) {}
 
-PointCloud Convert::processScan(const VelodyneScan &scan) {
+PointCloud ScanDecoder::processScan(const VelodyneScan &scan) {
   cloud_aggregator_.init(scan);
   for (const auto &packet : scan.packets) {
     packet_decoder_.unpack(packet, cloud_aggregator_, scan.stamp);
