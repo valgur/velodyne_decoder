@@ -4,7 +4,6 @@
  */
 
 #include <string>
-#include <tuple>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -54,7 +53,22 @@ PYBIND11_MODULE(velodyne_decoder, m) {
             auto cloud = decoder.decode(stamp, scan_packets);
             return py::array(cloud.size(), cloud.data());
           },
-          py::arg("scan_stamp"), py::arg("scan_packets"));
+          py::arg("scan_stamp"), py::arg("scan_packets"))
+      .def(
+          "decode_message",
+          [](ScanDecoder &decoder, const py::object &scan_msg) {
+            std::vector<VelodynePacket> packets;
+            py::iterable packets_py = scan_msg.attr("packets");
+            for (const auto &packet_py : packets_py) {
+              auto packet = packet_py.attr("data").cast<std::array<uint8_t, PACKET_SIZE>>();
+              auto stamp  = packet_py.attr("stamp").attr("to_sec")().cast<double>();
+              packets.emplace_back(stamp, packet);
+            }
+            auto stamp = scan_msg.attr("header").attr("stamp").attr("to_sec")().cast<double>();
+            auto cloud = decoder.decode(stamp, packets);
+            return py::array(cloud.size(), cloud.data());
+          },
+          py::arg("scan_msg"));
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
