@@ -101,6 +101,9 @@ protected:
   constexpr bool pointInRange(float range) const {
     return range >= config_.min_range && range <= config_.max_range;
   }
+
+  static float calcIntensity(const raw_measurement_t &measurement,
+                             const LaserCorrection &corrections);
 };
 
 } // namespace velodyne_decoder
