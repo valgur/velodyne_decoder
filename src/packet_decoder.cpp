@@ -285,10 +285,10 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
         /*condition added to avoid calculating points which are not
           in the interesting defined area (min_angle < area < max_angle)*/
-        if (!(config_.min_angle < config_.max_angle && (azimuth_corrected >= config_.min_angle &&
-                                                        azimuth_corrected <= config_.max_angle) ||
-              config_.min_angle > config_.max_angle && (azimuth_corrected >= config_.min_angle ||
-                                                        azimuth_corrected <= config_.max_angle)))
+        if (!((config_.min_angle < config_.max_angle && (azimuth_corrected >= config_.min_angle &&
+                                                         azimuth_corrected <= config_.max_angle)) ||
+              (config_.min_angle > config_.max_angle &&
+               (azimuth_corrected >= config_.min_angle || azimuth_corrected <= config_.max_angle))))
           continue;
 
         float time = 0;
@@ -324,10 +324,10 @@ void PacketDecoder::unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggr
 
     /*condition added to avoid calculating points which are not
       in the interesting defined area (min_angle < area < max_angle)*/
-    if (!(config_.min_angle < config_.max_angle &&
-              (azimuth >= config_.min_angle && azimuth <= config_.max_angle) ||
-          config_.min_angle > config_.max_angle &&
-              (azimuth >= config_.min_angle || azimuth <= config_.max_angle)))
+    if (!((config_.min_angle < config_.max_angle &&
+           (azimuth >= config_.min_angle && azimuth <= config_.max_angle)) ||
+          (config_.min_angle > config_.max_angle &&
+           (azimuth >= config_.min_angle || azimuth <= config_.max_angle))))
       continue;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
@@ -512,10 +512,10 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
 
     // condition added to avoid calculating points which are not in the interesting defined area
     // (min_angle < area < max_angle)
-    if (!(config_.min_angle < config_.max_angle &&
-              (azimuth >= config_.min_angle && azimuth <= config_.max_angle) ||
-          config_.min_angle > config_.max_angle &&
-              (azimuth >= config_.min_angle || azimuth <= config_.max_angle)))
+    if (!((config_.min_angle < config_.max_angle &&
+           (azimuth >= config_.min_angle && azimuth <= config_.max_angle)) ||
+          (config_.min_angle > config_.max_angle &&
+           (azimuth >= config_.min_angle || azimuth <= config_.max_angle))))
       continue;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
