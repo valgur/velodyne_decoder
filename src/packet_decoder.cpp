@@ -207,17 +207,11 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
 
 void PacketDecoder::setupSinCosCache() {
   // Set up cached values for sin and cos of all the possible headings
+  constexpr float deg2rad = M_PI / 180.f;
   for (uint16_t rot_index = 0; rot_index < ROTATION_MAX_UNITS; ++rot_index) {
-    float rotation            = ROTATION_RESOLUTION * rot_index * M_PI / 180.;
+    float rotation            = ROTATION_RESOLUTION * rot_index * deg2rad;
     cos_rot_table_[rot_index] = cosf(rotation);
     sin_rot_table_[rot_index] = sinf(rotation);
-  }
-
-  if (config_.model == "VLS128") {
-    for (uint8_t i = 0; i < 16; i++) {
-      vls_128_laser_azimuth_cache[i] =
-          (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
-    }
   }
 }
 
@@ -274,7 +268,6 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
 
       /** Position Calculation */
       const raw_block_t &block = raw->blocks[i];
-      uint16_t raw_distance    = block.data[j].distance;
 
       /*condition added to avoid calculating points which are not
         in the interesting defined area (min_angle < area < max_angle)*/
@@ -284,10 +277,11 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
            (raw->blocks[i].rotation <= config_.max_angle ||
             raw->blocks[i].rotation >= config_.min_angle))) {
 
-        if (timing_offsets.size()) {
+        if (!timing_offsets.empty()) {
           time = timing_offsets[i][j] + time_diff_start_to_this_packet;
         }
 
+        uint16_t raw_distance = block.data[j].distance;
         if (raw_distance == 0) // no valid laser beam return
         {
           // call to addPoint is still required since output could be organized
@@ -295,7 +289,6 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
                         raw->blocks[i].rotation, nanf(""), nanf(""), time);
           continue;
         }
-
         float distance = raw_distance * calibration_.distance_resolution_m;
         distance += corrections.dist_correction;
 
@@ -322,13 +315,9 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
         float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
 
         // Calculate temporal X, use absolute value.
-        float xx = xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle;
+        float xx = std::abs(xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle);
         // Calculate temporal Y, use absolute value
-        float yy = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
-        if (xx < 0)
-          xx = -xx;
-        if (yy < 0)
-          yy = -yy;
+        float yy = std::abs(xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle);
 
         // Get 2points calibration values,Linear interpolation to get distance
         // correction for X and Y, that means distance correction use
@@ -337,11 +326,11 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
         float distance_corr_y = 0;
         if (corrections.two_pt_correction_available) {
           distance_corr_x = (corrections.dist_correction - corrections.dist_correction_x) *
-                                (xx - 2.4) / (25.04 - 2.4) +
+                                (xx - 2.4f) / (25.04f - 2.4f) +
                             corrections.dist_correction_x;
           distance_corr_x -= corrections.dist_correction;
           distance_corr_y = (corrections.dist_correction - corrections.dist_correction_y) *
-                                (yy - 1.93) / (25.04 - 1.93) +
+                                (yy - 1.93f) / (25.04f - 1.93f) +
                             corrections.dist_correction_y;
           distance_corr_y -= corrections.dist_correction;
         }
@@ -482,7 +471,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
           laser_number = j + bank_origin;  // Offset the laser in this block by which block it's in
           firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
-          if (timing_offsets.size()) {
+          if (!timing_offsets.empty()) {
             time = timing_offsets[block / 4][firing_order + laser_number / 64] +
                    time_diff_start_to_this_packet;
           }
@@ -493,7 +482,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
           // correct for the laser rotation as a function of timing during the firings
           azimuth_corrected_f =
               azimuth + (azimuth_diff * vls_128_laser_azimuth_cache[firing_order]);
-          azimuth_corrected = ((uint16_t)round(azimuth_corrected_f)) % 36000;
+          azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
           // convert polar coordinates to Euclidean XYZ
           cos_vert_angle     = corrections.cos_vert_correction;
@@ -577,14 +566,12 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
         velodyne_decoder::LaserCorrection &corrections = calibration_.laser_corrections[dsr];
 
         /** Position Calculation */
-        uint16_t raw_distance = raw->blocks[block].data[j].distance;
-
         /** correct for the laser rotation as a function of timing during the firings **/
         azimuth_corrected_f =
             azimuth +
             (azimuth_diff * ((dsr * VLP16_DSR_TOFFSET) + (firing * VLP16_FIRING_TOFFSET)) /
              VLP16_BLOCK_TDURATION);
-        azimuth_corrected = ((int)round(azimuth_corrected_f)) % 36000;
+        azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
         /*condition added to avoid calculating points which are not
           in the interesting defined area (min_angle < area < max_angle)*/
@@ -594,7 +581,8 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
              (azimuth_corrected <= config_.max_angle || azimuth_corrected >= config_.min_angle))) {
 
           // convert polar coordinates to Euclidean XYZ
-          float distance = raw_distance * calibration_.distance_resolution_m;
+          uint16_t raw_distance = raw->blocks[block].data[j].distance;
+          float distance        = raw_distance * calibration_.distance_resolution_m;
           distance += corrections.dist_correction;
 
           float cos_vert_angle     = corrections.cos_vert_correction;
@@ -620,13 +608,9 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
 
           // Calculate temporal X, use absolute value.
-          float xx = xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle;
+          float xx = std::abs(xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle);
           // Calculate temporal Y, use absolute value
-          float yy = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
-          if (xx < 0)
-            xx = -xx;
-          if (yy < 0)
-            yy = -yy;
+          float yy = std::abs(xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle);
 
           // Get 2points calibration values, Linear interpolation to get distance
           // correction for X and Y, that means distance correction use
@@ -635,11 +619,11 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           float distance_corr_y = 0;
           if (corrections.two_pt_correction_available) {
             distance_corr_x = (corrections.dist_correction - corrections.dist_correction_x) *
-                                  (xx - 2.4) / (25.04 - 2.4) +
+                                  (xx - 2.4f) / (25.04f - 2.4f) +
                               corrections.dist_correction_x;
             distance_corr_x -= corrections.dist_correction;
             distance_corr_y = (corrections.dist_correction - corrections.dist_correction_y) *
-                                  (yy - 1.93) / (25.04 - 1.93) +
+                                  (yy - 1.93f) / (25.04f - 1.93f) +
                               corrections.dist_correction_y;
             distance_corr_y -= corrections.dist_correction;
           }

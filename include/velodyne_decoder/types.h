@@ -10,9 +10,7 @@ namespace velodyne_decoder {
  * Raw Velodyne packet constants and structures.
  */
 constexpr int SIZE_BLOCK      = 100;
-constexpr int RAW_SCAN_SIZE   = 3;
 constexpr int SCANS_PER_BLOCK = 32;
-constexpr int BLOCK_DATA_SIZE = (SCANS_PER_BLOCK * RAW_SCAN_SIZE);
 
 constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
 constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
@@ -66,7 +64,7 @@ constexpr float VLS128_SEQ_TDURATION =
 constexpr float VLS128_TOH_ADJUSTMENT =
     8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
 constexpr float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
-constexpr float VLS128_MODEL_ID            = 161;
+constexpr uint8_t VLS128_MODEL_ID          = 161;
 
 /** \brief Raw Velodyne packet.
  *
