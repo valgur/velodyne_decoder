@@ -33,11 +33,13 @@ constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
  *  Each block contains data from either the upper or lower laser
  *  bank.  The device returns three times as many upper bank blocks.
  */
+#pragma pack(push, 1)
 struct raw_block_t {
   uint16_t header;   ///< UPPER_BANK or LOWER_BANK
   uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
   uint8_t data[BLOCK_DATA_SIZE];
 };
+#pragma pack(pop)
 
 /** used for unpacking the first two data bytes in a block
  *
@@ -81,11 +83,13 @@ constexpr float VLS128_MODEL_ID            = 161;
  *
  *  status has either a temperature encoding or the microcode level
  */
+#pragma pack(push, 1)
 struct raw_packet_t {
   raw_block_t blocks[BLOCKS_PER_PACKET];
   uint16_t revolution;
   uint8_t status[PACKET_STATUS_SIZE];
 };
+#pragma pack(pop)
 
 using Time = double;
 
