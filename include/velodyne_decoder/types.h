@@ -28,6 +28,13 @@ constexpr float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
 constexpr float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
 constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 
+#pragma pack(push, 1)
+struct raw_measurement_t {
+  uint16_t distance;
+  uint8_t intensity;
+};
+#pragma pack(pop)
+
 /** \brief Raw Velodyne data block.
  *
  *  Each block contains data from either the upper or lower laser
@@ -37,19 +44,9 @@ constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 struct raw_block_t {
   uint16_t header;   ///< UPPER_BANK or LOWER_BANK
   uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
-  uint8_t data[BLOCK_DATA_SIZE];
+  raw_measurement_t data[SCANS_PER_BLOCK];
 };
 #pragma pack(pop)
-
-/** used for unpacking the first two data bytes in a block
- *
- *  They are packed into the actual data stream misaligned.  I doubt
- *  this works on big endian machines.
- */
-union two_bytes {
-  uint16_t uint;
-  uint8_t bytes[2];
-};
 
 constexpr int PACKET_SIZE        = 1206;
 constexpr int BLOCKS_PER_PACKET  = 12;

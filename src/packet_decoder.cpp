@@ -251,7 +251,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
 
   float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
 
-  const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
+  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
 
@@ -264,10 +264,9 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
       bank_origin = 32;
     }
 
-    for (int j = 0, k = 0; j < SCANS_PER_BLOCK; j++, k += RAW_SCAN_SIZE) {
+    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
 
       float x, y, z;
-      float intensity;
       const uint8_t laser_number = j + bank_origin;
       float time                 = 0;
 
@@ -275,9 +274,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
 
       /** Position Calculation */
       const raw_block_t &block = raw->blocks[i];
-      union two_bytes tmp;
-      tmp.bytes[0] = block.data[k];
-      tmp.bytes[1] = block.data[k + 1];
+      uint16_t raw_distance    = block.data[j].distance;
 
       /*condition added to avoid calculating points which are not
         in the interesting defined area (min_angle < area < max_angle)*/
@@ -291,7 +288,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
           time = timing_offsets[i][j] + time_diff_start_to_this_packet;
         }
 
-        if (tmp.uint == 0) // no valid laser beam return
+        if (raw_distance == 0) // no valid laser beam return
         {
           // call to addPoint is still required since output could be organized
           data.addPoint(nanf(""), nanf(""), nanf(""), corrections.laser_ring,
@@ -299,7 +296,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
           continue;
         }
 
-        float distance = tmp.uint * calibration_.distance_resolution_m;
+        float distance = raw_distance * calibration_.distance_resolution_m;
         distance += corrections.dist_correction;
 
         float cos_vert_angle     = corrections.cos_vert_correction;
@@ -319,7 +316,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
 
         // Compute the distance in the xy plane (w/o accounting for rotation)
         /**the new term of 'vert_offset * sin_vert_angle'
-         * was added to the expression due to the mathemathical
+         * was added to the expression due to the mathematical
          * model we used.
          */
         float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
@@ -351,7 +348,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
 
         float distance_x = distance + distance_corr_x;
         /**the new term of 'vert_offset * sin_vert_angle'
-         * was added to the expression due to the mathemathical
+         * was added to the expression due to the mathematical
          * model we used.
          */
         xy_distance = distance_x * cos_vert_angle - vert_offset * sin_vert_angle;
@@ -361,7 +358,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
         float distance_y = distance + distance_corr_y;
         xy_distance      = distance_y * cos_vert_angle - vert_offset * sin_vert_angle;
         /**the new term of 'vert_offset * sin_vert_angle'
-         * was added to the expression due to the mathemathical
+         * was added to the expression due to the mathematical
          * model we used.
          */
         y = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
@@ -369,7 +366,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
         // Using distance_y is not symmetric, but the velodyne manual
         // does this.
         /**the new term of 'vert_offset * cos_vert_angle'
-         * was added to the expression due to the mathemathical
+         * was added to the expression due to the mathematical
          * model we used.
          */
         z = distance_y * sin_vert_angle + vert_offset * cos_vert_angle;
@@ -384,13 +381,14 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
         float min_intensity = corrections.min_intensity;
         float max_intensity = corrections.max_intensity;
 
-        intensity = raw->blocks[i].data[k + 2];
+        float intensity = raw->blocks[i].data[j].intensity;
 
         float focal_offset = 256 * (1 - corrections.focal_distance / 13100) *
                              (1 - corrections.focal_distance / 13100);
         float focal_slope = corrections.focal_slope;
-        intensity += focal_slope *
-                     (std::abs(focal_offset - 256 * SQR(1 - static_cast<float>(tmp.uint) / 65535)));
+        intensity +=
+            focal_slope *
+            (std::abs(focal_offset - 256 * SQR(1 - static_cast<float>(raw_distance) / 65535)));
         intensity = (intensity < min_intensity) ? min_intensity : intensity;
         intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
@@ -413,8 +411,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
   float last_azimuth_diff = 0;
   uint16_t azimuth, azimuth_next, azimuth_corrected;
   float distance;
-  const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
-  union two_bytes tmp;
+  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
 
   float cos_vert_angle, sin_vert_angle, cos_rot_correction, sin_rot_correction;
   float cos_rot_angle, sin_rot_angle;
@@ -476,11 +473,10 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
     if ((config_.min_angle < config_.max_angle && azimuth >= config_.min_angle &&
          azimuth <= config_.max_angle) ||
         (config_.min_angle > config_.max_angle)) {
-      for (int j = 0, k = 0; j < SCANS_PER_BLOCK; j++, k += RAW_SCAN_SIZE) {
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
         // distance extraction
-        tmp.bytes[0] = current_block.data[k];
-        tmp.bytes[1] = current_block.data[k + 1];
-        distance     = tmp.uint * VLS128_DISTANCE_RESOLUTION;
+        uint16_t raw_distance = current_block.data[j].distance;
+        distance              = raw_distance * VLS128_DISTANCE_RESOLUTION;
 
         if (pointInRange(distance)) {
           laser_number = j + bank_origin;  // Offset the laser in this block by which block it's in
@@ -517,7 +513,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
 
           data.addPoint(xy_distance * cos_rot_angle, -(xy_distance * sin_rot_angle),
                         distance * sin_vert_angle, corrections.laser_ring, azimuth_corrected,
-                        distance, current_block.data[k + 2], time);
+                        distance, current_block.data[j].intensity, time);
         }
       }
       data.newLine();
@@ -543,7 +539,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
   float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
 
-  const raw_packet_t *raw = (const raw_packet_t *)&pkt.data[0];
+  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
 
   for (int block = 0; block < BLOCKS_PER_PACKET; block++) {
 
@@ -576,14 +572,12 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
       azimuth_diff = last_azimuth_diff;
     }
 
-    for (int firing = 0, k = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
-      for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, k += RAW_SCAN_SIZE) {
+    for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
+      for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
         velodyne_decoder::LaserCorrection &corrections = calibration_.laser_corrections[dsr];
 
         /** Position Calculation */
-        union two_bytes tmp;
-        tmp.bytes[0] = raw->blocks[block].data[k];
-        tmp.bytes[1] = raw->blocks[block].data[k + 1];
+        uint16_t raw_distance = raw->blocks[block].data[j].distance;
 
         /** correct for the laser rotation as a function of timing during the firings **/
         azimuth_corrected_f =
@@ -600,7 +594,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
              (azimuth_corrected <= config_.max_angle || azimuth_corrected >= config_.min_angle))) {
 
           // convert polar coordinates to Euclidean XYZ
-          float distance = tmp.uint * calibration_.distance_resolution_m;
+          float distance = raw_distance * calibration_.distance_resolution_m;
           distance += corrections.dist_correction;
 
           float cos_vert_angle     = corrections.cos_vert_correction;
@@ -620,7 +614,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
           // Compute the distance in the xy plane (w/o accounting for rotation)
           /**the new term of 'vert_offset * sin_vert_angle'
-           * was added to the expression due to the mathemathical
+           * was added to the expression due to the mathematical
            * model we used.
            */
           float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
@@ -634,7 +628,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           if (yy < 0)
             yy = -yy;
 
-          // Get 2points calibration values,Linear interpolation to get distance
+          // Get 2points calibration values, Linear interpolation to get distance
           // correction for X and Y, that means distance correction use
           // different value at different distance
           float distance_corr_x = 0;
@@ -652,7 +646,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
           float distance_x = distance + distance_corr_x;
           /**the new term of 'vert_offset * sin_vert_angle'
-           * was added to the expression due to the mathemathical
+           * was added to the expression due to the mathematical
            * model we used.
            */
           xy_distance = distance_x * cos_vert_angle - vert_offset * sin_vert_angle;
@@ -660,7 +654,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
           float distance_y = distance + distance_corr_y;
           /**the new term of 'vert_offset * sin_vert_angle'
-           * was added to the expression due to the mathemathical
+           * was added to the expression due to the mathematical
            * model we used.
            */
           xy_distance = distance_y * cos_vert_angle - vert_offset * sin_vert_angle;
@@ -669,7 +663,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           // Using distance_y is not symmetric, but the velodyne manual
           // does this.
           /**the new term of 'vert_offset * cos_vert_angle'
-           * was added to the expression due to the mathemathical
+           * was added to the expression due to the mathematical
            * model we used.
            */
           z = distance_y * sin_vert_angle + vert_offset * cos_vert_angle;
@@ -683,13 +677,13 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           float min_intensity = corrections.min_intensity;
           float max_intensity = corrections.max_intensity;
 
-          intensity = raw->blocks[block].data[k + 2];
+          intensity = raw->blocks[block].data[j].intensity;
 
           float focal_offset = 256 * SQR(1 - corrections.focal_distance / 13100.f);
           float focal_slope  = corrections.focal_slope;
           intensity +=
-              focal_slope *
-              (std::abs(focal_offset - 256 * SQR(1.f - static_cast<float>(tmp.uint) / 65535.f)));
+              focal_slope * (std::abs(focal_offset -
+                                      256 * SQR(1.f - static_cast<float>(raw_distance) / 65535.f)));
           intensity = (intensity < min_intensity) ? min_intensity : intensity;
           intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
