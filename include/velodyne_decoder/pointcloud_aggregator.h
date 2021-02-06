@@ -47,9 +47,9 @@ public:
   float min_range;
   int scans_per_packet;
 
-  virtual void init(const VelodyneScan &scan_msg) {
+  virtual void init(const std::vector<VelodynePacket> &scan_packets) {
     cloud.clear();
-    cloud.reserve(scan_msg.packets.size() * scans_per_packet);
+    cloud.reserve(scan_packets.size() * scans_per_packet);
   }
 
   void newLine() {}

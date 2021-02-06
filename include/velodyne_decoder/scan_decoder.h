@@ -1,5 +1,4 @@
-// Copyright (C) 2009, 2010, 2011, 2012, 2019 Austin Robot Technology, Jack O'Quin, Jesse Vera,
-//    Joshua Whitley
+// Copyright (C) 2021 Martin Valgur
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -45,7 +44,8 @@ class ScanDecoder {
 public:
   explicit ScanDecoder(const Config &config);
 
-  PointCloud processScan(const VelodyneScan &scanMsg);
+  PointCloud decode(const VelodyneScan &scan);
+  PointCloud decode(Time scan_stamp, const std::vector<VelodynePacket> &scan_packets);
 
   velodyne_decoder::PacketDecoder packet_decoder_;
   velodyne_decoder::PointCloudAggregator cloud_aggregator_;

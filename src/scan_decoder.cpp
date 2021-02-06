@@ -1,7 +1,5 @@
 /*
- *  Copyright (C) 2009, 2010 Austin Robot Technology, Jack O'Quin
- *  Copyright (C) 2011 Jesse Vera
- *  Copyright (C) 2012 Austin Robot Technology, Jack O'Quin
+ *  Copyright (C) 2021 Martin Valgur
  *  License: Modified BSD Software License Agreement
  */
 
@@ -13,12 +11,16 @@ ScanDecoder::ScanDecoder(const Config &config)
     : packet_decoder_(config),
       cloud_aggregator_(config.max_range, config.min_range, packet_decoder_.scansPerPacket()) {}
 
-PointCloud ScanDecoder::processScan(const VelodyneScan &scan) {
-  cloud_aggregator_.init(scan);
-  for (const auto &packet : scan.packets) {
-    packet_decoder_.unpack(packet, cloud_aggregator_, scan.stamp);
+PointCloud ScanDecoder::decode(Time scan_stamp, const std::vector<VelodynePacket> &scan_packets) {
+  cloud_aggregator_.init(scan_packets);
+  for (const auto &packet : scan_packets) {
+    packet_decoder_.unpack(packet, cloud_aggregator_, scan_stamp);
   }
   return cloud_aggregator_.cloud;
+}
+
+inline PointCloud ScanDecoder::decode(const VelodyneScan &scan) {
+  return decode(scan.stamp, scan.packets);
 }
 
 } // namespace velodyne_decoder

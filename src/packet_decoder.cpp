@@ -48,13 +48,13 @@ PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   timing_offsets = buildTimings(config_.model);
 
   // get path to angles.config file for this device
-  if (!config_.calibrationFile.empty()) {
+  if (config_.calibration_file.empty()) {
     throw std::runtime_error("Calibration config file not provided ");
   }
 
-  calibration_.read(config_.calibrationFile);
+  calibration_.read(config_.calibration_file);
   if (!calibration_.initialized) {
-    throw std::runtime_error("Unable to open calibration file: " + config_.calibrationFile);
+    throw std::runtime_error("Unable to open calibration file: " + config_.calibration_file);
   }
 
   setupSinCosCache();
@@ -93,6 +93,8 @@ int PacketDecoder::scansPerPacket() const {
     return BLOCKS_PER_PACKET * SCANS_PER_BLOCK;
   }
 }
+
+const std::vector<std::string> Config::SUPPORTED_MODELS = {"VLP16", "32C", "32E", "VLS128"};
 
 /**
  * Build a timing table for each block/firing.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <utility>
 #include <vector>
 
 namespace velodyne_decoder {
@@ -91,11 +92,19 @@ using Time = double;
 struct VelodynePacket {
   Time stamp;
   std::array<uint8_t, PACKET_SIZE> data;
+
+  VelodynePacket() = default;
+  VelodynePacket(Time stamp, const std::array<uint8_t, PACKET_SIZE> &data)
+      : stamp(stamp), data(data) {}
 };
 
 struct VelodyneScan {
   Time stamp;
   std::vector<VelodynePacket> packets;
+
+  VelodyneScan() = default;
+  VelodyneScan(Time stamp, std::vector<VelodynePacket> packets)
+      : stamp(stamp), packets(std::move(packets)) {}
 };
 
 struct PointXYZIRT {
