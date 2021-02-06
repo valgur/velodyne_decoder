@@ -86,15 +86,15 @@ struct raw_packet_t {
 };
 #pragma pack(pop)
 
-using Time = double;
+using Time          = double;
+using RawPacketData = std::array<uint8_t, PACKET_SIZE>;
 
 struct VelodynePacket {
   Time stamp;
-  std::array<uint8_t, PACKET_SIZE> data;
+  RawPacketData data;
 
   VelodynePacket() = default;
-  VelodynePacket(Time stamp, const std::array<uint8_t, PACKET_SIZE> &data)
-      : stamp(stamp), data(data) {}
+  VelodynePacket(Time stamp, const RawPacketData &data) : stamp(stamp), data(data) {}
 };
 
 struct VelodyneScan {

@@ -37,7 +37,7 @@ PYBIND11_MODULE(velodyne_decoder, m) {
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
-      .def(py::init<Time, const std::array<uint8_t, PACKET_SIZE> &>())
+      .def(py::init<Time, const RawPacketData &>())
       .def_readwrite("stamp", &VelodynePacket::stamp)
       .def_readwrite("data", &VelodynePacket::data);
 
@@ -60,7 +60,7 @@ PYBIND11_MODULE(velodyne_decoder, m) {
             std::vector<VelodynePacket> packets;
             py::iterable packets_py = scan_msg.attr("packets");
             for (const auto &packet_py : packets_py) {
-              auto packet = packet_py.attr("data").cast<std::array<uint8_t, PACKET_SIZE>>();
+              auto packet = packet_py.attr("data").cast<RawPacketData>();
               auto stamp  = packet_py.attr("stamp").attr("to_sec")().cast<double>();
               packets.emplace_back(stamp, packet);
             }
