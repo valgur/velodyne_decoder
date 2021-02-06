@@ -93,17 +93,22 @@ protected:
   void setupAzimuthCache();
 
   /** add private function to handle the VLP16 **/
-  void unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
+  void unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data,
+                    Time scan_start_time) const;
 
-  void unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
+  void unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggregator &data,
+                          Time scan_start_time) const;
+
+  void unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
+                     Time scan_start_time) const;
+
+  void unpackPointCommon(PointCloudAggregator &data, const LaserCorrection &corrections,
+                         const raw_measurement_t &measurement, uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
   constexpr bool pointInRange(float range) const {
     return range >= config_.min_range && range <= config_.max_range;
   }
-
-  static float calcIntensity(const raw_measurement_t &measurement,
-                             const LaserCorrection &corrections);
 };
 
 } // namespace velodyne_decoder
