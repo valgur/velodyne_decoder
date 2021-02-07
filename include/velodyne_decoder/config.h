@@ -1,3 +1,6 @@
+// Copyright (c) 2021, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include <cmath>

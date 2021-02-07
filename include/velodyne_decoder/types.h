@@ -1,3 +1,6 @@
+// Copyright (C) 2007-2021 Yaxin Liu, Patrick Beeson, Jack O'Quin, Joshua Whitley, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include <array>

@@ -1,7 +1,5 @@
-/*
- *  Copyright (C) 2021 Martin Valgur
- *  License: Modified BSD Software License Agreement
- */
+// Copyright (c) 2021, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/scan_decoder.h"
 
