@@ -5,7 +5,16 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-O3 -Wall -Wpedantic -Wno-sign-compare)
+add_compile_options(
+  "$<$<CONFIG:Debug>:-ggdb3;-Og>"
+  "$<$<CONFIG:RelWithDebInfo>:-ggdb3;-O3>"
+  "$<$<CONFIG:Release>:-O3>"
+  -Wall
+  -Wextra
+  -Wno-sign-compare
+  # disabled since pedantic complains about 'ISO C++ prohibits anonymous structs' for PointXYZIRT
+  # -Wpedantic
+)
 
 include_directories(include)
 

@@ -103,13 +103,19 @@ struct VelodyneScan {
       : stamp(stamp), packets(std::move(packets)) {}
 };
 
-struct PointXYZIRT {
-  float x;
-  float y;
-  float z;
+struct alignas(16) PointXYZIRT {
+  struct alignas(16) {
+    float x;
+    float y;
+    float z;
+  };
   float intensity;
   uint16_t ring;
   float time;
+
+  PointXYZIRT() = default;
+  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time)
+      : x(x), y(y), z(z), intensity(intensity), ring(ring), time(time) {}
 };
 
 using PointCloud = std::vector<PointXYZIRT>;
