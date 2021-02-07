@@ -26,26 +26,6 @@ constexpr float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
 constexpr float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
 constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 
-#pragma pack(push, 1)
-struct raw_measurement_t {
-  uint16_t distance;
-  uint8_t intensity;
-};
-#pragma pack(pop)
-
-/** \brief Raw Velodyne data block.
- *
- *  Each block contains data from either the upper or lower laser
- *  bank.  The device returns three times as many upper bank blocks.
- */
-#pragma pack(push, 1)
-struct raw_block_t {
-  uint16_t header;   ///< UPPER_BANK or LOWER_BANK
-  uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
-  raw_measurement_t data[SCANS_PER_BLOCK];
-};
-#pragma pack(pop)
-
 constexpr int PACKET_SIZE        = 1206;
 constexpr int BLOCKS_PER_PACKET  = 12;
 constexpr int PACKET_STATUS_SIZE = 4;
@@ -66,6 +46,23 @@ constexpr float VLS128_TOH_ADJUSTMENT =
 constexpr float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
 constexpr uint8_t VLS128_MODEL_ID          = 161;
 
+#pragma pack(push, 1)
+struct raw_measurement_t {
+  uint16_t distance;
+  uint8_t intensity;
+};
+
+/** \brief Raw Velodyne data block.
+ *
+ *  Each block contains data from either the upper or lower laser
+ *  bank.  The device returns three times as many upper bank blocks.
+ */
+struct raw_block_t {
+  uint16_t header;   ///< UPPER_BANK or LOWER_BANK
+  uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
+  raw_measurement_t data[SCANS_PER_BLOCK];
+};
+
 /** \brief Raw Velodyne packet.
  *
  *  revolution is described in the device manual as incrementing
@@ -78,7 +75,7 @@ constexpr uint8_t VLS128_MODEL_ID          = 161;
  *
  *  status has either a temperature encoding or the microcode level
  */
-#pragma pack(push, 1)
+
 struct raw_packet_t {
   raw_block_t blocks[BLOCKS_PER_PACKET];
   uint16_t revolution;
