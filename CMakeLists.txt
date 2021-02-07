@@ -16,6 +16,10 @@ add_compile_options(
   # -Wpedantic
 )
 
+if(DEFINED VERSION_INFO)
+  add_compile_definitions(VERSION_INFO=${VERSION_INFO})
+endif()
+
 include_directories(include)
 
 find_package(yaml-cpp REQUIRED)

@@ -70,8 +70,9 @@ PYBIND11_MODULE(velodyne_decoder, m) {
           },
           py::arg("scan_msg"));
 
+#define STRING(s) #s
 #ifdef VERSION_INFO
-  m.attr("__version__") = VERSION_INFO;
+  m.attr("__version__") = STRING(VERSION_INFO);
 #else
   m.attr("__version__") = "dev";
 #endif
