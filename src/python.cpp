@@ -23,7 +23,7 @@ PYBIND11_MODULE(velodyne_decoder, m) {
   py::class_<Config>(m, "Config")
       .def(py::init<>())
       .def(py::init<std::string, std::string, float, float, double, double>(), py::arg("model"),
-           py::arg("calibration_file"), py::arg("min_range") = 10, py::arg("max_range") = 200,
+           py::arg("calibration_file"), py::arg("min_range") = 0.1, py::arg("max_range") = 200,
            py::arg("min_angle") = 0, py::arg("max_angle") = 360)
       .def_readwrite("model", &Config::model)
       .def_readwrite("calibration_file", &Config::calibration_file)

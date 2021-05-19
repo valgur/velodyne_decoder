@@ -13,7 +13,7 @@ namespace velodyne_decoder {
 struct Config {
   std::string model;
   std::string calibration_file; ///< calibration file name
-  float min_range = 10;         ///< minimum range to publish
+  float min_range = 0.1;        ///< minimum range to publish
   float max_range = 200;        ///< maximum range to publish
   int min_angle   = 0;          ///< minimum angle to publish
   int max_angle   = 36000;      ///< maximum angle to publish
