@@ -28,6 +28,7 @@
 
 #include "velodyne_decoder/packet_decoder.h"
 
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <exception>
 #include <fstream>

@@ -41,6 +41,7 @@
 
 #pragma once
 
+#define _USE_MATH_DEFINES
 #include <cerrno>
 #include <cmath>
 #include <cstdint>

@@ -61,20 +61,11 @@ class CMakeBuild(build_ext):
             "-DPYTHON_EXECUTABLE={}".format(sys.executable),
             "-DVERSION_INFO={}".format(self.distribution.get_version()),
             "-DCMAKE_BUILD_TYPE={}".format(cfg),  # not used on MSVC, but no harm
+            "-DBUILD_PYTHON=yes",
         ]
         build_args = []
 
-        if self.compiler.compiler_type != "msvc":
-            # Using Ninja-build since it a) is available as a wheel and b)
-            # multithreads automatically. MSVC would require all variables be
-            # exported for Ninja to pick it up, which is a little tricky to do.
-            # Users can override the generator with CMAKE_GENERATOR in CMake
-            # 3.15+.
-            if not cmake_generator:
-                cmake_args += ["-GNinja"]
-
-        else:
-
+        if self.compiler.compiler_type == "msvc":
             # Single config generators are handled "normally"
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
 
@@ -106,12 +97,13 @@ class CMakeBuild(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
-        subprocess.check_call(
-            ["cmake", ext.sourcedir] + cmake_args + self.cmake_args, cwd=self.build_temp
-        )
-        subprocess.check_call(
-            ["cmake", "--build", "."] + build_args, cwd=self.build_temp
-        )
+        cmd = ["cmake", ext.sourcedir] + cmake_args + self.cmake_args
+        print("Running", " ".join(cmd))
+        subprocess.check_call(cmd, cwd=self.build_temp)
+
+        cmd = ["cmake", "--build", "."] + build_args
+        print("Running", " ".join(cmd))
+        subprocess.check_call(cmd, cwd=self.build_temp)
 
 
 setup(
@@ -131,4 +123,5 @@ setup(
     ext_modules=[CMakeExtension("cmake")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
+    install_requires=["numpy"]
 )
