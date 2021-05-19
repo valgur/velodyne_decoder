@@ -107,21 +107,6 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="velodyne-decoder",
-    version="1.0.0",
-    author="Martin Valgur",
-    author_email="martin.valgur@gmail.com",
-    description="Decoder for raw Velodyne packet data",
-    long_description="",
-    url="https://github.com/valgur/velodyne_decoder",
-    classifiers=[
-        "License :: OSI Approved :: BSD License",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 3",
-        "Operating System :: OS Independent",
-    ],
     ext_modules=[CMakeExtension("cmake")],
     cmdclass={"build_ext": CMakeBuild},
-    zip_safe=False,
-    install_requires=["numpy"]
 )
