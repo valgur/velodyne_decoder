@@ -107,7 +107,7 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="velodyne_decoder",
+    name="velodyne-decoder",
     version="1.0.0",
     author="Martin Valgur",
     author_email="martin.valgur@gmail.com",
