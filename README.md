@@ -1,7 +1,7 @@
 # velodyne_decoder [![PyPI](https://img.shields.io/pypi/v/velodyne-decoder)](https://pypi.org/project/velodyne-decoder/) [![Build](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml)
 
-Python package and C++ library for Velodyne packet decoding. Intended as a light-weight substitute
-for [velodyne_driver](http://wiki.ros.org/velodyne_driver) in ROS with minimal external dependencies.
+Python package and C++ library for Velodyne packet decoding. Intended as a light-weight substitute for
+the [velodyne_driver](http://wiki.ros.org/velodyne_driver) in ROS with minimal external dependencies.
 
 The resulting decoded data is provided as a structured NumPy array in Python and an array of structs in C++.
 
@@ -59,7 +59,7 @@ with Bag(bagfile) as bag:
 `config.model` and `config.calibration_file` are required. For a list of supported model IDs see
 
 ```python
->> > velodyne_decoder.Config.SUPPORTED_MODELS
+>>> velodyne_decoder.Config.SUPPORTED_MODELS
 ['VLP16', '32C', '32E', 'VLS128']
 ```
 
