@@ -16,6 +16,30 @@
 namespace py = pybind11;
 using namespace velodyne_decoder;
 
+py::array as_contiguous(const PointCloud &cloud) {
+  const int ncols = 6;
+  std::vector<std::array<float, ncols>> arr(cloud.size());
+  for (int i = 0; i < cloud.size(); i++) {
+    const auto &p = cloud[i];
+    auto &v       = arr[i];
+    v[0]          = p.x;
+    v[1]          = p.y;
+    v[2]          = p.z;
+    v[3]          = p.intensity;
+    v[4]          = p.ring;
+    v[5]          = p.time;
+  }
+  return py::array(arr.size(), arr.data());
+}
+
+py::array convert(const PointCloud &cloud, bool as_pcl_structs) {
+  if (as_pcl_structs) {
+    return py::array(cloud.size(), cloud.data());
+  } else {
+    return as_contiguous(cloud);
+  }
+}
+
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
 PYBIND11_MODULE(velodyne_decoder, m) {
@@ -52,14 +76,16 @@ PYBIND11_MODULE(velodyne_decoder, m) {
       .def(py::init<const Config &>(), py::arg("config"))
       .def(
           "decode",
-          [](ScanDecoder &decoder, Time stamp, const std::vector<VelodynePacket> &scan_packets) {
+          [](ScanDecoder &decoder, Time stamp, const std::vector<VelodynePacket> &scan_packets,
+             bool as_pcl_structs) {
             auto cloud = decoder.decode(stamp, scan_packets);
-            return py::array(cloud.size(), cloud.data());
+            return convert(cloud, as_pcl_structs);
           },
-          py::arg("scan_stamp"), py::arg("scan_packets"))
+          py::arg("scan_stamp"), py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
+          py::return_value_policy::move)
       .def(
           "decode_message",
-          [](ScanDecoder &decoder, const py::object &scan_msg) {
+          [](ScanDecoder &decoder, const py::object &scan_msg, bool as_pcl_structs) {
             std::vector<VelodynePacket> packets;
             py::iterable packets_py = scan_msg.attr("packets");
             for (const auto &packet_py : packets_py) {
@@ -69,24 +95,26 @@ PYBIND11_MODULE(velodyne_decoder, m) {
             }
             auto stamp = scan_msg.attr("header").attr("stamp").attr("to_sec")().cast<double>();
             auto cloud = decoder.decode(stamp, packets);
-            return py::array(cloud.size(), cloud.data());
+            return convert(cloud, as_pcl_structs);
           },
-          py::arg("scan_msg"));
+          py::arg("scan_msg"), py::arg("as_pcl_structs") = false, //
+          py::return_value_policy::move);
 
   py::class_<StreamDecoder>(m, "StreamDecoder")
       .def(py::init<const Config &>(), py::arg("config"))
       .def(
           "decode",
-          [](StreamDecoder &decoder, Time stamp,
-             const RawPacketData &packet) -> std::optional<std::pair<Time, py::array>> {
+          [](StreamDecoder &decoder, Time stamp, const RawPacketData &packet,
+             bool as_pcl_structs) -> std::optional<std::pair<Time, py::array>> {
             auto result = decoder.decode(stamp, packet);
             if (result) {
               auto &[scan_stamp, cloud] = *result;
-              return std::make_pair(scan_stamp, py::array(cloud.size(), cloud.data()));
+              return std::make_pair(scan_stamp, convert(cloud, as_pcl_structs));
             }
             return std::nullopt;
           },
-          py::arg("stamp"), py::arg("packet"))
+          py::arg("stamp"), py::arg("packet"), py::arg("as_pcl_structs") = false, //
+          py::return_value_policy::move)
       .def("calc_packets_per_scan", &StreamDecoder::calc_packets_per_scan);
 
   m.attr("PACKET_SIZE") = PACKET_SIZE;
