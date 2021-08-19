@@ -78,10 +78,11 @@ PYBIND11_MODULE(velodyne_decoder, m) {
       .def(
           "decode",
           [](StreamDecoder &decoder, Time stamp,
-             const RawPacketData &packet) -> std::optional<py::array> {
-            std::optional<PointCloud> cloud = decoder.decode(stamp, packet);
-            if (cloud) {
-              return py::array(cloud->size(), cloud->data());
+             const RawPacketData &packet) -> std::optional<std::pair<Time, py::array>> {
+            auto result = decoder.decode(stamp, packet);
+            if (result) {
+              auto &[scan_stamp, cloud] = *result;
+              return std::make_pair(scan_stamp, py::array(cloud.size(), cloud.data()));
             }
             return std::nullopt;
           },

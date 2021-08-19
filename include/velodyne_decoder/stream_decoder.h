@@ -16,8 +16,8 @@ class StreamDecoder {
 public:
   explicit StreamDecoder(const Config &config);
 
-  std::optional<PointCloud> decode(Time stamp, const RawPacketData &packet);
-  std::optional<PointCloud> decode(const VelodynePacket &packet);
+  std::optional<std::pair<Time, PointCloud>> decode(Time stamp, const RawPacketData &packet);
+  std::optional<std::pair<Time, PointCloud>> decode(const VelodynePacket &packet);
 
   static int calc_packets_per_scan(const std::string &model, double rpm);
 

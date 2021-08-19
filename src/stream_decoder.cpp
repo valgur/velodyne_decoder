@@ -10,6 +10,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "velodyne_decoder/time_conversion.h"
 
@@ -54,7 +55,8 @@ int StreamDecoder::calc_packets_per_scan(const std::string &model, double rpm) {
   return static_cast<int>(ceil(packet_rate / frequency));
 }
 
-std::optional<PointCloud> StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
+std::optional<std::pair<Time, PointCloud>> //
+StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
   if (config_.gps_time) {
     stamp = getPacketTimestamp(&(packet[1200]), stamp);
   }
@@ -68,12 +70,13 @@ std::optional<PointCloud> StreamDecoder::decode(Time stamp, const RawPacketData 
     }
     PointCloud scan = scan_decoder_.decode(scan_stamp, scan_packets_);
     scan_packets_.clear();
-    return scan;
+    return std::make_pair(scan_stamp, scan);
   }
   return std::nullopt;
 }
 
-inline std::optional<PointCloud> StreamDecoder::decode(const VelodynePacket &packet) {
+std::optional<std::pair<Time, PointCloud>> //
+StreamDecoder::decode(const VelodynePacket &packet) {
   return decode(packet.stamp, packet.data);
 }
 
