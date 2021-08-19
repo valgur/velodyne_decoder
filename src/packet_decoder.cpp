@@ -29,10 +29,11 @@
 #include "velodyne_decoder/packet_decoder.h"
 
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <cmath>
-#include <exception>
 #include <fstream>
 #include <limits>
+#include <stdexcept>
 
 namespace velodyne_decoder {
 template <typename T> constexpr T SQR(T val) { return val * val; }
@@ -46,14 +47,14 @@ constexpr float nan = std::numeric_limits<float>::quiet_NaN();
 
 PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   if (config_.model.empty()) {
-    throw std::runtime_error("No Velodyne sensor model specified!");
+    throw std::invalid_argument("No Velodyne sensor model specified!");
   }
 
-  timing_offsets = buildTimings(config_.model);
+  timing_offsets_ = buildTimings(config_.model);
 
   // get path to angles.config file for this device
   if (config_.calibration_file.empty()) {
-    throw std::runtime_error("Calibration config file not provided ");
+    throw std::invalid_argument("Calibration config file not provided ");
   }
 
   calibration_.read(config_.calibration_file);
@@ -98,7 +99,9 @@ int PacketDecoder::scansPerPacket() const {
   }
 }
 
-const std::vector<std::string> Config::SUPPORTED_MODELS = {"VLP16", "32C", "32E", "VLS128"};
+const std::vector<std::string> Config::SUPPORTED_MODELS = //
+    {"VLP16", "32C", "32E", "64E", "64E_S2", "64E_S3", "VLS128"};
+const std::vector<std::string> Config::TIMINGS_AVAILABLE = {"VLP16", "32C", "32E", "VLS128"};
 
 /**
  * Build a timing table for each block/firing.
@@ -186,8 +189,11 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
                                (single_firing * firingGroupIndex) - offset_paket_time;
       }
     }
+  } else if (std::find(Config::SUPPORTED_MODELS.begin(), Config::SUPPORTED_MODELS.end(), model) ==
+             Config::SUPPORTED_MODELS.end()) {
+    throw std::runtime_error("Unsupported Velodyne model: " + model);
   } else {
-    throw std::runtime_error("Timings not available for Velodyne model " + model);
+    // throw std::runtime_error("Timings not available for Velodyne model " + model);
   }
   return timing_offsets;
 }
@@ -294,8 +300,8 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
           continue;
 
         float time = 0;
-        if (!timing_offsets.empty())
-          time = timing_offsets[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
+        if (!timing_offsets_.empty())
+          time = timing_offsets_[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
 
         const auto &corrections = calibration_.laser_corrections[dsr];
         const auto &measurement = block.data[j];
@@ -336,8 +342,8 @@ void PacketDecoder::unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggr
       const uint8_t laser_number = j + bank_origin;
 
       float time = 0;
-      if (!timing_offsets.empty()) {
-        time = timing_offsets[i][j] + time_diff_start_to_this_packet;
+      if (!timing_offsets_.empty()) {
+        time = timing_offsets_[i][j] + time_diff_start_to_this_packet;
       }
 
       const auto &corrections = calibration_.laser_corrections[laser_number];
@@ -531,8 +537,8 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
         uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
         float time = 0;
-        if (!timing_offsets.empty()) {
-          time = timing_offsets[block / 4][firing_order + laser_number / 64] +
+        if (!timing_offsets_.empty()) {
+          time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
                  time_diff_start_to_this_packet;
         }
 

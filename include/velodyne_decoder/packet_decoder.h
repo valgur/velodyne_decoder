@@ -82,7 +82,7 @@ protected:
   float vls_128_laser_azimuth_cache[16];
 
   // timing offset lookup table
-  std::vector<std::vector<float>> timing_offsets;
+  std::vector<std::vector<float>> timing_offsets_;
 
   /** \brief setup per-point timing offsets
    *

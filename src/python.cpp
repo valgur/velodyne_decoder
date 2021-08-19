@@ -10,6 +10,7 @@
 
 #include "velodyne_decoder/config.h"
 #include "velodyne_decoder/scan_decoder.h"
+#include "velodyne_decoder/stream_decoder.h"
 #include "velodyne_decoder/types.h"
 
 namespace py = pybind11;
@@ -31,7 +32,11 @@ PYBIND11_MODULE(velodyne_decoder, m) {
       .def_readwrite("max_range", &Config::max_range)
       .def_property("min_angle", &Config::getMinAngleDeg, &Config::setMinAngleDeg)
       .def_property("max_angle", &Config::getMaxAngleDeg, &Config::setMaxAngleDeg)
-      .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS);
+      .def_readwrite("rpm", &Config::rpm)
+      .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
+      .def_readwrite("gps_time", &Config::gps_time)
+      .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
+      .def_readonly_static("TIMINGS_AVAILABLE", &Config::TIMINGS_AVAILABLE);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
@@ -67,6 +72,23 @@ PYBIND11_MODULE(velodyne_decoder, m) {
             return py::array(cloud.size(), cloud.data());
           },
           py::arg("scan_msg"));
+
+  py::class_<StreamDecoder>(m, "StreamDecoder")
+      .def(py::init<const Config &>(), py::arg("config"))
+      .def(
+          "decode",
+          [](StreamDecoder &decoder, Time stamp,
+             const RawPacketData &packet) -> std::optional<py::array> {
+            std::optional<PointCloud> cloud = decoder.decode(stamp, packet);
+            if (cloud) {
+              return py::array(cloud->size(), cloud->data());
+            }
+            return std::nullopt;
+          },
+          py::arg("stamp"), py::arg("packet"))
+      .def("calc_packets_per_scan", &StreamDecoder::calc_packets_per_scan);
+
+  m.attr("PACKET_SIZE") = PACKET_SIZE;
 
 #define STRING(s) #s
 #ifdef VERSION_INFO

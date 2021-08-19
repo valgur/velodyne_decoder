@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(velodyne_decoder CXX)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -47,6 +47,7 @@ add_library(${PROJECT_NAME}_lib STATIC
   src/calibration.cpp
   src/packet_decoder.cpp
   src/scan_decoder.cpp
+  src/stream_decoder.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib PRIVATE ${YAML_CPP_LIBRARIES})
 target_include_directories(${PROJECT_NAME}_lib PUBLIC include PRIVATE ${YAML_CPP_INCLUDE_DIRS})
@@ -63,7 +64,7 @@ if(BUILD_PYTHON)
       )
     FetchContent_MakeAvailable(pybind11)
   endif()
-  
+
   pybind11_add_module(${PROJECT_NAME} src/python.cpp)
   target_include_directories(${PROJECT_NAME} PRIVATE include)
   target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_lib ${YAML_CPP_LIBRARIES})

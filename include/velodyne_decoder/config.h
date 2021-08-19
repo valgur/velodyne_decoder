@@ -5,6 +5,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -12,11 +13,16 @@ namespace velodyne_decoder {
 
 struct Config {
   std::string model;
-  std::string calibration_file; ///< calibration file name
-  float min_range = 0.1;        ///< minimum range to publish
-  float max_range = 200;        ///< maximum range to publish
-  int min_angle   = 0;          ///< minimum angle to publish
-  int max_angle   = 36000;      ///< maximum angle to publish
+  std::string calibration_file;        ///< calibration file path
+  float min_range             = 0.1;   ///< minimum range to publish
+  float max_range             = 200;   ///< maximum range to publish
+  int min_angle               = 0;     ///< minimum angle to publish
+  int max_angle               = 36000; ///< maximum angle to publish
+  double rpm                  = -1;    ///< device rotation rate
+  bool timestamp_first_packet = false; ///< whether we are timestamping based on
+                                       ///< the first or last packet in the scan
+  bool gps_time = false;               ///< true: use the packet's time field,
+                                       ///< false: use the time of arrival
 
   Config() = default;
   Config(std::string model, std::string calibration_file, float min_range, float max_range,
@@ -31,6 +37,7 @@ struct Config {
   double getMaxAngleDeg() const { return static_cast<double>(max_angle) / 100; }
 
   static const std::vector<std::string> SUPPORTED_MODELS;
+  static const std::vector<std::string> TIMINGS_AVAILABLE;
 };
 
 } // namespace velodyne_decoder
