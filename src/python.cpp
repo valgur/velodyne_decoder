@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include <string>
+#include <type_traits>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -16,25 +17,30 @@
 namespace py = pybind11;
 using namespace velodyne_decoder;
 
-py::array as_contiguous(const PointCloud &cloud) {
-  const int ncols = 6;
-  std::vector<std::array<float, ncols>> arr(cloud.size());
-  for (int i = 0; i < cloud.size(); i++) {
-    const auto &p = cloud[i];
-    auto &v       = arr[i];
-    v[0]          = p.x;
-    v[1]          = p.y;
-    v[2]          = p.z;
-    v[3]          = p.intensity;
-    v[4]          = p.ring;
-    v[5]          = p.time;
-  }
-  return py::array(arr.size(), arr.data());
+/**
+ * Zero-copy conversion to py::array.
+ */
+template <typename Sequence, typename dtype = typename Sequence::value_type,
+          class = typename std::enable_if<std::is_rvalue_reference<Sequence &&>::value>::type>
+inline py::array_t<dtype> as_pyarray(Sequence &&seq) {
+  auto *seq_ptr = new Sequence(seq);
+  auto capsule  = py::capsule(seq_ptr, [](void *p) { delete reinterpret_cast<Sequence *>(p); });
+  return py::array(seq_ptr->size(), seq_ptr->data(), capsule);
 }
 
-py::array convert(const PointCloud &cloud, bool as_pcl_structs) {
+py::array as_contiguous(const PointCloud &cloud) {
+  const int ncols = 6;
+  std::vector<std::array<float, ncols>> arr;
+  arr.reserve(cloud.size());
+  for (const auto &p : cloud) {
+    arr.push_back({p.x, p.y, p.z, p.intensity, (float)p.ring, p.time});
+  }
+  return as_pyarray<decltype(arr), float>(std::move(arr));
+}
+
+py::array convert(PointCloud &cloud, bool as_pcl_structs) {
   if (as_pcl_structs) {
-    return py::array(cloud.size(), cloud.data());
+    return as_pyarray(std::move(cloud));
   } else {
     return as_contiguous(cloud);
   }
