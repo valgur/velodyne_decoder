@@ -12,12 +12,15 @@
 namespace velodyne_decoder {
 
 struct Config {
+  // PacketDecoder params
   std::string model;
-  std::string calibration_file;        ///< calibration file path
-  float min_range             = 0.1;   ///< minimum range to publish
-  float max_range             = 200;   ///< maximum range to publish
-  int min_angle               = 0;     ///< minimum angle to publish
-  int max_angle               = 36000; ///< maximum angle to publish
+  std::string calibration_file; ///< calibration file path
+  float min_range = 0.1;        ///< minimum range to publish
+  float max_range = 200;        ///< maximum range to publish
+  int min_angle   = 0;          ///< minimum angle to publish
+  int max_angle   = 36000;      ///< maximum angle to publish
+
+  // ScanDecoder params
   double rpm                  = -1;    ///< device rotation rate
   bool timestamp_first_packet = false; ///< whether we are timestamping based on
                                        ///< the first or last packet in the scan
@@ -39,5 +42,11 @@ struct Config {
   static const std::vector<std::string> SUPPORTED_MODELS;
   static const std::vector<std::string> TIMINGS_AVAILABLE;
 };
+
+inline const std::vector<std::string> Config::SUPPORTED_MODELS = //
+    {"HDL-32E", "HDL-64E", "HDL-64E_S2", "HDL-64E_S3", "VLP-16", "VLP-32C", "VLS-128"};
+
+inline const std::vector<std::string> Config::TIMINGS_AVAILABLE = //
+    {"HDL-32E", "VLP-16", "VLP-32C", "VLS-128"};
 
 } // namespace velodyne_decoder

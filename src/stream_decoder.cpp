@@ -23,26 +23,26 @@ StreamDecoder::StreamDecoder(const Config &config) : config_(config), scan_decod
 
 int StreamDecoder::calc_packets_per_scan(const std::string &model, double rpm) {
   double packet_rate; // packet frequency (Hz)
-  if (model == "VLS128") {
+  if (model == "VLS-128") {
     // 3 firing cycles in a data packet. 3 x 53.3 μs = 0.1599 ms is the
     // accumulation delay per packet.
     // 1 packet/0.1599 ms = 6253.9 packets/second
     packet_rate = 6253.9;
-  } else if (model == "64E_S2" || model == "64E_S2.1") {
+  } else if (model == "HDL-64E_S2" || model == "HDL-64E_S2.1") {
     // generates 1333312 points per second
     // 1 packet holds 384 points
     packet_rate = 1333312. / 384.;
-  } else if (model == "64E") {
+  } else if (model == "HDL-64E") {
     packet_rate = 2600.0;
-  } else if (model == "64E_S3") {
+  } else if (model == "HDL-64E_S3") {
     // generates 2222220 points per second (half for strongest and half for latest)
     // 1 packet holds 384 points
     packet_rate = 2222220. / 384.;
-  } else if (model == "32E") {
+  } else if (model == "HDL-32E") {
     packet_rate = 1808.0;
-  } else if (model == "32C") {
+  } else if (model == "VLP-32C") {
     packet_rate = 1507.0;
-  } else if (model == "VLP16") {
+  } else if (model == "VLP-16") {
     // 754 Packets/Second for Last or Strongest mode 1508 for dual (VLP-16 User Manual)
     packet_rate = 754;
   } else {

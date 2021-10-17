@@ -99,17 +99,12 @@ int PacketDecoder::scansPerPacket() const {
   }
 }
 
-const std::vector<std::string> Config::SUPPORTED_MODELS = //
-    {"VLP16", "32C", "32E", "64E", "64E_S2", "64E_S3", "VLS128"};
-const std::vector<std::string> Config::TIMINGS_AVAILABLE = {"VLP16", "32C", "32E", "VLS128"};
-
 /**
  * Build a timing table for each block/firing.
  */
 std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &model) {
   std::vector<std::vector<float>> timing_offsets;
-  // vlp16
-  if (model == "VLP16") {
+  if (model == "VLP-16") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -129,9 +124,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  }
-  // vlp32
-  else if (model == "32C") {
+  } else if (model == "VLP-32C") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -150,9 +143,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  }
-  // hdl32
-  else if (model == "32E") {
+  } else if (model == "HDL-32E") {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -171,7 +162,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "VLS128") {
+  } else if (model == "VLS-128") {
     timing_offsets.resize(3);
     for (auto &timing_offset : timing_offsets) {
       timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
@@ -193,6 +184,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
              Config::SUPPORTED_MODELS.end()) {
     throw std::runtime_error("Unsupported Velodyne model: " + model);
   } else {
+    // TODO: add require_timings
     // throw std::runtime_error("Timings not available for Velodyne model " + model);
   }
   return timing_offsets;
@@ -209,7 +201,7 @@ void PacketDecoder::setupSinCosCache() {
 }
 
 void PacketDecoder::setupAzimuthCache() {
-  if (config_.model == "VLS128") {
+  if (config_.model == "VLS-128") {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
