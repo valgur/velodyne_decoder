@@ -46,6 +46,11 @@ py::array convert(PointCloud &cloud, bool as_pcl_structs) {
   }
 }
 
+std::string get_default_calibration(const std::string &model) {
+  py::function path = py::module_::import("importlib_resources").attr("path");
+  return py::str(path("velodyne_decoder.calibrations", model + ".yml")).cast<std::string>();
+}
+
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
 PYBIND11_MODULE(velodyne_decoder_pylib, m) {
@@ -56,7 +61,14 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init<std::string, std::string, float, float, double, double>(), py::arg("model"),
            py::arg("calibration_file"), py::arg("min_range") = 0.1, py::arg("max_range") = 200,
            py::arg("min_angle") = 0, py::arg("max_angle") = 360)
-      .def_readwrite("model", &Config::model)
+      .def_property(
+          "model", [](const Config &c) { return c.model; },
+          [](Config &c, const std::string &model) {
+            c.model = model;
+            if (c.calibration_file.empty()) {
+              c.calibration_file = get_default_calibration(model);
+            }
+          })
       .def_readwrite("calibration_file", &Config::calibration_file)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
@@ -67,6 +79,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("gps_time", &Config::gps_time)
       .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
       .def_readonly_static("TIMINGS_AVAILABLE", &Config::TIMINGS_AVAILABLE);
+
+  m.def("get_default_calibration", &get_default_calibration);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
