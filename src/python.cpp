@@ -48,7 +48,7 @@ py::array convert(PointCloud &cloud, bool as_pcl_structs) {
 
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
-PYBIND11_MODULE(velodyne_decoder, m) {
+PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   m.doc() = "";
 
   py::class_<Config>(m, "Config")

@@ -43,14 +43,14 @@ if(DEFINED VERSION_INFO)
   add_compile_definitions(VERSION_INFO=${VERSION_INFO})
 endif()
 
-add_library(${PROJECT_NAME}_lib STATIC
+add_library(${PROJECT_NAME} STATIC
   src/calibration.cpp
   src/packet_decoder.cpp
   src/scan_decoder.cpp
   src/stream_decoder.cpp
-)
-target_link_libraries(${PROJECT_NAME}_lib PRIVATE ${YAML_CPP_LIBRARIES})
-target_include_directories(${PROJECT_NAME}_lib PUBLIC include PRIVATE ${YAML_CPP_INCLUDE_DIRS})
+  )
+target_link_libraries(${PROJECT_NAME} PRIVATE ${YAML_CPP_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC include PRIVATE ${YAML_CPP_INCLUDE_DIRS})
 
 if(BUILD_PYTHON)
   #find_package(pybind11 2.6...<3 QUIET)
@@ -65,7 +65,7 @@ if(BUILD_PYTHON)
     FetchContent_MakeAvailable(pybind11)
   endif()
 
-  pybind11_add_module(${PROJECT_NAME} src/python.cpp)
-  target_include_directories(${PROJECT_NAME} PRIVATE include)
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_lib ${YAML_CPP_LIBRARIES})
+  pybind11_add_module(${PROJECT_NAME}_pylib src/python.cpp)
+  target_include_directories(${PROJECT_NAME}_pylib PRIVATE include)
+  target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME} ${YAML_CPP_LIBRARIES})
 endif()
