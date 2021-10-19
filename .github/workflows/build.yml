@@ -33,14 +33,17 @@ jobs:
         with:
           cmake-version: 3.14
 
+      - name: Install wheel
+        run: pip install wheel
+
       - name: Install NumPy
         run: pip install --prefer-binary numpy
 
       - name: Build
-        run: python setup.py build
+        run: python setup.py bdist_wheel
 
       - name: Install
-        run: python setup.py install
+        run: pip install dist/velodyne_decoder-*.whl
 
       - name: Test import
         run: python -c "import velodyne_decoder"
