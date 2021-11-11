@@ -1,4 +1,5 @@
 import sys
+from collections import namedtuple
 from contextlib import contextmanager
 
 import dpkt
@@ -29,6 +30,7 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
     point_cloud : numpy.ndarray
     """
     decoder = StreamDecoder(config)
+    ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
     with _fopen(pcap_file, "rb") as f:
         for stamp, buf in dpkt.pcap.Reader(f):
             data = dpkt.ethernet.Ethernet(buf).data.data.data
@@ -38,7 +40,7 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
                 continue
             result = decoder.decode(stamp, data, as_pcl_structs)
             if result is not None:
-                yield result
+                yield ResultTuple(*result)
 
 
 def _get_velodyne_scan_topics(bag):
@@ -87,14 +89,15 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     if topics is None:
         topics = _get_velodyne_scan_topics(bag)
 
+    ResultTuple = namedtuple("StampCloudTopicTuple", ("stamp", "points", "topic"))
     try:
         for topic, scan_msg, ros_time in bag.read_messages(topics):
             if is_py2:
                 for packet in scan_msg.packets:
                     packet.data = bytearray(packet.data)
             stamp = scan_msg.header.stamp if use_header_time else ros_time
-            pcd = decoder.decode_message(scan_msg, as_pcl_structs)
-            yield stamp, pcd, topic
+            points = decoder.decode_message(scan_msg, as_pcl_structs)
+            yield ResultTuple(stamp, points, topic)
     finally:
         bag.close()
 
