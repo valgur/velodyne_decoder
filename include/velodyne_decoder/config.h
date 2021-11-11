@@ -27,13 +27,6 @@ struct Config {
   bool gps_time = false;               ///< true: use the packet's time field,
                                        ///< false: use the time of arrival
 
-  Config() = default;
-  Config(std::string model, std::string calibration_file, float min_range, float max_range,
-         double min_angle, double max_angle)
-      : model(std::move(model)), calibration_file(std::move(calibration_file)),
-        min_range(min_range), max_range(max_range), min_angle(std::lround(min_angle * 100)),
-        max_angle(std::lround(max_angle * 100)) {}
-
   void setMinAngleDeg(double min_angle_) { min_angle = std::lround(min_angle_ * 100); }
   double getMinAngleDeg() const { return static_cast<double>(min_angle) / 100; }
   void setMaxAngleDeg(double max_angle_) { max_angle = std::lround(max_angle_ * 100); }

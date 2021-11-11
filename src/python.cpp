@@ -59,9 +59,33 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::class_<Config>(m, "Config")
       .def(py::init<>())
-      .def(py::init<std::string, std::string, float, float, double, double>(), py::arg("model"),
-           py::arg("calibration_file"), py::arg("min_range") = 0.1, py::arg("max_range") = 200,
-           py::arg("min_angle") = 0, py::arg("max_angle") = 360)
+      .def(py::init([](const std::string &model, const std::string &calibration_file,
+                       float min_range, float max_range, double min_angle, double max_angle,
+                       double rpm, bool timestamp_first_packet, bool gps_time) {
+             auto cfg   = std::make_unique<Config>();
+             cfg->model = model;
+             cfg->calibration_file =
+                 calibration_file.empty() ? get_default_calibration(model) : calibration_file;
+             cfg->min_range = min_range;
+             cfg->max_range = max_range;
+             cfg->setMinAngleDeg(min_angle);
+             cfg->setMaxAngleDeg(max_angle);
+             cfg->rpm                    = rpm;
+             cfg->timestamp_first_packet = timestamp_first_packet;
+             cfg->gps_time               = gps_time;
+             return cfg;
+           }),
+           py::arg("model"),                          //
+           py::kw_only(),                             //
+           py::arg("calibration_file"),               //
+           py::arg("min_range")              = 0.1,   //
+           py::arg("max_range")              = 200,   //
+           py::arg("min_angle")              = 0,     //
+           py::arg("max_angle")              = 360,   //
+           py::arg("rpm")                    = -1,    //
+           py::arg("timestamp_first_packet") = false, //
+           py::arg("gps_time")               = false  //
+           )
       .def_property(
           "model", [](const Config &c) { return c.model; },
           [](Config &c, const std::string &model) {
