@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Setup cmake
+      - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.9
         with:
           cmake-version: 3.14
@@ -42,7 +42,14 @@ jobs:
         run: pip install --prefer-binary numpy
 
       - name: Build and install
-        run: pip install -v .
+        run: pip install . -v
 
-      - name: Test import
-        run: python -c "import velodyne_decoder"
+      - name: Install Python 2 test dependencies
+        if: matrix.python-version == '2.7'
+        run: pip install "rospy<1.15" "rosbag<1.15" --extra-index-url https://rospypi.github.io/simple/
+
+      - name: Install test dependencies
+        run: pip install .[tests] --extra-index-url https://rospypi.github.io/simple/
+
+      - name: Run tests
+        run: pytest test --color=yes -v
