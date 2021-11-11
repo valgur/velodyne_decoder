@@ -1,9 +1,9 @@
 # velodyne_decoder [![PyPI](https://img.shields.io/pypi/v/velodyne-decoder)](https://pypi.org/project/velodyne-decoder/) [![Build](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml)
 
-Python package and C++ library for Velodyne packet decoding. Intended as a light-weight substitute for
-the [velodyne_driver](http://wiki.ros.org/velodyne_driver) in ROS with minimal external dependencies.
+Python package and C++ library for Velodyne packet decoding. Point cloud extraction from PCAP and ROS bag files is
+supported out of the box.
 
-The resulting decoded data is provided as a structured NumPy array in Python and an array of structs in C++.
+The decoded point clouds are provided either as a structured NumPy array:
 
 ```python
 array([(8.327308, -2.161341, 0.3599853, 85., 17, -0.04960084),
@@ -16,7 +16,19 @@ array([(8.327308, -2.161341, 0.3599853, 85., 17, -0.04960084),
              'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'], 'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32})
 ```
 
-The layout of the structs and the array is identical to the `PointXYZIRT` point clouds output by the ROS driver.
+or as a contiguous array of floats (default):
+
+```python
+array([[8.327308, -2.161341, 0.3599853, 85., 17., -0.04960084],
+       [8.323784, -2.9578836, 0.27016047, 102., 15., -0.04959854],
+       [8.184404, -2.845847, -0.8741639, 39., 2., -0.04959623],
+       ...,
+       [8.369528, -2.8161895, 2.307987, 17., 31., 0.00064051],
+       [8.377898, -3.2570598, 1.7714221, 104., 30., 0.00064282],
+       [8.358282, -2.8030438, 0.31229734, 104., 16., 0.00064282]], dtype=float32)
+```
+
+The layout of the structs matches the layout of `PointXYZIRT` point cloud points output by the ROS driver.
 
 ## Installation
 
@@ -38,41 +50,78 @@ pip install git+https://github.com/valgur/velodyne_decoder.git
 ### Decoding Velodyne data from a ROS bag
 
 ```python
-from rosbag import Bag
 import velodyne_decoder as vd
 
-config = vd.Config()
-config.model = '32C'
-config.calibration_file = '/opt/ros/noetic/share/velodyne_pointcloud/params/VeloView-VLP-32C.yaml'
-config.min_range = 0.3
-config.max_range = 130
-decoder = vd.ScanDecoder(config)
-
+config = vd.Config(model='VLP-32C')
 bagfile = 'xyz.bag'
 lidar_topics = ['/velodyne_packets']
 cloud_arrays = []
-with Bag(bagfile) as bag:
-    for topic, scan_msg, ros_time in bag.read_messages(lidar_topics):
-        cloud_arrays.append(decoder.decode_message(scan_msg))
+for stamp, points, topic in vd.read_bag(bagfile, config, lidar_topics):
+    cloud_arrays.append(points)
 ```
 
-`config.model` and `config.calibration_file` are required. For a list of supported model IDs see
+The `rosbag` library must be installed. If needed, you can install it without setting up the entire ROS stack with
+
+```bash
+pip install rosbag --extra-index-url https://rospypi.github.io/simple/
+```
+
+To extract all `VelodyneScan` messages in the bag you can leave the list of topics unspecified.
+
+The header timestamp from the scan messages will be returned by default. To use the message arrival time instead
+set `use_header_time=False`.
+
+To return arrays of structs instead of the default contiguous arrays, set `as_pcl_structs=True`.
+
+### Decoding Velodyne data from a PCAP file
 
 ```python
->>> velodyne_decoder.Config.SUPPORTED_MODELS
-['VLP16', '32C', '32E', 'VLS128']
+import velodyne_decoder as vd
+
+config = vd.Config(model='VLP-16', rpm=600)
+pcap_file = 'vlp16.pcap'
+cloud_arrays = []
+for stamp, points in vd.read_pcap(pcap_file, config):
+    cloud_arrays.append(points)
 ```
 
-For the calibration file you can use the
-one [provided with the velodyne driver](https://github.com/ros-drivers/velodyne/tree/master/velodyne_pointcloud/params)
-matching your model.
+`config.model` and `config.rpm` must be set.
 
-Additional optional config parameters are `min_range` and `max_range` in meters and `min_angle` and `max_angle` in
-degrees.
+To return arrays of structs instead of the default contiguous arrays, set `as_pcl_structs=True`.
+
+### Configuration
+
+The main parameter `config.model` must always be set. For a list of supported model IDs see
+
+```python
+>> > velodyne_decoder.Config.SUPPORTED_MODELS
+['HDL-32E', 'HDL-64E', 'HDL-64E_S2', 'HDL-64E_S3', 'VLP-16', 'VLP-32C', 'VLS-128']
+```
+
+Note that timing info is available for only a subset of the models:
+
+```python
+>> > velodyne_decoder.Config.TIMINGS_AVAILABLE
+['HDL-32E', 'VLP-16', 'VLP-32C', 'VLS-128']
+```
+
+Other available options are:
+
+* `calibration_file` - the beam calibration details from Velodyne are used by default based on the model ID. If you
+  however wish to use a more specific calibration, you can specify one in
+  the [YAML format](https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py) used by the ROS driver.
+* `min_range` and `max_range` - only return points between these range values.
+* `min_angle` and `max_angle` - only return points between these azimuth angles.
+
+Options only applicable to PCAP decoding:
+
+* `rpm` - the device rotation speed in revolutions per minute.
+* `gps_time` - use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
+* `timestamp_first_packet` - whether the timestamps are set based on the first or last packet in the scan
 
 ## Authors
 
-* Martin Valgur ([@valgur](https://github.com/valgur)) – this library.
+* Martin Valgur ([@valgur](https://github.com/valgur))
 
 The core functionality has been adapted from the ROS [velodyne driver](https://github.com/ros-drivers/velodyne).
 
