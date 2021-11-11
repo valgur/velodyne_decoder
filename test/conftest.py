@@ -14,7 +14,8 @@ def fetch(name):
         data_dir.mkdir()
     path = data_dir / name
     if not path.exists():
-        path.write_bytes(requests.get(url).content)
+        with path.open("wb") as f:
+            f.write(requests.get(url).content)
     return path
 
 
