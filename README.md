@@ -107,17 +107,17 @@ Note that timing info is available for only a subset of the models:
 
 Other available options are:
 
-* `calibration_file` - the beam calibration details from Velodyne are used by default based on the model ID. If you
+* `calibration_file` – the beam calibration details from Velodyne are used by default based on the model ID. If you
   however wish to use a more specific calibration, you can specify one in
   the [YAML format](https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py) used by the ROS driver.
-* `min_range` and `max_range` - only return points between these range values.
-* `min_angle` and `max_angle` - only return points between these azimuth angles.
+* `min_range` and `max_range` – only return points between these range values.
+* `min_angle` and `max_angle` – only return points between these azimuth angles.
 
 Options only applicable to PCAP decoding:
 
-* `rpm` - the device rotation speed in revolutions per minute.
-* `gps_time` - use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
-* `timestamp_first_packet` - whether the timestamps are set based on the first or last packet in the scan
+* `rpm` – the device rotation speed in revolutions per minute.
+* `gps_time` – use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
+* `timestamp_first_packet` – whether the timestamps are set based on the first or last packet in the scan
 
 ## Authors
 
