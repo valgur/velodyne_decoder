@@ -47,8 +47,9 @@ py::array convert(PointCloud &cloud, bool as_pcl_structs) {
 }
 
 std::string get_default_calibration(const std::string &model) {
-  py::function path = py::module_::import("importlib_resources").attr("path");
-  return py::str(path("velodyne_decoder.calibrations", model + ".yml")).cast<std::string>();
+  py::function files = py::module::import("importlib_resources").attr("files");
+  return py::str(files("velodyne_decoder.calibrations").attr("joinpath")(model + ".yml"))
+      .cast<std::string>();
 }
 
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);

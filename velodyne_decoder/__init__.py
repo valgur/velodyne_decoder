@@ -1,7 +1,10 @@
+import sys
 from contextlib import contextmanager
 
 import dpkt
 from velodyne_decoder_pylib import *
+
+is_py2 = sys.version_info[0] == 2
 
 
 def read_pcap(pcap_file, config, as_pcl_structs=False):
@@ -29,6 +32,8 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
     with _fopen(pcap_file, "rb") as f:
         for stamp, buf in dpkt.pcap.Reader(f):
             data = dpkt.ethernet.Ethernet(buf).data.data.data
+            if is_py2:
+                data = bytearray(data)
             if len(data) != PACKET_SIZE:
                 continue
             result = decoder.decode(stamp, data, as_pcl_structs)
@@ -84,6 +89,9 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
 
     try:
         for topic, scan_msg, ros_time in bag.read_messages(topics):
+            if is_py2:
+                for packet in scan_msg.packets:
+                    packet.data = bytearray(packet.data)
             stamp = scan_msg.header.stamp if use_header_time else ros_time
             pcd = decoder.decode_message(scan_msg, as_pcl_structs)
             yield stamp, pcd, topic
