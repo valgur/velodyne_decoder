@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
@@ -61,10 +62,9 @@ void operator>>(const YAML::Node &node, std::pair<int, LaserCorrection> &correct
   else
     correction.second.horiz_offset_correction = 0;
 
-  const YAML::Node *max_intensity_node = nullptr;
+  std::optional<YAML::Node> max_intensity_node;
   if (node[MAX_INTENSITY]) {
-    const YAML::Node max_intensity_node_ref = node[MAX_INTENSITY];
-    max_intensity_node                      = &max_intensity_node_ref;
+    *max_intensity_node = node[MAX_INTENSITY];
   }
   if (max_intensity_node) {
     float max_intensity_float;
@@ -74,10 +74,9 @@ void operator>>(const YAML::Node &node, std::pair<int, LaserCorrection> &correct
     correction.second.max_intensity = 255;
   }
 
-  const YAML::Node *min_intensity_node = nullptr;
+  std::optional<YAML::Node> min_intensity_node;
   if (node[MIN_INTENSITY]) {
-    const YAML::Node min_intensity_node_ref = node[MIN_INTENSITY];
-    min_intensity_node                      = &min_intensity_node_ref;
+    *min_intensity_node = node[MIN_INTENSITY];
   }
   if (min_intensity_node) {
     float min_intensity_float;
