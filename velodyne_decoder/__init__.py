@@ -19,7 +19,7 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
     config : Config
     as_pcl_structs : bool
         If False, the returned NumPy arrays will be a contiguous array of floats.
-        If True, the returned NumPy arrays will be contain PCL-compatible structs with dtype
+        If True, the returned NumPy arrays will contain PCL-compatible structs with dtype
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
          'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32}
@@ -63,7 +63,7 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     topics : str or list of str
     as_pcl_structs : bool
         If False, the returned NumPy arrays will be a contiguous array of floats.
-        If True, the returned NumPy arrays will be contain PCL-compatible structs with dtype
+        If True, the returned NumPy arrays will contain PCL-compatible structs with dtype
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
          'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32}
