@@ -1,8 +1,8 @@
-import sys
 from collections import namedtuple
 from contextlib import contextmanager
 
 import dpkt
+import sys
 from velodyne_decoder_pylib import *
 
 is_py2 = sys.version_info[0] == 2
@@ -18,7 +18,7 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
     pcap_file : path or file handle
     config : Config
     as_pcl_structs : bool
-        If False, the returned NumPy arrays will be a contiguous array of floats.
+        If False, the returned NumPy arrays will be a contiguous array of floats (default).
         If True, the returned NumPy arrays will contain PCL-compatible structs with dtype
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
@@ -51,7 +51,8 @@ def _get_velodyne_scan_topics(bag):
     return topics
 
 
-def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_time=True):
+def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_time=True,
+             return_frame_id=False):
     """Decodes and yields all point clouds stored in a ROS bag file.
 
     `model` parameter must be set in the provided config.
@@ -62,7 +63,7 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     config : Config
     topics : str or list of str
     as_pcl_structs : bool
-        If False, the returned NumPy arrays will be a contiguous array of floats.
+        If False, the returned NumPy arrays will be a contiguous array of floats (default).
         If True, the returned NumPy arrays will contain PCL-compatible structs with dtype
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
@@ -70,6 +71,8 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     use_header_time : bool
         If True, scan_msg.header.stamp will be used for the time stamps.
         If False, the message arrival time will be used.
+    return_frame_id : bool
+        If True, includes the frame_id of the messages in the returned tuple. Defaults to False.
 
     Yields
     ------
@@ -89,7 +92,8 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     if topics is None:
         topics = _get_velodyne_scan_topics(bag)
 
-    ResultTuple = namedtuple("StampCloudTopicTuple", ("stamp", "points", "topic"))
+    Result = namedtuple("ResultTuple", ("stamp", "points", "topic"))
+    ResultWithFrameId = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
     try:
         for topic, scan_msg, ros_time in bag.read_messages(topics):
             if is_py2:
@@ -97,7 +101,10 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
                     packet.data = bytearray(packet.data)
             stamp = scan_msg.header.stamp if use_header_time else ros_time
             points = decoder.decode_message(scan_msg, as_pcl_structs)
-            yield ResultTuple(stamp, points, topic)
+            if return_frame_id:
+                yield ResultWithFrameId(stamp, points, topic, scan_msg.header.frame_id)
+            else:
+                yield Result(stamp, points, topic)
     finally:
         bag.close()
 

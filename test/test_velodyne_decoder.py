@@ -78,3 +78,12 @@ def test_bag_ros_time(sample_bag_path, config):
     assert topic == "/velodyne_packets"
     assert stamp.to_sec() == 1636622716.7427142
     assert pcd.shape == (27300, 6)
+
+
+def test_bag_frame_id(sample_bag_path, config):
+    pcds = list(vd.read_bag(sample_bag_path, config, return_frame_id=True))
+    stamp, pcd, topic, frame_id = pcds[0]
+    assert topic == "/velodyne_packets"
+    assert stamp.to_sec() == 1636622716.742135
+    assert pcd.shape == (27300, 6)
+    assert frame_id == "velodyne"
