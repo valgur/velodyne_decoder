@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.1.0] – 2021-12-08
+
+### Added
+
+- `read_bag()` now optionally also includes `frame_id`-s from the ROS messages in the returned tuples
+  when `return_frame_id=True` is set.
+
+### Fixed
+
+- Fixed `Config("model")` constructor not working as expected due to `calibration_file` missing a default value.
+
 ## [2.0.0] – 2021-11-11
 
 ### Added
@@ -27,6 +38,8 @@
 ## [1.0.1] – 2021-05-19
 
 Initial release.
+
+[2.1.0]: https://github.com/valgur/velodyne_decoder/compare/v2.0.0...v2.1.0
 
 [2.0.0]: https://github.com/valgur/velodyne_decoder/compare/v1.0.1...v2.0.0
 
