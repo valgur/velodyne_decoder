@@ -77,7 +77,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
            }),
            py::arg("model"),                          //
            py::kw_only(),                             //
-           py::arg("calibration_file"),               //
+           py::arg("calibration_file")       = "",    //
            py::arg("min_range")              = 0.1,   //
            py::arg("max_range")              = 200,   //
            py::arg("min_angle")              = 0,     //

@@ -15,6 +15,15 @@ def config():
     return config
 
 
+def test_config_constructor():
+    vd.Config()
+    vd.Config("VLP-16", rpm=600)
+    vd.Config(model="VLP-16", rpm=600)
+    vd.Config("VLP-16", calibration_file="calib.yml")
+    with pytest.raises(TypeError):
+        vd.Config("VLP-16", "calib.yml")
+
+
 def test_pcap_as_contiguous_array(sample_pcap_path, config):
     pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=False))
     assert len(pcds) == 93
