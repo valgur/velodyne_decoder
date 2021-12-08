@@ -10,6 +10,8 @@
 ### Fixed
 
 - Fixed `Config("model")` constructor not working as expected due to `calibration_file` missing a default value.
+- Fixed out-of-scope pointer dereferencing in the calibration parser.
+- Fixed a build error on Windows due to yaml-cpp by pinning its version to 0.7.
 
 ## [2.0.0] – 2021-11-11
 
