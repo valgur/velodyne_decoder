@@ -42,6 +42,13 @@ def test_pcap_as_struct_array(sample_pcap_path, config):
     assert pcd.dtype == pcl_struct_dtype
 
 
+def test_pcap_time_range(sample_pcap_path, config):
+    t0 = 1427759050
+    pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=False, time_range=(t0, None)))
+    stamp, pcd = pcds[0]
+    assert stamp >= t0
+
+
 def test_bag_as_contiguous_array(sample_bag_path, config):
     pcds = list(vd.read_bag(sample_bag_path, config, "/velodyne_packets", as_pcl_structs=False))
     assert len(pcds) == 13
@@ -87,3 +94,10 @@ def test_bag_frame_id(sample_bag_path, config):
     assert stamp.to_sec() == 1636622716.742135
     assert pcd.shape == (27300, 6)
     assert frame_id == "velodyne"
+
+
+def test_bag_time_range(sample_bag_path, config):
+    t0 = 1636622717
+    pcds = list(vd.read_bag(sample_bag_path, config, time_range=(t0, None)))
+    stamp, pcd, topic = pcds[0]
+    assert stamp.to_sec() >= t0

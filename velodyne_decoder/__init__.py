@@ -3,12 +3,13 @@ from contextlib import contextmanager
 
 import dpkt
 import sys
+from rospy import Time
 from velodyne_decoder_pylib import *
 
 is_py2 = sys.version_info[0] == 2
 
 
-def read_pcap(pcap_file, config, as_pcl_structs=False):
+def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
     """Decodes and yields all point clouds stored in a PCAP file.
 
     `model` and `rpm` parameters must be set in the provided config.
@@ -23,6 +24,8 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
          'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32}
+    time_range : float, float
+        Optionally only return scans from given time range.
 
     Yields
     ------
@@ -30,9 +33,13 @@ def read_pcap(pcap_file, config, as_pcl_structs=False):
     point_cloud : numpy.ndarray
     """
     decoder = StreamDecoder(config)
+    start_time, end_time = time_range
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
     with _fopen(pcap_file, "rb") as f:
         for stamp, buf in dpkt.pcap.Reader(f):
+            if (start_time is not None and stamp < start_time or
+                end_time is not None and stamp > end_time):
+                continue
             data = dpkt.ethernet.Ethernet(buf).data.data.data
             if is_py2:
                 data = bytearray(data)
@@ -52,7 +59,7 @@ def _get_velodyne_scan_topics(bag):
 
 
 def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_time=True,
-             return_frame_id=False):
+             return_frame_id=False, time_range=(None, None)):
     """Decodes and yields all point clouds stored in a ROS bag file.
 
     `model` parameter must be set in the provided config.
@@ -73,6 +80,8 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
         If False, the message arrival time will be used.
     return_frame_id : bool
         If True, includes the frame_id of the messages in the returned tuple. Defaults to False.
+    time_range : float, float or rospy.Time, rospy.Time
+        Optionally only return scans from given time range.
 
     Yields
     ------
@@ -92,10 +101,17 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     if topics is None:
         topics = _get_velodyne_scan_topics(bag)
 
+    start_time, end_time = time_range
+    if start_time is not None and not isinstance(start_time, Time):
+        start_time = Time.from_sec(start_time)
+    if end_time is not None and not isinstance(end_time, Time):
+        end_time = Time.from_sec(end_time)
+
     Result = namedtuple("ResultTuple", ("stamp", "points", "topic"))
     ResultWithFrameId = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
     try:
-        for topic, scan_msg, ros_time in bag.read_messages(topics):
+        for topic, scan_msg, ros_time in bag.read_messages(topics, start_time=start_time,
+                                                           end_time=end_time):
             if is_py2:
                 for packet in scan_msg.packets:
                     packet.data = bytearray(packet.data)
