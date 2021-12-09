@@ -106,7 +106,8 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
             else:
                 yield Result(stamp, points, topic)
     finally:
-        bag.close()
+        if not isinstance(bag_file, Bag):
+            bag.close()
 
 
 @contextmanager
