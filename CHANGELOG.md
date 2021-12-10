@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.0] – 2021-12-10
+
+### Added
+
+- Added `time_range` parameter to `read_bag()` and `read_pcap()`.
+
+### Fixed
+
+- `read_bag()` no longer closes opened `Bag` objects passed to it.
+
 ## [2.1.0] – 2021-12-08
 
 ### Added
@@ -40,6 +50,8 @@
 ## [1.0.1] – 2021-05-19
 
 Initial release.
+
+[2.2.0]: https://github.com/valgur/velodyne_decoder/compare/v2.1.0...v2.2.0
 
 [2.1.0]: https://github.com/valgur/velodyne_decoder/compare/v2.0.0...v2.1.0
 
