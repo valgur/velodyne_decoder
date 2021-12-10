@@ -3,7 +3,6 @@ from contextlib import contextmanager
 
 import dpkt
 import sys
-from rospy import Time
 from velodyne_decoder_pylib import *
 
 is_py2 = sys.version_info[0] == 2
@@ -85,11 +84,12 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
 
     Yields
     ------
-    timestamp: ros.Time
+    timestamp: rospy.Time
     point_cloud : numpy.ndarray
     topic : str
     """
     from rosbag import Bag
+    from rospy import Time
 
     decoder = ScanDecoder(config)
 
