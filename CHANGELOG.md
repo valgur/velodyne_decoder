@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.1] – 2022-03-14
+
+### Added
+
+- insert Alpha Prime support for decoding.
+
 ## [2.2.0] – 2021-12-10
 
 ### Added
