@@ -1,8 +1,9 @@
 # based on https://github.com/pybind/cmake_example/blob/master/setup.py
 import os
-import sys
-import subprocess
+import re
 import shlex
+import subprocess
+import sys
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
@@ -43,11 +44,12 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
 
-        # required for auto-detection of auxiliary "native" libs
+        # required for auto-detection & inclusion of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
-        cfg = "Debug" if self.debug else "Release"
+        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
+        cfg = "Debug" if debug else "Release"
 
         # CMake lets you override the generator - we need to check this.
         # Can be set with Conda-Build, for example.
@@ -64,8 +66,25 @@ class CMakeBuild(build_ext):
             "-DBUILD_PYTHON=yes",
         ]
         build_args = []
+        # Adding CMake arguments set as environment variable
+        # (needed e.g. to build for ARM OSx on conda-forge)
+        if "CMAKE_ARGS" in os.environ:
+            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-        if self.compiler.compiler_type == "msvc":
+        if self.compiler.compiler_type != "msvc":
+            # Using Ninja-build since it a) is available as a wheel and b)
+            # multithreads automatically. MSVC would require all variables be
+            # exported for Ninja to pick it up, which is a little tricky to do.
+            # Users can override the generator with CMAKE_GENERATOR in CMake
+            # 3.15+.
+            if not cmake_generator:
+                try:
+                    import ninja  # noqa: F401
+
+                    cmake_args += ["-GNinja"]
+                except ImportError:
+                    pass
+        else:
             # Single config generators are handled "normally"
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
 
@@ -84,6 +103,12 @@ class CMakeBuild(build_ext):
                     "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}".format(cfg.upper(), extdir)
                 ]
                 build_args += ["--config", cfg]
+
+        if sys.platform.startswith("darwin"):
+            # Cross-compile support for macOS - respect ARCHFLAGS if set
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            if archs:
+                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
