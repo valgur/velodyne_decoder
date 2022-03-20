@@ -1,4 +1,4 @@
-# velodyne_decoder [![PyPI](https://img.shields.io/pypi/v/velodyne-decoder)](https://pypi.org/project/velodyne-decoder/) [![Build](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml)
+# velodyne_decoder [![PyPI](https://img.shields.io/pypi/v/velodyne-decoder)](https://pypi.org/project/velodyne-decoder/) [![Build](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/valgur/velodyne_decoder/actions/workflows/build.yml) [![PyPI - Downloads](https://img.shields.io/pypi/dm/velodyne-decoder)](https://pypistats.org/packages/velodyne-decoder)
 
 Python package and C++ library for Velodyne packet decoding. Point cloud extraction from PCAP and ROS bag files is
 supported out of the box.
