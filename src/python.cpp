@@ -63,7 +63,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                        float min_range, float max_range, double min_angle, double max_angle,
                        double rpm, bool timestamp_first_packet, bool gps_time) {
              auto cfg   = std::make_unique<Config>();
-             cfg->model = model;
+             cfg->model = Config::standardizeModelId(model);
              cfg->calibration_file =
                  calibration_file.empty() ? get_default_calibration(model) : calibration_file;
              cfg->min_range = min_range;
@@ -89,9 +89,9 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_property(
           "model", [](const Config &c) { return c.model; },
           [](Config &c, const std::string &model) {
-            c.model = model;
+            c.model = Config::standardizeModelId(model);
             if (c.calibration_file.empty()) {
-              c.calibration_file = get_default_calibration(model);
+              c.calibration_file = get_default_calibration(c.model);
             }
           })
       .def_readwrite("calibration_file", &Config::calibration_file)

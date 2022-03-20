@@ -34,7 +34,7 @@ constexpr int BLOCKS_PER_PACKET  = 12;
 constexpr int PACKET_STATUS_SIZE = 4;
 constexpr int SCANS_PER_PACKET   = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
 
-/** Special Definitions for VLS128 and Alpha Prime support **/
+/** Special Definitions for VLS-128 / Alpha Prime support **/
 // These are used to detect which bank of 32 lasers is in this block
 constexpr uint16_t VLS128_BANK_1 = 0xeeff;
 constexpr uint16_t VLS128_BANK_2 = 0xddff;

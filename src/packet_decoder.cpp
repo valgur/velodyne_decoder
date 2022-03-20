@@ -39,12 +39,6 @@ namespace velodyne_decoder {
 template <typename T> constexpr T SQR(T val) { return val * val; }
 constexpr float nan = std::numeric_limits<float>::quiet_NaN();
 
-////////////////////////////////////////////////////////////////////////
-//
-// RawData base class implementation
-//
-////////////////////////////////////////////////////////////////////////
-
 PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   if (config_.model.empty()) {
     throw std::invalid_argument("No Velodyne sensor model specified!");
@@ -76,7 +70,7 @@ void PacketDecoder::setParameters(double min_range, double max_range, double vie
   double tmp_min_angle = view_direction + view_width / 2;
   double tmp_max_angle = view_direction - view_width / 2;
 
-  // computing positive modulo to keep theses angles into [0;2*M_PI]
+  // computing positive modulo to keep these angles within [0;2*M_PI]
   tmp_min_angle = fmod(fmod(tmp_min_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
   tmp_max_angle = fmod(fmod(tmp_max_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
 
@@ -162,7 +156,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "VLS-128" || model == "Alpha Prime") {
+  } else if (model == "Alpha Prime") {
     timing_offsets.resize(3);
     for (auto &timing_offset : timing_offsets) {
       timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
@@ -201,7 +195,7 @@ void PacketDecoder::setupSinCosCache() {
 }
 
 void PacketDecoder::setupAzimuthCache() {
-  if (config_.model == "VLS-128" || config_.model == "Alpha Prime") {
+  if (config_.model == "Alpha Prime") {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
@@ -216,8 +210,8 @@ void PacketDecoder::setupAzimuthCache() {
  */
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data,
                            Time scan_start_time) {
-  /** special parsing for the VLS128 and Alpha Prime **/
-  if (pkt.data[1205] == VLS128_MODEL_ID) { // VLS 128
+  /** special parsing for the VLS-128 and Alpha Prime **/
+  if (pkt.data[1205] == VLS128_MODEL_ID) {
     unpack_vls128(pkt, data, scan_start_time);
     return;
   }
@@ -452,7 +446,7 @@ void PacketDecoder::unpackPointCommon(PointCloudAggregator &data,
                 time);
 }
 
-/** @brief convert raw VLS128 or Alpha Prime packet to point cloud
+/** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
  *
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)

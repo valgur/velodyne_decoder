@@ -23,7 +23,7 @@ StreamDecoder::StreamDecoder(const Config &config) : config_(config), scan_decod
 
 int StreamDecoder::calc_packets_per_scan(const std::string &model, double rpm) {
   double packet_rate; // packet frequency (Hz)
-  if (model == "VLS-128" || model == "Alpha Prime") {
+  if (model == "Alpha Prime") {
     // 3 firing cycles in a data packet. 3 x 53.3 μs = 0.1599 ms is the
     // accumulation delay per packet.
     // 1 packet/0.1599 ms = 6253.9 packets/second

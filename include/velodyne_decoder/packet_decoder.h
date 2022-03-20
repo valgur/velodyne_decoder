@@ -69,9 +69,7 @@ public:
   /** configuration parameters */
   Config config_;
 
-  /**
-   * Calibration file
-   */
+  /** calibration file */
   velodyne_decoder::Calibration calibration_;
 
 protected:

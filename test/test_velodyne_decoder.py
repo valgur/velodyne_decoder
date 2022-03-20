@@ -101,3 +101,19 @@ def test_bag_time_range(sample_bag_path, config):
     pcds = list(vd.read_bag(sample_bag_path, config, time_range=(t0, None)))
     stamp, pcd, topic = pcds[0]
     assert stamp.to_sec() >= t0
+
+
+@pytest.mark.parametrize("model_id", vd.Config.SUPPORTED_MODELS)
+def test_bundled_calibrations(model_id):
+    if model_id in ["HDL-64E_S2", "HDL-64E_S3"]:
+        # No default calibration has been provided for these by VeloView
+        return
+    vd.ScanDecoder(vd.Config(model_id))
+
+
+def test_model_renaming():
+    config = vd.Config("VLS-128")
+    assert config.model == "Alpha Prime"
+    config = vd.Config()
+    config.model = "VLS-128"
+    assert config.model == "Alpha Prime"

@@ -32,14 +32,23 @@ struct Config {
   void setMaxAngleDeg(double max_angle_) { max_angle = std::lround(max_angle_ * 100); }
   double getMaxAngleDeg() const { return static_cast<double>(max_angle) / 100; }
 
+  /// Takes care of model name aliases and deprecations
+  static std::string standardizeModelId(const std::string &model) {
+    if (model == "VLS-128") // deprecated in favor of "Alpha Prime"
+      return "Alpha Prime";
+    if (model == "HDL-64E_S2.1")
+      return "HDL-64E_S2";
+    return model;
+  }
+
   static const std::vector<std::string> SUPPORTED_MODELS;
   static const std::vector<std::string> TIMINGS_AVAILABLE;
 };
 
 inline const std::vector<std::string> Config::SUPPORTED_MODELS = //
-    {"HDL-32E", "HDL-64E", "HDL-64E_S2", "HDL-64E_S3", "VLP-16", "VLP-32C", "VLS-128", "Alpha Prime"};
+    {"HDL-32E", "HDL-64E", "HDL-64E_S2", "HDL-64E_S3", "VLP-16", "VLP-32C", "Alpha Prime"};
 
 inline const std::vector<std::string> Config::TIMINGS_AVAILABLE = //
-    {"HDL-32E", "VLP-16", "VLP-32C", "VLS-128", "Alpha Prime"};
+    {"HDL-32E", "VLP-16", "VLP-32C", "Alpha Prime"};
 
 } // namespace velodyne_decoder
