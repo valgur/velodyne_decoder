@@ -1,10 +1,11 @@
 # Changelog
 
-## [2.2.1] – 2022-03-14
+## [2.3.0] – 2022-03-20
 
-### Added
+### Changed
 
-- insert Alpha Prime support for decoding.
+- `VLS-128` has been replaced by `Alpha Prime` as the model identifier, but is still accepted for backwards compatibility. (@flopie2009 #1)
+- Removed the broken VLS-128 calibration data file. (@flopie2009 #2)
 
 ## [2.2.0] – 2021-12-10
 
@@ -56,6 +57,8 @@
 ## [1.0.1] – 2021-05-19
 
 Initial release.
+
+[2.3.0]: https://github.com/valgur/velodyne_decoder/compare/v2.2.0...v2.3.0
 
 [2.2.0]: https://github.com/valgur/velodyne_decoder/compare/v2.1.0...v2.2.0
 
