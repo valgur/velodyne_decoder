@@ -95,14 +95,14 @@ The main parameter `config.model` must always be set. For a list of supported mo
 
 ```python
 >> > velodyne_decoder.Config.SUPPORTED_MODELS
-['HDL-32E', 'HDL-64E', 'HDL-64E_S2', 'HDL-64E_S3', 'VLP-16', 'VLP-32C', 'VLS-128']
+['HDL-32E', 'HDL-64E', 'HDL-64E_S2', 'HDL-64E_S3', 'VLP-16', 'VLP-32C', 'VLS-128', 'Alpha Prime']
 ```
 
 Note that timing info is available for only a subset of the models:
 
 ```python
 >> > velodyne_decoder.Config.TIMINGS_AVAILABLE
-['HDL-32E', 'VLP-16', 'VLP-32C', 'VLS-128']
+['HDL-32E', 'VLP-16', 'VLP-32C', 'VLS-128', 'Alpha Prime']
 ```
 
 Other available options are:

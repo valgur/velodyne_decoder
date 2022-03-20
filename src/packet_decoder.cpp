@@ -162,7 +162,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "VLS-128") {
+  } else if (model == "VLS-128" || model == "Alpha Prime") {
     timing_offsets.resize(3);
     for (auto &timing_offset : timing_offsets) {
       timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
@@ -201,7 +201,7 @@ void PacketDecoder::setupSinCosCache() {
 }
 
 void PacketDecoder::setupAzimuthCache() {
-  if (config_.model == "VLS-128") {
+  if (config_.model == "VLS-128" || config_.model == "Alpha Prime") {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
@@ -216,7 +216,7 @@ void PacketDecoder::setupAzimuthCache() {
  */
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data,
                            Time scan_start_time) {
-  /** special parsing for the VLS128 **/
+  /** special parsing for the VLS128 and Alpha Prime **/
   if (pkt.data[1205] == VLS128_MODEL_ID) { // VLS 128
     unpack_vls128(pkt, data, scan_start_time);
     return;
@@ -452,7 +452,7 @@ void PacketDecoder::unpackPointCommon(PointCloudAggregator &data,
                 time);
 }
 
-/** @brief convert raw VLS128 packet to point cloud
+/** @brief convert raw VLS128 or Alpha Prime packet to point cloud
  *
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)

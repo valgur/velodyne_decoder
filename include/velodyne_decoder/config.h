@@ -37,9 +37,9 @@ struct Config {
 };
 
 inline const std::vector<std::string> Config::SUPPORTED_MODELS = //
-    {"HDL-32E", "HDL-64E", "HDL-64E_S2", "HDL-64E_S3", "VLP-16", "VLP-32C", "VLS-128"};
+    {"HDL-32E", "HDL-64E", "HDL-64E_S2", "HDL-64E_S3", "VLP-16", "VLP-32C", "VLS-128", "Alpha Prime"};
 
 inline const std::vector<std::string> Config::TIMINGS_AVAILABLE = //
-    {"HDL-32E", "VLP-16", "VLP-32C", "VLS-128"};
+    {"HDL-32E", "VLP-16", "VLP-32C", "VLS-128", "Alpha Prime"};
 
 } // namespace velodyne_decoder
