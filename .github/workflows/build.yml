@@ -38,9 +38,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade build wheel
 
-      - name: Install NumPy
-        run: pip install --prefer-binary numpy
-
       - name: Build and install
         run: pip install . -v
 
