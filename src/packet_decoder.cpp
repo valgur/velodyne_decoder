@@ -31,6 +31,7 @@
 #define _USE_MATH_DEFINES
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <stdexcept>
@@ -191,19 +192,21 @@ void PacketDecoder::setupAzimuthCache() {
  */
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data,
                            Time scan_start_time) {
+  const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
+
   /** special parsing for the VLS-128 and Alpha Prime **/
-  if (pkt.data[1205] == VLS128_MODEL_ID) {
-    unpack_vls128(pkt, data, scan_start_time);
+  if (raw_packet.model_id == PacketModelId::VLS128) {
+    unpack_vls128(raw_packet, pkt.stamp, data, scan_start_time);
     return;
   }
 
   /** special parsing for the VLP16 **/
   if (calibration_.num_lasers == 16) {
-    unpack_vlp16(pkt, data, scan_start_time);
+    unpack_vlp16(raw_packet, pkt.stamp, data, scan_start_time);
     return;
   }
 
-  unpack_vlp32_vlp64(pkt, data, scan_start_time);
+  unpack_vlp32_vlp64(raw_packet, pkt.stamp, data, scan_start_time);
 }
 
 /** @brief convert raw VLP16 packet to point cloud
@@ -211,16 +214,14 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data,
-                                 Time scan_start_time) const {
-  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
-
-  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
+void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp,
+                                 PointCloudAggregator &data, Time scan_start_time) const {
+  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
   float last_azimuth_diff = 0;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
-    const auto &block = raw->blocks[i];
+    const auto &block = raw.blocks[i];
 
     // ignore packets with mangled or otherwise different contents
     if (UPPER_BANK != block.header) {
@@ -231,7 +232,7 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
     float azimuth      = block.rotation;
     float azimuth_diff = last_azimuth_diff;
     if (i < (BLOCKS_PER_PACKET - 1)) {
-      int raw_azimuth_diff = raw->blocks[i + 1].rotation - block.rotation;
+      int raw_azimuth_diff = raw.blocks[i + 1].rotation - block.rotation;
       azimuth_diff         = (float)((36000 + raw_azimuth_diff) % 36000);
       // some packets contain an angle overflow where azimuth_diff < 0
       if (raw_azimuth_diff < 0) {
@@ -275,18 +276,15 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
 
 /** @brief convert raw VLP-32/64 packet to point cloud
  */
-void PacketDecoder::unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggregator &data,
-                                       Time scan_start_time) const {
-  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
-
-  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
+void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp,
+                                       PointCloudAggregator &data, Time scan_start_time) const {
+  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
-    const auto &block = raw->blocks[i];
+    const auto &block = raw.blocks[i];
 
     // upper bank lasers are numbered [0..31]
     // lower bank lasers are [32..63]
-    // NOTE: this is a change from the old velodyne_common implementation
     int bank_origin = (block.header == UPPER_BANK) ? 0 : 32;
 
     uint16_t azimuth = block.rotation;
@@ -421,20 +419,18 @@ void PacketDecoder::unpackPointCommon(PointCloudAggregator &data,
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
-                                  Time scan_start_time) const {
-  auto *raw = reinterpret_cast<const raw_packet_t *>(&pkt.data[0]);
+void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp,
+                                  PointCloudAggregator &data, Time scan_start_time) const {
+  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
-  float time_diff_start_to_this_packet = pkt.stamp - scan_start_time;
+  bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
 
-  bool dual_return = (pkt.data[1204] == 57);
-
-  uint16_t azimuth_next   = raw->blocks[0].rotation;
+  uint16_t azimuth_next   = raw.blocks[0].rotation;
   float last_azimuth_diff = 0;
 
   for (int block = 0; block < BLOCKS_PER_PACKET - (4 * dual_return); block++) {
     // cache block for use
-    const raw_block_t &current_block = raw->blocks[block];
+    const raw_block_t &current_block = raw.blocks[block];
 
     int bank_origin = 0;
     // Used to detect which bank of 32 lasers is in this block
@@ -460,7 +456,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
     float azimuth_diff;
     if (block < (BLOCKS_PER_PACKET - (1 + dual_return))) {
       // Get the next block rotation to calculate how far we rotate between blocks
-      azimuth_next = raw->blocks[block + (1 + dual_return)].rotation;
+      azimuth_next = raw.blocks[block + (1 + dual_return)].rotation;
 
       // Finds the difference between two successive blocks
       azimuth_diff = (float)((36000 + azimuth_next - azimuth) % 36000);

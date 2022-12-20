@@ -90,13 +90,13 @@ protected:
   void setupAzimuthCache();
 
   /** add private function to handle the VLP16 **/
-  void unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator &data,
+  void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
                     Time scan_start_time) const;
 
-  void unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggregator &data,
+  void unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
                           Time scan_start_time) const;
 
-  void unpack_vls128(const VelodynePacket &pkt, PointCloudAggregator &data,
+  void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
                      Time scan_start_time) const;
 
   void unpackPointCommon(PointCloudAggregator &data, const LaserCorrection &corrections,

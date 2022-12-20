@@ -29,10 +29,9 @@ constexpr float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
 constexpr float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
 constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 
-constexpr int PACKET_SIZE        = 1206;
-constexpr int BLOCKS_PER_PACKET  = 12;
-constexpr int PACKET_STATUS_SIZE = 4;
-constexpr int SCANS_PER_PACKET   = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
+constexpr int PACKET_SIZE       = 1206;
+constexpr int BLOCKS_PER_PACKET = 12;
+constexpr int SCANS_PER_PACKET  = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
 
 /** Special Definitions for VLS-128 / Alpha Prime support **/
 // These are used to detect which bank of 32 lasers is in this block
@@ -47,7 +46,24 @@ constexpr float VLS128_SEQ_TDURATION =
 constexpr float VLS128_TOH_ADJUSTMENT =
     8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
 constexpr float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
-constexpr uint8_t VLS128_MODEL_ID          = 161;
+
+enum DualReturnMode {
+  STRONGEST_RETURN            = 0x37,
+  LAST_RETURN                 = 0x38,
+  DUAL_RETURN                 = 0x39,
+  TRIPLE_RETURN               = 0x3A,
+  DUAL_RETURN_WITH_CONFIDENCE = 0x3B,
+};
+
+enum PacketModelId {
+  HDL32E     = 0x21, // decimal: 33
+  VLP16      = 0x22, // decimal: 34
+  VLP32AB    = 0x23, // decimal: 35
+  VLP16HiRes = 0x24, // decimal: 36
+  VLP32C     = 0x28, // decimal: 40
+  Velarray   = 0x31, // decimal: 49
+  VLS128     = 0xa1, // decimal: 161
+};
 
 #pragma pack(push, 1)
 struct raw_measurement_t {
@@ -66,23 +82,14 @@ struct raw_block_t {
   raw_measurement_t data[SCANS_PER_BLOCK];
 };
 
-/** \brief Raw Velodyne packet.
- *
- *  revolution is described in the device manual as incrementing
- *    (mod 65536) for each physical turn of the device.  Our device
- *    seems to alternate between two different values every third
- *    packet.  One value increases, the other decreases.
- *
- *  \todo figure out if revolution is only present for one of the
- *  two types of status fields
- *
- *  status has either a temperature encoding or the microcode level
- */
-
 struct raw_packet_t {
   raw_block_t blocks[BLOCKS_PER_PACKET];
-  uint16_t revolution;
-  uint8_t status[PACKET_STATUS_SIZE];
+  uint32_t stamp;
+  uint8_t return_mode;
+  uint8_t model_id;
+  // In HDL-64E, the last bytes have a different meaning, but we are ignoring these.
+  // uint16_t revolution;
+  // uint8_t status[4];
 };
 #pragma pack(pop)
 
