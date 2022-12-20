@@ -62,8 +62,6 @@ public:
 
   void unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
 
-  void setParameters(double min_range, double max_range, double view_direction, double view_width);
-
   int scansPerPacket() const;
 
   /** configuration parameters */
@@ -105,9 +103,8 @@ protected:
                          const raw_measurement_t &measurement, uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
-  constexpr bool pointInRange(float range) const {
-    return range >= config_.min_range && range <= config_.max_range;
-  }
+  bool distanceInRange(float range) const;
+  bool azimuthInRange(int azimuth) const;
 };
 
 } // namespace velodyne_decoder

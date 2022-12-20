@@ -60,36 +60,17 @@ PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   setupAzimuthCache();
 }
 
-/** Update parameters: conversions and update */
-void PacketDecoder::setParameters(double min_range, double max_range, double view_direction,
-                                  double view_width) {
-  config_.min_range = min_range;
-  config_.max_range = max_range;
+int PacketDecoder::scansPerPacket() const { return BLOCKS_PER_PACKET * SCANS_PER_BLOCK; }
 
-  // converting angle parameters into the velodyne reference (rad)
-  double tmp_min_angle = view_direction + view_width / 2;
-  double tmp_max_angle = view_direction - view_width / 2;
-
-  // computing positive modulo to keep these angles within [0;2*M_PI]
-  tmp_min_angle = fmod(fmod(tmp_min_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
-  tmp_max_angle = fmod(fmod(tmp_max_angle, 2 * M_PI) + 2 * M_PI, 2 * M_PI);
-
-  // converting into the hardware velodyne ref (negative yaml and degrees)
-  // adding 0.5 performs a centered double to int conversion
-  config_.min_angle = 100 * (2 * M_PI - tmp_min_angle) * 180 / M_PI + 0.5;
-  config_.max_angle = 100 * (2 * M_PI - tmp_max_angle) * 180 / M_PI + 0.5;
-  if (config_.min_angle == config_.max_angle) {
-    // avoid returning empty cloud if min_angle = max_angle
-    config_.min_angle = 0;
-    config_.max_angle = 36000;
-  }
+bool PacketDecoder::distanceInRange(float range) const {
+  return range >= config_.min_range && range <= config_.max_range;
 }
 
-int PacketDecoder::scansPerPacket() const {
-  if (calibration_.num_lasers == 16) {
-    return BLOCKS_PER_PACKET * VLP16_FIRINGS_PER_BLOCK * VLP16_SCANS_PER_FIRING;
+bool PacketDecoder::azimuthInRange(int azimuth) const {
+  if (config_.min_angle <= config_.max_angle) {
+    return azimuth >= config_.min_angle && azimuth <= config_.max_angle;
   } else {
-    return BLOCKS_PER_PACKET * SCANS_PER_BLOCK;
+    return azimuth <= config_.min_angle && azimuth >= config_.max_angle;
   }
 }
 
@@ -272,17 +253,11 @@ void PacketDecoder::unpack_vlp16(const VelodynePacket &pkt, PointCloudAggregator
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
         /** correct for the laser rotation as a function of timing during the firings **/
         float azimuth_corrected_f =
-            azimuth +
-            (azimuth_diff * ((dsr * VLP16_DSR_TOFFSET) + (firing * VLP16_FIRING_TOFFSET)) /
-             VLP16_BLOCK_TDURATION);
-        int azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+            azimuth + (azimuth_diff * (dsr * VLP16_DSR_TOFFSET + firing * VLP16_FIRING_TOFFSET) /
+                       VLP16_BLOCK_TDURATION);
+        int azimuth_corrected = std::lround(azimuth_corrected_f + 36000) % 36000;
 
-        /*condition added to avoid calculating points which are not
-          in the interesting defined area (min_angle < area < max_angle)*/
-        if (!((config_.min_angle < config_.max_angle && (azimuth_corrected >= config_.min_angle &&
-                                                         azimuth_corrected <= config_.max_angle)) ||
-              (config_.min_angle > config_.max_angle &&
-               (azimuth_corrected >= config_.min_angle || azimuth_corrected <= config_.max_angle))))
+        if (!azimuthInRange(azimuth_corrected))
           continue;
 
         float time = 0;
@@ -316,12 +291,7 @@ void PacketDecoder::unpack_vlp32_vlp64(const VelodynePacket &pkt, PointCloudAggr
 
     uint16_t azimuth = block.rotation;
 
-    /*condition added to avoid calculating points which are not
-      in the interesting defined area (min_angle < area < max_angle)*/
-    if (!((config_.min_angle < config_.max_angle &&
-           (azimuth >= config_.min_angle && azimuth <= config_.max_angle)) ||
-          (config_.min_angle > config_.max_angle &&
-           (azimuth >= config_.min_angle || azimuth <= config_.max_angle))))
+    if (!azimuthInRange(azimuth))
       continue;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
@@ -504,12 +474,7 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
       azimuth_diff = (block == BLOCKS_PER_PACKET - (4 * dual_return) - 1) ? 0 : last_azimuth_diff;
     }
 
-    // condition added to avoid calculating points which are not in the interesting defined area
-    // (min_angle < area < max_angle)
-    if (!((config_.min_angle < config_.max_angle &&
-           (azimuth >= config_.min_angle && azimuth <= config_.max_angle)) ||
-          (config_.min_angle > config_.max_angle &&
-           (azimuth >= config_.min_angle || azimuth <= config_.max_angle))))
+    if (!azimuthInRange(azimuth))
       continue;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
@@ -517,45 +482,46 @@ void PacketDecoder::unpack_vls128(const VelodynePacket &pkt, PointCloudAggregato
       uint16_t raw_distance = current_block.data[j].distance;
       float distance        = raw_distance * VLS128_DISTANCE_RESOLUTION;
 
-      if (pointInRange(distance)) {
-        uint8_t laser_number =
-            j + bank_origin; // Offset the laser in this block by which block it's in
-        uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
+      if (!distanceInRange(distance))
+        continue;
 
-        float time = 0;
-        if (!timing_offsets_.empty()) {
-          time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
-                 time_diff_start_to_this_packet;
-        }
+      uint8_t laser_number =
+          j + bank_origin; // Offset the laser in this block by which block it's in
+      uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
-        const velodyne_decoder::LaserCorrection &corrections =
-            calibration_.laser_corrections[laser_number];
-
-        // correct for the laser rotation as a function of timing during the firings
-        float azimuth_corrected_f =
-            azimuth + (azimuth_diff * vls_128_laser_azimuth_cache[firing_order]);
-        uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
-
-        // convert polar coordinates to Euclidean XYZ
-        float cos_vert_angle     = corrections.cos_vert_correction;
-        float sin_vert_angle     = corrections.sin_vert_correction;
-        float cos_rot_correction = corrections.cos_rot_correction;
-        float sin_rot_correction = corrections.sin_rot_correction;
-
-        // cos(a-b) = cos(a)*cos(b) + sin(a)*sin(b)
-        // sin(a-b) = sin(a)*cos(b) - cos(a)*sin(b)
-        float cos_rot_angle = cos_rot_table_[azimuth_corrected] * cos_rot_correction +
-                              sin_rot_table_[azimuth_corrected] * sin_rot_correction;
-        float sin_rot_angle = sin_rot_table_[azimuth_corrected] * cos_rot_correction -
-                              cos_rot_table_[azimuth_corrected] * sin_rot_correction;
-
-        // Compute the distance in the xy plane (w/o accounting for rotation)
-        float xy_distance = distance * cos_vert_angle;
-
-        data.addPoint(xy_distance * cos_rot_angle, -(xy_distance * sin_rot_angle),
-                      distance * sin_vert_angle, corrections.laser_ring, azimuth_corrected,
-                      distance, current_block.data[j].intensity, time);
+      float time = 0;
+      if (!timing_offsets_.empty()) {
+        time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
+               time_diff_start_to_this_packet;
       }
+
+      const velodyne_decoder::LaserCorrection &corrections =
+          calibration_.laser_corrections[laser_number];
+
+      // correct for the laser rotation as a function of timing during the firings
+      float azimuth_corrected_f =
+          azimuth + (azimuth_diff * vls_128_laser_azimuth_cache[firing_order]);
+      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+
+      // convert polar coordinates to Euclidean XYZ
+      float cos_vert_angle     = corrections.cos_vert_correction;
+      float sin_vert_angle     = corrections.sin_vert_correction;
+      float cos_rot_correction = corrections.cos_rot_correction;
+      float sin_rot_correction = corrections.sin_rot_correction;
+
+      // cos(a-b) = cos(a)*cos(b) + sin(a)*sin(b)
+      // sin(a-b) = sin(a)*cos(b) - cos(a)*sin(b)
+      float cos_rot_angle = cos_rot_table_[azimuth_corrected] * cos_rot_correction +
+                            sin_rot_table_[azimuth_corrected] * sin_rot_correction;
+      float sin_rot_angle = sin_rot_table_[azimuth_corrected] * cos_rot_correction -
+                            cos_rot_table_[azimuth_corrected] * sin_rot_correction;
+
+      // Compute the distance in the xy plane (w/o accounting for rotation)
+      float xy_distance = distance * cos_vert_angle;
+
+      data.addPoint(xy_distance * cos_rot_angle, -(xy_distance * sin_rot_angle),
+                    distance * sin_vert_angle, corrections.laser_ring, azimuth_corrected, distance,
+                    current_block.data[j].intensity, time);
     }
     data.newLine();
   }
