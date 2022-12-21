@@ -21,7 +21,6 @@ struct Config {
   int max_angle   = 36000;      ///< maximum angle to publish
 
   // ScanDecoder params
-  double rpm                  = -1;    ///< device rotation rate
   bool timestamp_first_packet = false; ///< whether we are timestamping based on
                                        ///< the first or last packet in the scan
   bool gps_time = false;               ///< true: use the packet's time field,

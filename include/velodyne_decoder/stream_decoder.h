@@ -19,13 +19,12 @@ public:
   std::optional<std::pair<Time, PointCloud>> decode(Time stamp, const RawPacketData &packet);
   std::optional<std::pair<Time, PointCloud>> decode(const VelodynePacket &packet);
 
-  static int calc_packets_per_scan(const std::string &model, double rpm);
-
 protected:
   Config config_;
   ScanDecoder scan_decoder_;
-  int packets_per_scan_;
   std::vector<VelodynePacket> scan_packets_;
+  int initial_azimuth_ = -1;
+  int prev_coverage_   = 0;
 };
 
 } // namespace velodyne_decoder

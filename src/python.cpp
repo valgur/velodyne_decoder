@@ -61,7 +61,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init<>())
       .def(py::init([](const std::string &model, const std::string &calibration_file,
                        float min_range, float max_range, double min_angle, double max_angle,
-                       double rpm, bool timestamp_first_packet, bool gps_time) {
+                       bool timestamp_first_packet, bool gps_time) {
              auto cfg   = std::make_unique<Config>();
              cfg->model = Config::standardizeModelId(model);
              cfg->calibration_file =
@@ -70,7 +70,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
              cfg->max_range = max_range;
              cfg->setMinAngleDeg(min_angle);
              cfg->setMaxAngleDeg(max_angle);
-             cfg->rpm                    = rpm;
              cfg->timestamp_first_packet = timestamp_first_packet;
              cfg->gps_time               = gps_time;
              return cfg;
@@ -82,7 +81,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
            py::arg("max_range")              = 200,   //
            py::arg("min_angle")              = 0,     //
            py::arg("max_angle")              = 360,   //
-           py::arg("rpm")                    = -1,    //
            py::arg("timestamp_first_packet") = false, //
            py::arg("gps_time")               = false  //
            )
@@ -99,7 +97,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("max_range", &Config::max_range)
       .def_property("min_angle", &Config::getMinAngleDeg, &Config::setMinAngleDeg)
       .def_property("max_angle", &Config::getMaxAngleDeg, &Config::setMaxAngleDeg)
-      .def_readwrite("rpm", &Config::rpm)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
       .def_readwrite("gps_time", &Config::gps_time)
       .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
@@ -159,8 +156,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
             return std::nullopt;
           },
           py::arg("stamp"), py::arg("packet"), py::arg("as_pcl_structs") = false, //
-          py::return_value_policy::move)
-      .def("calc_packets_per_scan", &StreamDecoder::calc_packets_per_scan);
+          py::return_value_policy::move);
 
   m.attr("PACKET_SIZE") = PACKET_SIZE;
 
