@@ -45,7 +45,6 @@ constexpr float VLS128_SEQ_TDURATION =
     53.3f; // [µs] Sequence is a set of laser firings including recharging
 constexpr float VLS128_TOH_ADJUSTMENT =
     8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
-constexpr float VLS128_DISTANCE_RESOLUTION = 0.004f; // [m]
 
 enum DualReturnMode {
   STRONGEST_RETURN            = 0x37,

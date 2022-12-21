@@ -198,6 +198,35 @@ void Calibration::read(const std::string &calibration_file) {
     initialized = false;
   }
   fin.close();
+  advanced_calibration = isAdvancedCalibration();
+}
+
+bool Calibration::isAdvancedCalibration() {
+  // Everything besides rot_correction and vert_correction is considered "advanced",
+  // since the default calibrations don't really set these (except for the oldest model, HDL-64E).
+  for (const auto &corr : laser_corrections) {
+    if (corr.dist_correction != 0)
+      return true;
+    if (corr.two_pt_correction_available)
+      return true;
+    if (corr.dist_correction_x != 0)
+      return true;
+    if (corr.dist_correction_y != 0)
+      return true;
+    if (corr.vert_offset_correction != 0)
+      return true;
+    if (corr.horiz_offset_correction != 0)
+      return true;
+    if (corr.max_intensity != 255)
+      return true;
+    if (corr.min_intensity != 0)
+      return true;
+    if (corr.focal_distance != 0)
+      return true;
+    if (corr.focal_slope != 0)
+      return true;
+  }
+  return false;
 }
 
 void Calibration::write(const std::string &calibration_file) {

@@ -38,7 +38,6 @@
 
 namespace velodyne_decoder {
 template <typename T> constexpr T SQR(T val) { return val * val; }
-constexpr float nan = std::numeric_limits<float>::quiet_NaN();
 
 PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   if (config_.model.empty()) {
@@ -186,36 +185,27 @@ void PacketDecoder::setupAzimuthCache() {
 }
 
 /** @brief convert raw packet to point cloud
- *
- *  @param pkt raw packet to unpack
- *  @param pc shared pointer to point cloud (points are appended)
  */
-void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloudAggregator &data,
-                           Time scan_start_time) {
+void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
 
-  /** special parsing for the VLS-128 and Alpha Prime **/
-  if (raw_packet.model_id == PacketModelId::VLS128) {
-    unpack_vls128(raw_packet, pkt.stamp, data, scan_start_time);
+  if (config_.model == "Alpha Prime") {
+    unpack_vls128(raw_packet, pkt.stamp, cloud, scan_start_time);
     return;
   }
 
-  /** special parsing for the VLP16 **/
   if (calibration_.num_lasers == 16) {
-    unpack_vlp16(raw_packet, pkt.stamp, data, scan_start_time);
+    unpack_vlp16(raw_packet, pkt.stamp, cloud, scan_start_time);
     return;
   }
 
-  unpack_vlp32_vlp64(raw_packet, pkt.stamp, data, scan_start_time);
+  unpack_vlp32_vlp64(raw_packet, pkt.stamp, cloud, scan_start_time);
 }
 
 /** @brief convert raw VLP16 packet to point cloud
- *
- *  @param pkt raw packet to unpack
- *  @param pc shared pointer to point cloud (points are appended)
  */
-void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp,
-                                 PointCloudAggregator &data, Time scan_start_time) const {
+void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                                 Time scan_start_time) const {
   float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
   float last_azimuth_diff = 0;
@@ -252,6 +242,9 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp,
 
     for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
+        if (block.data[j].distance == 0)
+          continue;
+
         /** correct for the laser rotation as a function of timing during the firings **/
         float azimuth_corrected_f =
             azimuth + (azimuth_diff * (dsr * VLP16_DSR_TOFFSET + firing * VLP16_FIRING_TOFFSET) /
@@ -267,17 +260,17 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp,
 
         const auto &corrections = calibration_.laser_corrections[dsr];
         const auto &measurement = block.data[j];
-        unpackPointCommon(data, corrections, measurement, azimuth_corrected, time);
+        unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement,
+                          azimuth_corrected, time);
       }
-      data.newLine();
     }
   }
 }
 
 /** @brief convert raw VLP-32/64 packet to point cloud
  */
-void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp,
-                                       PointCloudAggregator &data, Time scan_start_time) const {
+void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                                       Time scan_start_time) const {
   float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
@@ -293,6 +286,9 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp,
       continue;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+      if (block.data[j].distance == 0)
+        continue;
+
       const uint8_t laser_number = j + bank_origin;
 
       float time = 0;
@@ -302,27 +298,19 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp,
 
       const auto &corrections = calibration_.laser_corrections[laser_number];
       const auto &measurement = block.data[j];
-      unpackPointCommon(data, corrections, measurement, azimuth, time);
+      unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement, azimuth,
+                        time);
     }
-    data.newLine();
   }
 }
 
-/** @brief Point decoding logic common to VLP-16/32/64
+/** @brief Applies calibration, converts to a Cartesian 3D point and appends to the cloud.
  */
-void PacketDecoder::unpackPointCommon(PointCloudAggregator &data,
-                                      const LaserCorrection &corrections,
+void PacketDecoder::unpackPointCommon(PointCloud &cloud, const LaserCorrection &corrections,
+                                      bool apply_advanced_calibration,
                                       const raw_measurement_t &measurement, uint16_t azimuth,
                                       float time) const {
-  /** Position Calculation */
-  if (measurement.distance == 0) // no valid laser beam return
-  {
-    // call to addPoint is still required since output could be organized
-    data.addPoint(nan, nan, nan, corrections.laser_ring, azimuth, nan, nan, time);
-    return;
-  }
   float distance = measurement.distance * calibration_.distance_resolution_m;
-  distance += corrections.dist_correction;
 
   float cos_vert_angle     = corrections.cos_vert_correction;
   float sin_vert_angle     = corrections.sin_vert_correction;
@@ -336,91 +324,86 @@ void PacketDecoder::unpackPointCommon(PointCloudAggregator &data,
   float sin_rot_angle = sin_rot_table_[azimuth] * cos_rot_correction - //
                         cos_rot_table_[azimuth] * sin_rot_correction;
 
-  float horiz_offset = corrections.horiz_offset_correction;
-  float vert_offset  = corrections.vert_offset_correction;
+  if (!apply_advanced_calibration) {
+    if (!distanceInRange(distance))
+      return;
 
-  // Compute the distance in the xy plane (w/o accounting for rotation)
-  /**the new term of 'vert_offset * sin_vert_angle'
-   * was added to the expression due to the mathematical
-   * model we used.
-   */
-  float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
+    float xy_distance = distance * cos_vert_angle;
+    // Use the standard ROS coordinate system (x - forward, y - left, z - up)
+    float x = xy_distance * cos_rot_angle;
+    float y = -xy_distance * sin_rot_angle;
+    float z = distance * sin_vert_angle;
 
-  // Calculate temporal X, use absolute value.
-  float xx = std::abs(xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle);
-  // Calculate temporal Y, use absolute value
-  float yy = std::abs(xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle);
+    cloud.emplace_back(x, y, z, (float)measurement.intensity, corrections.laser_ring, time);
 
-  // Get 2points calibration values,Linear interpolation to get distance
-  // correction for X and Y, that means distance correction use
-  // different value at different distance
-  float distance_corr_x = 0;
-  float distance_corr_y = 0;
-  if (corrections.two_pt_correction_available) {
-    distance_corr_x = (corrections.dist_correction - corrections.dist_correction_x) * (xx - 2.4f) /
-                          (25.04f - 2.4f) +
-                      corrections.dist_correction_x;
-    distance_corr_x -= corrections.dist_correction;
-    distance_corr_y = (corrections.dist_correction - corrections.dist_correction_y) * (yy - 1.93f) /
-                          (25.04f - 1.93f) +
-                      corrections.dist_correction_y;
-    distance_corr_y -= corrections.dist_correction;
+  } else {
+    distance += corrections.dist_correction;
+
+    if (!distanceInRange(distance))
+      return;
+
+    float horiz_offset = corrections.horiz_offset_correction;
+    float vert_offset  = corrections.vert_offset_correction;
+
+    // Get 2points calibration values, Linear interpolation to get distance
+    // correction for X and Y, that means distance correction use
+    // different value at different distance
+    float distance_corr_x = 0;
+    float distance_corr_y = 0;
+    if (corrections.two_pt_correction_available) {
+      // Compute the distance in the xy plane (w/o accounting for rotation)
+      float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
+
+      float xx = std::abs(xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle);
+      float yy = std::abs(xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle);
+
+      distance_corr_x = (corrections.dist_correction - corrections.dist_correction_x) *
+                            (xx - 2.4f) / (25.04f - 2.4f) +
+                        corrections.dist_correction_x;
+      distance_corr_x -= corrections.dist_correction;
+      distance_corr_y = (corrections.dist_correction - corrections.dist_correction_y) *
+                            (yy - 1.93f) / (25.04f - 1.93f) +
+                        corrections.dist_correction_y;
+      distance_corr_y -= corrections.dist_correction;
+    }
+
+    float distance_x  = distance + distance_corr_x;
+    float xy_distance = distance_x * cos_vert_angle - vert_offset * sin_vert_angle;
+    /// the expression with '-' is proved to be better than the one with '+'
+    float x = xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle;
+
+    float distance_y = distance + distance_corr_y;
+    xy_distance      = distance_y * cos_vert_angle - vert_offset * sin_vert_angle;
+    float y          = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
+
+    // Using distance_y is not symmetric, but the velodyne manual does this.
+    float z = distance_y * sin_vert_angle + vert_offset * cos_vert_angle;
+
+    /** Use standard ROS coordinate system */
+    float x_coord = y;
+    float y_coord = -x;
+    float z_coord = z;
+
+    /** Intensity Calculation */
+    float min_intensity = corrections.min_intensity;
+    float max_intensity = corrections.max_intensity;
+
+    float focal_offset  = SQR(1 - corrections.focal_distance / 13100.f);
+    float raw_intensity = measurement.intensity;
+    float raw_distance  = measurement.distance;
+    float intensity     = raw_intensity + 256 * corrections.focal_slope *
+                                          std::abs(focal_offset - SQR(1 - raw_distance / 65535.f));
+    intensity = (intensity < min_intensity) ? min_intensity : intensity;
+    intensity = (intensity > max_intensity) ? max_intensity : intensity;
+
+    cloud.emplace_back(x_coord, y_coord, z_coord, intensity, corrections.laser_ring, time);
   }
-
-  float distance_x = distance + distance_corr_x;
-  /**the new term of 'vert_offset * sin_vert_angle'
-   * was added to the expression due to the mathematical
-   * model we used.
-   */
-  xy_distance = distance_x * cos_vert_angle - vert_offset * sin_vert_angle;
-  /// the expression with '-' is proved to be better than the one with '+'
-  float x = xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle;
-
-  float distance_y = distance + distance_corr_y;
-  /**the new term of 'vert_offset * sin_vert_angle'
-   * was added to the expression due to the mathematical
-   * model we used.
-   */
-  xy_distance = distance_y * cos_vert_angle - vert_offset * sin_vert_angle;
-  float y     = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
-
-  // Using distance_y is not symmetric, but the velodyne manual
-  // does this.
-  /**the new term of 'vert_offset * cos_vert_angle'
-   * was added to the expression due to the mathematical
-   * model we used.
-   */
-  float z = distance_y * sin_vert_angle + vert_offset * cos_vert_angle;
-
-  /** Use standard ROS coordinate system (right-hand rule) */
-  float x_coord = y;
-  float y_coord = -x;
-  float z_coord = z;
-
-  /** Intensity Calculation */
-
-  float min_intensity = corrections.min_intensity;
-  float max_intensity = corrections.max_intensity;
-
-  float focal_offset  = SQR(1 - corrections.focal_distance / 13100.f);
-  float raw_intensity = measurement.intensity;
-  float raw_distance  = measurement.distance;
-  float intensity     = raw_intensity + 256 * corrections.focal_slope *
-                                        std::abs(focal_offset - SQR(1 - raw_distance / 65535.f));
-  intensity = (intensity < min_intensity) ? min_intensity : intensity;
-  intensity = (intensity > max_intensity) ? max_intensity : intensity;
-
-  data.addPoint(x_coord, y_coord, z_coord, corrections.laser_ring, azimuth, distance, intensity,
-                time);
 }
 
 /** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
- *
- *  @param pkt raw packet to unpack
- *  @param pc shared pointer to point cloud (points are appended)
  */
-void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp,
-                                  PointCloudAggregator &data, Time scan_start_time) const {
+void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                                  Time scan_start_time) const {
   float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
 
   bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
@@ -476,13 +459,11 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp,
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       // distance extraction
       uint16_t raw_distance = current_block.data[j].distance;
-      float distance        = raw_distance * VLS128_DISTANCE_RESOLUTION;
-
-      if (!distanceInRange(distance))
+      if (raw_distance == 0)
         continue;
 
-      uint8_t laser_number =
-          j + bank_origin; // Offset the laser in this block by which block it's in
+      // Offset the laser in this block by which block it's in
+      uint8_t laser_number = j + bank_origin;
       uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
       float time = 0;
@@ -491,35 +472,16 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp,
                time_diff_start_to_this_packet;
       }
 
-      const velodyne_decoder::LaserCorrection &corrections =
-          calibration_.laser_corrections[laser_number];
-
       // correct for the laser rotation as a function of timing during the firings
       float azimuth_corrected_f =
-          azimuth + (azimuth_diff * vls_128_laser_azimuth_cache[firing_order]);
+          azimuth + azimuth_diff * vls_128_laser_azimuth_cache[firing_order];
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
-      // convert polar coordinates to Euclidean XYZ
-      float cos_vert_angle     = corrections.cos_vert_correction;
-      float sin_vert_angle     = corrections.sin_vert_correction;
-      float cos_rot_correction = corrections.cos_rot_correction;
-      float sin_rot_correction = corrections.sin_rot_correction;
-
-      // cos(a-b) = cos(a)*cos(b) + sin(a)*sin(b)
-      // sin(a-b) = sin(a)*cos(b) - cos(a)*sin(b)
-      float cos_rot_angle = cos_rot_table_[azimuth_corrected] * cos_rot_correction +
-                            sin_rot_table_[azimuth_corrected] * sin_rot_correction;
-      float sin_rot_angle = sin_rot_table_[azimuth_corrected] * cos_rot_correction -
-                            cos_rot_table_[azimuth_corrected] * sin_rot_correction;
-
-      // Compute the distance in the xy plane (w/o accounting for rotation)
-      float xy_distance = distance * cos_vert_angle;
-
-      data.addPoint(xy_distance * cos_rot_angle, -(xy_distance * sin_rot_angle),
-                    distance * sin_vert_angle, corrections.laser_ring, azimuth_corrected, distance,
-                    current_block.data[j].intensity, time);
+      const auto &measurement = current_block.data[j];
+      const auto &corrections = calibration_.laser_corrections[laser_number];
+      unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement,
+                        azimuth_corrected, time);
     }
-    data.newLine();
   }
 }
 

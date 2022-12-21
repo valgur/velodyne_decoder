@@ -5,16 +5,14 @@
 
 namespace velodyne_decoder {
 
-ScanDecoder::ScanDecoder(const Config &config)
-    : packet_decoder_(config),
-      cloud_aggregator_(config.max_range, config.min_range, packet_decoder_.scansPerPacket()) {}
+ScanDecoder::ScanDecoder(const Config &config) : packet_decoder_(config) {}
 
 PointCloud ScanDecoder::decode(Time scan_stamp, const std::vector<VelodynePacket> &scan_packets) {
-  cloud_aggregator_.init(scan_packets);
+  cloud_.clear();
   for (const auto &packet : scan_packets) {
-    packet_decoder_.unpack(packet, cloud_aggregator_, scan_stamp);
+    packet_decoder_.unpack(packet, cloud_, scan_stamp);
   }
-  return cloud_aggregator_.cloud;
+  return cloud_;
 }
 
 inline PointCloud ScanDecoder::decode(const VelodyneScan &scan) {

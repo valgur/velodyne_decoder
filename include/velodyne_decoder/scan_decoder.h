@@ -19,7 +19,7 @@ public:
   PointCloud decode(Time scan_stamp, const std::vector<VelodynePacket> &scan_packets);
 
   velodyne_decoder::PacketDecoder packet_decoder_;
-  velodyne_decoder::PointCloudAggregator cloud_aggregator_;
+  velodyne_decoder::PointCloud cloud_;
 };
 
 } // namespace velodyne_decoder

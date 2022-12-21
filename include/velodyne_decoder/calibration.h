@@ -68,29 +68,28 @@ struct LaserCorrection {
   float cos_vert_correction; ///< cosine of vert_correction
   float sin_vert_correction; ///< sine of vert_correction
 
-  int laser_ring; ///< ring number for this laser
+  uint16_t laser_ring; ///< ring number for this laser
 };
 
 /** \brief Calibration information for the entire device. */
 class Calibration {
 public:
-  float distance_resolution_m;
+  float distance_resolution_m = 0.002f;
   std::map<int, LaserCorrection> laser_corrections_map;
   std::vector<LaserCorrection> laser_corrections;
-  int num_lasers;
-  bool initialized;
-  bool ros_info;
+  int num_lasers            = 0;
+  bool initialized          = false;
+  bool advanced_calibration = false;
 
 public:
-  explicit Calibration(bool info = true)
-      : distance_resolution_m(0.002f), num_lasers(0), initialized(false), ros_info(info) {}
-  explicit Calibration(const std::string &calibration_file, bool info = true)
-      : distance_resolution_m(0.002f), ros_info(info) {
-    read(calibration_file);
-  }
+  Calibration() = default;
+  explicit Calibration(const std::string &calibration_file) { read(calibration_file); }
 
   void read(const std::string &calibration_file);
   void write(const std::string &calibration_file);
+
+private:
+  bool isAdvancedCalibration();
 };
 
 } // namespace velodyne_decoder

@@ -50,7 +50,6 @@
 
 #include "velodyne_decoder/calibration.h"
 #include "velodyne_decoder/config.h"
-#include "velodyne_decoder/pointcloud_aggregator.h"
 #include "velodyne_decoder/types.h"
 
 namespace velodyne_decoder {
@@ -60,7 +59,7 @@ class PacketDecoder {
 public:
   explicit PacketDecoder(const Config &config);
 
-  void unpack(const VelodynePacket &pkt, PointCloudAggregator &data, Time scan_start_time);
+  void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
   int scansPerPacket() const;
 
@@ -90,17 +89,18 @@ protected:
   void setupAzimuthCache();
 
   /** add private function to handle the VLP16 **/
-  void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
+  void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                     Time scan_start_time) const;
 
-  void unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
+  void unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                           Time scan_start_time) const;
 
-  void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloudAggregator &data,
+  void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                      Time scan_start_time) const;
 
-  void unpackPointCommon(PointCloudAggregator &data, const LaserCorrection &corrections,
-                         const raw_measurement_t &measurement, uint16_t azimuth, float time) const;
+  void unpackPointCommon(PointCloud &cloud, const LaserCorrection &corrections,
+                         bool apply_advanced_calibration, const raw_measurement_t &measurement,
+                         uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
   bool distanceInRange(float range) const;
