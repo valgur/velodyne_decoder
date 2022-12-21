@@ -52,13 +52,7 @@ StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
   int scan_coverage   = (azimuth - initial_azimuth_ + MAX_ANGLE) % MAX_ANGLE;
   if ((prev_coverage_ > MAX_ANGLE / 2 && prev_coverage_ > scan_coverage) || duration_exceeded) {
     // decode scan
-    Time scan_stamp;
-    if (config_.timestamp_first_packet) {
-      scan_stamp = scan_packets_.front().stamp;
-    } else {
-      scan_stamp = scan_packets_.back().stamp;
-    }
-    PointCloud scan = scan_decoder_.decode(scan_stamp, scan_packets_);
+    auto result = decodeCollectedPackets();
     // reset
     initial_azimuth_ = getPacketAzimuth(scan_packets_.back().data);
     prev_coverage_   = 0;
@@ -66,7 +60,7 @@ StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
     if (duration_exceeded) {
       scan_packets_.emplace_back(stamp, packet);
     }
-    return std::make_pair(scan_stamp, scan);
+    return result;
   }
   prev_coverage_ = scan_coverage;
   return std::nullopt;
@@ -75,6 +69,23 @@ StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
 std::optional<std::pair<Time, PointCloud>> //
 StreamDecoder::decode(const VelodynePacket &packet) {
   return decode(packet.stamp, packet.data);
+}
+
+std::pair<Time, PointCloud> StreamDecoder::decodeCollectedPackets() {
+  Time scan_stamp;
+  if (config_.timestamp_first_packet) {
+    scan_stamp = scan_packets_.front().stamp;
+  } else {
+    scan_stamp = scan_packets_.back().stamp;
+  }
+  return {scan_stamp, scan_decoder_.decode(scan_stamp, scan_packets_)};
+}
+
+std::optional<std::pair<Time, PointCloud>> StreamDecoder::finish() {
+  if (scan_packets_.empty()) {
+    return std::nullopt;
+  }
+  return decodeCollectedPackets();
 }
 
 } // namespace velodyne_decoder

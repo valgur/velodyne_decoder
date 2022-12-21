@@ -19,7 +19,15 @@ public:
   std::optional<std::pair<Time, PointCloud>> decode(Time stamp, const RawPacketData &packet);
   std::optional<std::pair<Time, PointCloud>> decode(const VelodynePacket &packet);
 
-protected:
+  /**
+   * @brief Decodes all remaining packets in the buffer and returns the last scan, if any.
+   */
+  std::optional<std::pair<Time, PointCloud>> finish();
+
+private:
+  std::pair<Time, PointCloud> decodeCollectedPackets();
+
+private:
   Config config_;
   ScanDecoder scan_decoder_;
   std::vector<VelodynePacket> scan_packets_;

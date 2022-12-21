@@ -47,6 +47,10 @@ def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
             result = decoder.decode(stamp, data, as_pcl_structs)
             if result is not None:
                 yield ResultTuple(*result)
+        # Decode any remaining packets
+        result = decoder.finish(as_pcl_structs)
+        if result is not None:
+            yield ResultTuple(*result)
 
 
 def _get_velodyne_scan_topics(bag):

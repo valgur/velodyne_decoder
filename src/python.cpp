@@ -156,7 +156,19 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
             return std::nullopt;
           },
           py::arg("stamp"), py::arg("packet"), py::arg("as_pcl_structs") = false, //
-          py::return_value_policy::move);
+          py::return_value_policy::move)
+      .def(
+          "finish",
+          [](StreamDecoder &decoder,
+             bool as_pcl_structs) -> std::optional<std::pair<Time, py::array>> {
+            auto result = decoder.finish();
+            if (result) {
+              auto &[scan_stamp, cloud] = *result;
+              return std::make_pair(scan_stamp, convert(cloud, as_pcl_structs));
+            }
+            return std::nullopt;
+          },
+          py::arg("as_pcl_structs") = false, py::return_value_policy::move);
 
   m.attr("PACKET_SIZE") = PACKET_SIZE;
 

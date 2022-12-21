@@ -25,7 +25,7 @@ def test_config_constructor():
 
 def test_pcap_as_contiguous_array(sample_pcap_path, config):
     pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=False))
-    assert len(pcds) == 93
+    assert len(pcds) == 94
     stamp, pcd = pcds[0]
     assert stamp == 1427759049.259595
     assert pcd.shape == (27282, 6)
@@ -34,7 +34,7 @@ def test_pcap_as_contiguous_array(sample_pcap_path, config):
 
 def test_pcap_as_struct_array(sample_pcap_path, config):
     pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=True))
-    assert len(pcds) == 93
+    assert len(pcds) == 94
     stamp, pcd = pcds[0]
     assert stamp == 1427759049.259595
     assert pcd.shape == (27282,)
