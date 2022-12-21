@@ -11,7 +11,7 @@ is_py2 = sys.version_info[0] == 2
 def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
     """Decodes and yields all point clouds stored in a PCAP file.
 
-    `model` and `rpm` parameters must be set in the provided config.
+    `model` must be set in the provided config.
 
     Parameters
     ----------

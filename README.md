@@ -78,14 +78,14 @@ To return arrays of structs instead of the default contiguous arrays, set `as_pc
 ```python
 import velodyne_decoder as vd
 
-config = vd.Config(model='VLP-16', rpm=600)
+config = vd.Config(model='VLP-16')
 pcap_file = 'vlp16.pcap'
 cloud_arrays = []
 for stamp, points in vd.read_pcap(pcap_file, config):
     cloud_arrays.append(points)
 ```
 
-`config.model` and `config.rpm` must be set.
+`config.model` must be set.
 
 To return arrays of structs instead of the default contiguous arrays, set `as_pcl_structs=True`.
 
@@ -115,7 +115,6 @@ Other available options are:
 
 Options only applicable to PCAP decoding:
 
-* `rpm` – the device rotation speed in revolutions per minute.
 * `gps_time` – use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
 * `timestamp_first_packet` – whether the timestamps are set based on the first or last packet in the scan
 
