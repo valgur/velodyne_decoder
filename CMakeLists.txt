@@ -46,10 +46,10 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC
   src/calibration.cpp
+  src/calib_db.cpp
   src/packet_decoder.cpp
   src/scan_decoder.cpp
-  src/stream_decoder.cpp
-  )
+  src/stream_decoder.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${YAML_CPP_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PUBLIC include PRIVATE SYSTEM ${YAML_CPP_INCLUDE_DIRS})
 

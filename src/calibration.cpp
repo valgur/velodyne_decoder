@@ -112,11 +112,10 @@ void operator>>(const YAML::Node &node, Calibration &calibration) {
     std::pair<int, LaserCorrection> correction;
     lasers[i] >> correction;
     const int index = correction.first;
-    if (index >= calibration.laser_corrections.size()) {
+    if (index >= (int)calibration.laser_corrections.size()) {
       calibration.laser_corrections.resize(index + 1);
     }
     calibration.laser_corrections[index] = (correction.second);
-    calibration.laser_corrections_map.insert(correction);
   }
 
   // For each laser ring, find the next-smallest vertical angle.
@@ -173,8 +172,8 @@ YAML::Emitter &operator<<(YAML::Emitter &out, const Calibration &calibration) {
   out << YAML::Key << NUM_LASERS << YAML::Value << calibration.laser_corrections.size();
   out << YAML::Key << DISTANCE_RESOLUTION << YAML::Value << calibration.distance_resolution_m;
   out << YAML::Key << LASERS << YAML::Value << YAML::BeginSeq;
-  for (const auto &laser_correction : calibration.laser_corrections_map) {
-    out << laser_correction;
+  for (size_t i = 0; i < calibration.laser_corrections.size(); i++) {
+    out << std::make_pair(i, calibration.laser_corrections[i]);
   }
   out << YAML::EndSeq;
   out << YAML::EndMap;

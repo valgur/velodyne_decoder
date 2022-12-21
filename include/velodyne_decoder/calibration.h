@@ -34,6 +34,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace velodyne_decoder {
@@ -49,33 +50,32 @@ namespace velodyne_decoder {
 /** \brief Correction information for a single laser. */
 struct LaserCorrection {
   /** parameters in db.xml */
-  float rot_correction;
-  float vert_correction;
-  float dist_correction;
-  bool two_pt_correction_available;
-  float dist_correction_x;
-  float dist_correction_y;
-  float vert_offset_correction;
-  float horiz_offset_correction;
-  int max_intensity;
-  int min_intensity;
-  float focal_distance;
-  float focal_slope;
+  float rot_correction             = 0;
+  float vert_correction            = 0;
+  float dist_correction            = 0;
+  bool two_pt_correction_available = false;
+  float dist_correction_x          = 0;
+  float dist_correction_y          = 0;
+  float vert_offset_correction     = 0;
+  float horiz_offset_correction    = 0;
+  int max_intensity                = 255;
+  int min_intensity                = 0;
+  float focal_distance             = 0;
+  float focal_slope                = 0;
 
   /** cached values calculated when the calibration file is read */
-  float cos_rot_correction;  ///< cosine of rot_correction
-  float sin_rot_correction;  ///< sine of rot_correction
-  float cos_vert_correction; ///< cosine of vert_correction
-  float sin_vert_correction; ///< sine of vert_correction
+  float cos_rot_correction  = 1; ///< cosine of rot_correction
+  float sin_rot_correction  = 0; ///< sine of rot_correction
+  float cos_vert_correction = 1; ///< cosine of vert_correction
+  float sin_vert_correction = 0; ///< sine of vert_correction
 
-  uint16_t laser_ring; ///< ring number for this laser
+  uint16_t laser_ring = -1; ///< ring number for this laser
 };
 
 /** \brief Calibration information for the entire device. */
 class Calibration {
 public:
   float distance_resolution_m = 0.002f;
-  std::map<int, LaserCorrection> laser_corrections_map;
   std::vector<LaserCorrection> laser_corrections;
   int num_lasers            = 0;
   bool initialized          = false;
@@ -83,13 +83,36 @@ public:
 
 public:
   Calibration() = default;
+
   explicit Calibration(const std::string &calibration_file) { read(calibration_file); }
+
+  Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m)
+      : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
+    num_lasers           = (int)laser_corrections.size();
+    initialized          = true;
+    advanced_calibration = isAdvancedCalibration();
+  }
 
   void read(const std::string &calibration_file);
   void write(const std::string &calibration_file);
 
 private:
   bool isAdvancedCalibration();
+};
+
+class CalibDB {
+public:
+  CalibDB();
+
+  Calibration getDefaultCalibration(const std::string &model_id) const;
+  std::vector<std::string> getAvailableModels() const;
+
+  const std::unordered_map<std::string, Calibration> &getAllDefaultCalibrations() const {
+    return calibrations_;
+  };
+
+private:
+  std::unordered_map<std::string, Calibration> calibrations_;
 };
 
 } // namespace velodyne_decoder
