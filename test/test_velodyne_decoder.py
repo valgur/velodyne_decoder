@@ -11,14 +11,13 @@ pcl_struct_dtype = {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
 def config():
     config = vd.Config()
     config.model = "VLP-16"
-    config.rpm = 600
     return config
 
 
 def test_config_constructor():
     vd.Config()
-    vd.Config("VLP-16", rpm=600)
-    vd.Config(model="VLP-16", rpm=600)
+    vd.Config("VLP-16")
+    vd.Config(model="VLP-16")
     vd.Config("VLP-16", calibration_file="calib.yml")
     with pytest.raises(TypeError):
         vd.Config("VLP-16", "calib.yml")
@@ -28,7 +27,7 @@ def test_pcap_as_contiguous_array(sample_pcap_path, config):
     pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=False))
     assert len(pcds) == 93
     stamp, pcd = pcds[0]
-    assert stamp == 1427759049.258258
+    assert stamp == 1427759049.259595
     assert pcd.shape == (27282, 6)
     assert pcd.dtype.name == "float32"
 
@@ -37,7 +36,7 @@ def test_pcap_as_struct_array(sample_pcap_path, config):
     pcds = list(vd.read_pcap(sample_pcap_path, config, as_pcl_structs=True))
     assert len(pcds) == 93
     stamp, pcd = pcds[0]
-    assert stamp == 1427759049.258258
+    assert stamp == 1427759049.259595
     assert pcd.shape == (27282,)
     assert pcd.dtype == pcl_struct_dtype
 
