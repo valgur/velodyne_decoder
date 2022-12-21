@@ -204,9 +204,9 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
 
 /** @brief convert raw VLP16 packet to point cloud
  */
-void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
                                  Time scan_start_time) const {
-  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
+  float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   float last_azimuth_diff = 0;
 
@@ -269,9 +269,9 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointC
 
 /** @brief convert raw VLP-32/64 packet to point cloud
  */
-void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
                                        Time scan_start_time) const {
-  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
+  float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
@@ -402,9 +402,9 @@ void PacketDecoder::unpackPointCommon(PointCloud &cloud, const LaserCorrection &
 
 /** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
  */
-void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
                                   Time scan_start_time) const {
-  float time_diff_start_to_this_packet = udp_stamp - scan_start_time;
+  float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
 
