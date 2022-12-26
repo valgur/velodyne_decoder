@@ -147,56 +147,55 @@ void operator>>(const YAML::Node &node, Calibration &calibration) {
 
 YAML::Emitter &operator<<(YAML::Emitter &out, const std::pair<int, LaserCorrection> correction) {
   out << YAML::BeginMap;
-  out << YAML::Key << LASER_ID << YAML::Value << correction.first;
-  out << YAML::Key << ROT_CORRECTION << YAML::Value << correction.second.rot_correction;
-  out << YAML::Key << VERT_CORRECTION << YAML::Value << correction.second.vert_correction;
   out << YAML::Key << DIST_CORRECTION << YAML::Value << correction.second.dist_correction;
-  out << YAML::Key << TWO_PT_CORRECTION_AVAILABLE << YAML::Value
-      << correction.second.two_pt_correction_available;
   out << YAML::Key << DIST_CORRECTION_X << YAML::Value << correction.second.dist_correction_x;
   out << YAML::Key << DIST_CORRECTION_Y << YAML::Value << correction.second.dist_correction_y;
-  out << YAML::Key << VERT_OFFSET_CORRECTION << YAML::Value
-      << correction.second.vert_offset_correction;
-  out << YAML::Key << HORIZ_OFFSET_CORRECTION << YAML::Value
-      << correction.second.horiz_offset_correction;
-  out << YAML::Key << MAX_INTENSITY << YAML::Value << correction.second.max_intensity;
-  out << YAML::Key << MIN_INTENSITY << YAML::Value << correction.second.min_intensity;
   out << YAML::Key << FOCAL_DISTANCE << YAML::Value << correction.second.focal_distance;
   out << YAML::Key << FOCAL_SLOPE << YAML::Value << correction.second.focal_slope;
+  out << YAML::Key << HORIZ_OFFSET_CORRECTION << YAML::Value
+      << correction.second.horiz_offset_correction;
+  out << YAML::Key << LASER_ID << YAML::Value << correction.first;
+  if (correction.second.min_intensity != 0 || correction.second.max_intensity != 255) {
+    out << YAML::Key << MAX_INTENSITY << YAML::Value << correction.second.max_intensity;
+    out << YAML::Key << MIN_INTENSITY << YAML::Value << correction.second.min_intensity;
+  }
+  out << YAML::Key << ROT_CORRECTION << YAML::Value << correction.second.rot_correction;
+  if (correction.second.two_pt_correction_available) {
+    out << YAML::Key << TWO_PT_CORRECTION_AVAILABLE << YAML::Value
+        << correction.second.two_pt_correction_available;
+  }
+  out << YAML::Key << VERT_CORRECTION << YAML::Value << correction.second.vert_correction;
+  out << YAML::Key << VERT_OFFSET_CORRECTION << YAML::Value
+      << correction.second.vert_offset_correction;
   out << YAML::EndMap;
   return out;
 }
 
 YAML::Emitter &operator<<(YAML::Emitter &out, const Calibration &calibration) {
   out << YAML::BeginMap;
-  out << YAML::Key << NUM_LASERS << YAML::Value << calibration.laser_corrections.size();
   out << YAML::Key << DISTANCE_RESOLUTION << YAML::Value << calibration.distance_resolution_m;
   out << YAML::Key << LASERS << YAML::Value << YAML::BeginSeq;
   for (size_t i = 0; i < calibration.laser_corrections.size(); i++) {
     out << std::make_pair(i, calibration.laser_corrections[i]);
   }
   out << YAML::EndSeq;
+  out << YAML::Key << NUM_LASERS << YAML::Value << calibration.laser_corrections.size();
   out << YAML::EndMap;
   return out;
 }
 
 void Calibration::read(const std::string &calibration_file) {
-  std::ifstream fin(calibration_file.c_str());
+  std::ifstream fin{calibration_file};
   if (!fin.is_open()) {
-    initialized = false;
-    return;
+    throw std::runtime_error("Unable to open calibration file: " + calibration_file);
   }
-  initialized = true;
-  try {
-    YAML::Node doc;
-    fin.close();
-    doc = YAML::LoadFile(calibration_file);
-    doc >> *this;
-  } catch (YAML::Exception &e) {
-    std::cerr << "YAML Exception: " << e.what() << std::endl;
-    initialized = false;
-  }
+  YAML::Load(fin) >> *this;
   fin.close();
+  advanced_calibration = isAdvancedCalibration();
+}
+
+void Calibration::fromString(const std::string &calibration_content) {
+  YAML::Load(calibration_content) >> *this;
   advanced_calibration = isAdvancedCalibration();
 }
 
@@ -228,12 +227,18 @@ bool Calibration::isAdvancedCalibration() {
   return false;
 }
 
-void Calibration::write(const std::string &calibration_file) {
-  std::ofstream fout(calibration_file.c_str());
+void Calibration::write(const std::string &calibration_file) const {
+  std::ofstream fout{calibration_file};
   YAML::Emitter out;
   out << *this;
   fout << out.c_str();
   fout.close();
+}
+
+std::string Calibration::toString() const {
+  YAML::Emitter out;
+  out << *this;
+  return out.c_str();
 }
 
 } // namespace velodyne_decoder

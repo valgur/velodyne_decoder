@@ -52,9 +52,6 @@ PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   }
 
   calibration_.read(config_.calibration_file);
-  if (!calibration_.initialized) {
-    throw std::runtime_error("Unable to open calibration file: " + config_.calibration_file);
-  }
 
   setupSinCosCache();
   setupAzimuthCache();

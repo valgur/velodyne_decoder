@@ -34,6 +34,7 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -78,7 +79,6 @@ public:
   float distance_resolution_m = 0.002f;
   std::vector<LaserCorrection> laser_corrections;
   int num_lasers            = 0;
-  bool initialized          = false;
   bool advanced_calibration = false;
 
 public:
@@ -89,12 +89,14 @@ public:
   Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m)
       : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
     num_lasers           = (int)laser_corrections.size();
-    initialized          = true;
     advanced_calibration = isAdvancedCalibration();
   }
 
   void read(const std::string &calibration_file);
-  void write(const std::string &calibration_file);
+  void write(const std::string &calibration_file) const;
+
+  void fromString(const std::string &calibration_content);
+  std::string toString() const;
 
 private:
   bool isAdvancedCalibration();

@@ -170,6 +170,16 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
           },
           py::arg("as_pcl_structs") = false, py::return_value_policy::move);
 
+  py::class_<Calibration>(m, "Calibration")
+      .def_static("read", &Calibration::read)
+      .def("write", &Calibration::write)
+      .def_static("from_string", &Calibration::fromString)
+      .def("to_string", &Calibration::toString)
+      .def("__str__", &Calibration::toString)
+      .def_property_readonly_static("default_calibs", [](const py::object &) {
+        return CalibDB().getAllDefaultCalibrations();
+      });
+
   m.attr("PACKET_SIZE") = PACKET_SIZE;
 
 #define STRING(s) #s
