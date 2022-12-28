@@ -1,7 +1,6 @@
 #include <cmath>
 #include <map>
 #include <string>
-#include <unordered_map>
 
 #include "velodyne_decoder/calibration.h"
 
@@ -163,14 +162,10 @@ CalibDB::CalibDB() {
   for (const auto &[model, data] : raw_calib_data) {
     std::vector<LaserCorrection> laser_corrections(data.size());
     for (size_t i = 0; i < data.size(); i++) {
-      auto &corr               = laser_corrections[i];
-      corr.rot_correction      = (float)(data[i].rot_corr_deg * M_PI / 180.0);
-      corr.vert_correction     = (float)(data[i].vert_corr_deg * M_PI / 180.0);
-      corr.cos_rot_correction  = std::cos(corr.rot_correction);
-      corr.sin_rot_correction  = std::sin(corr.rot_correction);
-      corr.cos_vert_correction = std::cos(corr.vert_correction);
-      corr.sin_vert_correction = std::sin(corr.vert_correction);
-      corr.laser_idx           = i;
+      auto &corr           = laser_corrections[i];
+      corr.rot_correction  = (float)(data[i].rot_corr_deg * M_PI / 180.0);
+      corr.vert_correction = (float)(data[i].vert_corr_deg * M_PI / 180.0);
+      corr.laser_idx       = i;
     }
     calibrations_.emplace(model, Calibration{laser_corrections, resolutions[model]});
   }
@@ -190,10 +185,6 @@ CalibDB::CalibDB() {
     corr.horiz_offset_correction = data.horiz_offset_correction;
     corr.focal_distance          = data.focal_distance;
     corr.focal_slope             = data.focal_slope;
-    corr.cos_rot_correction      = std::cos(corr.rot_correction);
-    corr.sin_rot_correction      = std::sin(corr.rot_correction);
-    corr.cos_vert_correction     = std::cos(corr.vert_correction);
-    corr.sin_vert_correction     = std::sin(corr.vert_correction);
     corr.laser_idx               = i;
   }
   calibrations_.emplace("HDL-64E", Calibration{hdl_64e_laser_corrs, 0.002f});

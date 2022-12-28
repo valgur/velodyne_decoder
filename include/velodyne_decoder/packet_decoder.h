@@ -41,9 +41,6 @@
 
 #pragma once
 
-#define _USE_MATH_DEFINES
-#include <cerrno>
-#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -61,24 +58,13 @@ public:
 
   void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
-  int scansPerPacket() const;
-
   /** configuration parameters */
   Config config_;
 
   /** calibration file */
   velodyne_decoder::Calibration calibration_;
 
-protected:
-  float sin_rot_table_[ROTATION_MAX_UNITS];
-  float cos_rot_table_[ROTATION_MAX_UNITS];
-
-  // Caches the azimuth percent offset for the VLS-128 laser firings
-  float vls_128_laser_azimuth_cache[16];
-
-  // timing offset lookup table
-  std::vector<std::vector<float>> timing_offsets_;
-
+private:
   /** \brief setup per-point timing offsets
    *
    *  Runs during initialization and determines the firing time for each point in the scan
@@ -87,6 +73,8 @@ protected:
 
   void setupSinCosCache();
   void setupAzimuthCache();
+
+  void setupCalibrationCache(const Calibration &calibration);
 
   /** add private function to handle the VLP16 **/
   void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
@@ -98,13 +86,30 @@ protected:
   void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                      Time scan_start_time) const;
 
-  void unpackPointCommon(PointCloud &cloud, const LaserCorrection &corrections,
-                         bool apply_advanced_calibration, const raw_measurement_t &measurement,
+  void unpackPointCommon(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
                          uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
   bool distanceInRange(float range) const;
   bool azimuthInRange(int azimuth) const;
+
+private:
+  float sin_rot_table_[ROTATION_MAX_UNITS];
+  float cos_rot_table_[ROTATION_MAX_UNITS];
+
+  // Cache of basic calibration parameters
+  bool apply_advanced_calibration_;
+  std::vector<float> cos_rot_correction_;  ///< cosine of rot_corrections
+  std::vector<float> sin_rot_correction_;  ///< sine of rot_corrections
+  std::vector<float> cos_vert_correction_; ///< cosine of vert_corrections
+  std::vector<float> sin_vert_correction_; ///< sine of vert_corrections
+  std::vector<uint16_t> ring_cache_;       ///< cache for ring lookup
+
+  // Caches the azimuth percent offset for the VLS-128 laser firings
+  float vls_128_laser_azimuth_cache_[16];
+
+  // timing offset lookup table
+  std::vector<std::vector<float>> timing_offsets_;
 };
 
 } // namespace velodyne_decoder

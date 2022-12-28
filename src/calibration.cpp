@@ -55,12 +55,6 @@ template <> struct convert<velodyne_decoder::LaserCorrection> {
     correction.min_intensity               = std::floor(node[MIN_INTENSITY].as<float>(0));
     correction.focal_distance              = node[FOCAL_DISTANCE].as<float>(0);
     correction.focal_slope                 = node[FOCAL_SLOPE].as<float>(0);
-
-    // Calculate cached values
-    correction.cos_rot_correction  = cosf(correction.rot_correction);
-    correction.sin_rot_correction  = sinf(correction.rot_correction);
-    correction.cos_vert_correction = cosf(correction.vert_correction);
-    correction.sin_vert_correction = sinf(correction.vert_correction);
     return true;
   };
 
@@ -143,7 +137,7 @@ void Calibration::assignRingNumbers() {
   }
 }
 
-bool Calibration::isAdvancedCalibration() {
+bool Calibration::isAdvancedCalibration() const {
   // Everything besides rot_correction and vert_correction is considered "advanced",
   // since the default calibrations don't really set these (except for the oldest model, HDL-64E).
   for (const auto &corr : laser_corrections) {

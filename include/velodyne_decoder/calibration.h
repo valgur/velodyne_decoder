@@ -64,13 +64,7 @@ struct LaserCorrection {
   float focal_distance             = 0;
   float focal_slope                = 0;
 
-  /** cached values calculated when the calibration file is read */
-  float cos_rot_correction  = 1; ///< cosine of rot_correction
-  float sin_rot_correction  = 0; ///< sine of rot_correction
-  float cos_vert_correction = 1; ///< cosine of vert_correction
-  float sin_vert_correction = 0; ///< sine of vert_correction
-
-  uint16_t laser_idx = -1; ///< index of the laser in the measurements block of a packet
+  uint16_t laser_idx  = -1; ///< index of the laser in the measurements block of a packet
   uint16_t laser_ring = -1; ///< ring number for this laser
 };
 
@@ -79,8 +73,7 @@ class Calibration {
 public:
   float distance_resolution_m = 0.002f;
   std::vector<LaserCorrection> laser_corrections;
-  int num_lasers            = 0;
-  bool advanced_calibration = false;
+  int num_lasers = 0;
 
 public:
   Calibration() = default;
@@ -89,10 +82,11 @@ public:
 
   Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m)
       : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
-    num_lasers           = (int)laser_corrections.size();
-    advanced_calibration = isAdvancedCalibration();
+    num_lasers = (int)laser_corrections.size();
     assignRingNumbers();
   }
+
+  bool isAdvancedCalibration() const;
 
   static Calibration read(const std::string &calibration_file);
   void write(const std::string &calibration_file) const;
@@ -101,7 +95,6 @@ public:
   std::string toString() const;
 
 private:
-  bool isAdvancedCalibration();
   void assignRingNumbers();
 };
 

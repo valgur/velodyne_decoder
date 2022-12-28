@@ -32,8 +32,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <fstream>
-#include <limits>
 #include <stdexcept>
 
 namespace velodyne_decoder {
@@ -43,19 +41,16 @@ PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
   if (config_.model.empty()) {
     throw std::invalid_argument("No Velodyne sensor model specified!");
   }
-
-  timing_offsets_ = buildTimings(config_.model);
-
   if (!config_.calibration) {
     throw std::invalid_argument("No calibration provided!");
   }
   calibration_ = *config_.calibration;
 
+  setupCalibrationCache(calibration_);
+  timing_offsets_ = buildTimings(config_.model);
   setupSinCosCache();
   setupAzimuthCache();
 }
-
-int PacketDecoder::scansPerPacket() const { return BLOCKS_PER_PACKET * SCANS_PER_BLOCK; }
 
 bool PacketDecoder::distanceInRange(float range) const {
   return range >= config_.min_range && range <= config_.max_range;
@@ -173,9 +168,25 @@ void PacketDecoder::setupSinCosCache() {
 void PacketDecoder::setupAzimuthCache() {
   if (config_.model == "Alpha Prime") {
     for (uint8_t i = 0; i < 16; i++) {
-      vls_128_laser_azimuth_cache[i] =
+      vls_128_laser_azimuth_cache_[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
     }
+  }
+}
+
+void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
+  apply_advanced_calibration_ = calibration.isAdvancedCalibration();
+  cos_rot_correction_.resize(calibration.num_lasers);
+  sin_rot_correction_.resize(calibration.num_lasers);
+  cos_vert_correction_.resize(calibration.num_lasers);
+  sin_vert_correction_.resize(calibration.num_lasers);
+  ring_cache_.resize(calibration.num_lasers);
+  for (int i = 0; i < calibration.num_lasers; i++) {
+    cos_rot_correction_[i]  = cosf(calibration.laser_corrections[i].rot_correction);
+    sin_rot_correction_[i]  = sinf(calibration.laser_corrections[i].rot_correction);
+    cos_vert_correction_[i] = cosf(calibration.laser_corrections[i].vert_correction);
+    sin_vert_correction_[i] = sinf(calibration.laser_corrections[i].vert_correction);
+    ring_cache_[i]          = calibration.laser_corrections[i].laser_ring;
   }
 }
 
@@ -253,10 +264,8 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
         if (!timing_offsets_.empty())
           time = timing_offsets_[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
 
-        const auto &corrections = calibration_.laser_corrections[dsr];
         const auto &measurement = block.data[j];
-        unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement,
-                          azimuth_corrected, time);
+        unpackPointCommon(cloud, dsr, measurement, azimuth_corrected, time);
       }
     }
   }
@@ -291,26 +300,23 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
         time = timing_offsets_[i][j] + time_diff_start_to_this_packet;
       }
 
-      const auto &corrections = calibration_.laser_corrections[laser_number];
       const auto &measurement = block.data[j];
-      unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement, azimuth,
-                        time);
+      unpackPointCommon(cloud, laser_number, measurement, azimuth, time);
     }
   }
 }
 
 /** @brief Applies calibration, converts to a Cartesian 3D point and appends to the cloud.
  */
-void PacketDecoder::unpackPointCommon(PointCloud &cloud, const LaserCorrection &corrections,
-                                      bool apply_advanced_calibration,
+void PacketDecoder::unpackPointCommon(PointCloud &cloud, int laser_idx,
                                       const raw_measurement_t &measurement, uint16_t azimuth,
                                       float time) const {
   float distance = measurement.distance * calibration_.distance_resolution_m;
 
-  float cos_vert_angle     = corrections.cos_vert_correction;
-  float sin_vert_angle     = corrections.sin_vert_correction;
-  float cos_rot_correction = corrections.cos_rot_correction;
-  float sin_rot_correction = corrections.sin_rot_correction;
+  float cos_vert_angle     = cos_vert_correction_[laser_idx];
+  float sin_vert_angle     = sin_vert_correction_[laser_idx];
+  float cos_rot_correction = cos_rot_correction_[laser_idx];
+  float sin_rot_correction = sin_rot_correction_[laser_idx];
 
   // cos(a-b) = cos(a)*cos(b) + sin(a)*sin(b)
   // sin(a-b) = sin(a)*cos(b) - cos(a)*sin(b)
@@ -319,7 +325,7 @@ void PacketDecoder::unpackPointCommon(PointCloud &cloud, const LaserCorrection &
   float sin_rot_angle = sin_rot_table_[azimuth] * cos_rot_correction - //
                         cos_rot_table_[azimuth] * sin_rot_correction;
 
-  if (!apply_advanced_calibration) {
+  if (!apply_advanced_calibration_) {
     if (!distanceInRange(distance))
       return;
 
@@ -329,9 +335,10 @@ void PacketDecoder::unpackPointCommon(PointCloud &cloud, const LaserCorrection &
     float y = -xy_distance * sin_rot_angle;
     float z = distance * sin_vert_angle;
 
-    cloud.emplace_back(x, y, z, (float)measurement.intensity, corrections.laser_ring, time);
+    cloud.emplace_back(x, y, z, (float)measurement.intensity, ring_cache_[laser_idx], time);
 
   } else {
+    const auto &corrections = calibration_.laser_corrections[laser_idx];
     distance += corrections.dist_correction;
 
     if (!distanceInRange(distance))
@@ -469,13 +476,11 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
 
       // correct for the laser rotation as a function of timing during the firings
       float azimuth_corrected_f =
-          azimuth + azimuth_diff * vls_128_laser_azimuth_cache[firing_order];
+          azimuth + azimuth_diff * vls_128_laser_azimuth_cache_[firing_order];
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = current_block.data[j];
-      const auto &corrections = calibration_.laser_corrections[laser_number];
-      unpackPointCommon(cloud, corrections, calibration_.advanced_calibration, measurement,
-                        azimuth_corrected, time);
+      unpackPointCommon(cloud, laser_number, measurement, azimuth_corrected, time);
     }
   }
 }
