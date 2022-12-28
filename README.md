@@ -94,8 +94,8 @@ To return arrays of structs instead of the default contiguous arrays, set `as_pc
 The main parameter `config.model` must always be set. For a list of supported model IDs see
 
 ```python
->> > velodyne_decoder.Config.SUPPORTED_MODELS
-['HDL-32E', 'HDL-64E', 'HDL-64E_S2', 'HDL-64E_S3', 'VLP-16', 'VLP-32C', 'Alpha Prime']
+>>> list(velodyne_decoder.Model.__entries)
+['HDL32E', 'HDL64E', 'VLP32A', 'VLP32B', 'VLP32C', 'VLP16', 'PuckLite', 'PuckHiRes', 'VLS128', 'AlphaPrime']
 ```
 
 Note that timing info is available for only a subset of the models:

@@ -38,6 +38,8 @@
 #include <utility>
 #include <vector>
 
+#include "velodyne_decoder/types.h"
+
 namespace velodyne_decoder {
 
 /** \brief correction values for a single laser
@@ -102,15 +104,15 @@ class CalibDB {
 public:
   CalibDB();
 
-  Calibration getDefaultCalibration(const std::string &model_id) const;
-  std::vector<std::string> getAvailableModels() const;
+  Calibration getDefaultCalibration(ModelId model_id) const;
+  std::vector<ModelId> getAvailableModels() const;
 
-  const std::unordered_map<std::string, Calibration> &getAllDefaultCalibrations() const {
+  const std::unordered_map<ModelId, Calibration> &getAllDefaultCalibrations() const {
     return calibrations_;
   };
 
 private:
-  std::unordered_map<std::string, Calibration> calibrations_;
+  std::unordered_map<ModelId, Calibration> calibrations_;
 };
 
 } // namespace velodyne_decoder

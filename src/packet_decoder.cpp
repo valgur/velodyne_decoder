@@ -38,15 +38,12 @@ namespace velodyne_decoder {
 template <typename T> constexpr T SQR(T val) { return val * val; }
 
 PacketDecoder::PacketDecoder(const Config &config) {
-  if (config.model.empty()) {
-    throw std::invalid_argument("No Velodyne sensor model specified!");
+  if (config.calibration.has_value()) {
+    initCalibration(*config.calibration);
   }
-  model_id_ = config.model;
-  if (!config.calibration) {
-    throw std::invalid_argument("No calibration provided!");
+  if (config.model.has_value()) {
+    initModel(*config.model);
   }
-  calibration_ = *config.calibration;
-
   min_range_   = config.min_range;
   max_range_   = config.max_range;
   min_azimuth_ = std::lround(std::fmod(std::fmod(config.min_angle, 360) + 360, 360) * 100);
@@ -55,11 +52,50 @@ PacketDecoder::PacketDecoder(const Config &config) {
     min_azimuth_ = 0;
     max_azimuth_ = 36000;
   }
-
-  setupCalibrationCache(calibration_);
-  timing_offsets_ = buildTimings(model_id_);
   setupSinCosCache();
-  setupAzimuthCache();
+}
+
+void PacketDecoder::initModel(PacketModelId packet_model_id) {
+  switch (packet_model_id) {
+  case PacketModelId::HDL32E:
+    return initModel(ModelId::HDL32E);
+  case PacketModelId::VLP16:
+    return initModel(ModelId::VLP16);
+  case PacketModelId::VLP32AB:
+    throw std::runtime_error("The model ID is ambiguous: either VLP-32A or VLP-32B based on the "
+                             "data. Please specify the model explicitly.");
+  case PacketModelId::VLP16HiRes:
+    return initModel(ModelId::PuckHiRes);
+  case PacketModelId::VLP32C:
+    return initModel(ModelId::VLP32C);
+  case PacketModelId::Velarray:
+    throw std::runtime_error("The data contains packets from Velodyne Velarray, "
+                             "which is not supported.");
+  case PacketModelId::VLS128:
+    return initModel(ModelId::VLS128);
+  }
+  throw std::runtime_error("Data from an unsupported Velodyne model. Model ID in packet: " +
+                           std::to_string((int)packet_model_id));
+}
+
+void PacketDecoder::initModel(ModelId model_id) {
+  if (std::find(Config::SUPPORTED_MODELS.begin(), Config::SUPPORTED_MODELS.end(), model_id) ==
+      Config::SUPPORTED_MODELS.end()) {
+    throw std::runtime_error("Unsupported Velodyne model ID: " + std::to_string((int)model_id));
+  }
+  model_id_       = model_id;
+  timing_offsets_ = buildTimings(model_id);
+  setupAzimuthCache(model_id);
+  if (!calib_initialized_) {
+    Calibration calib = CalibDB().getDefaultCalibration(model_id);
+    initCalibration(calib);
+  }
+}
+
+void PacketDecoder::initCalibration(const Calibration &calibration) {
+  calibration_       = calibration;
+  calib_initialized_ = true;
+  setupCalibrationCache(calibration_);
 }
 
 bool PacketDecoder::distanceInRange(float range) const {
@@ -77,9 +113,9 @@ bool PacketDecoder::azimuthInRange(int azimuth) const {
 /**
  * Build a timing table for each block/firing.
  */
-std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &model) {
+std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
   std::vector<std::vector<float>> timing_offsets;
-  if (model == "VLP-16") {
+  if (model == ModelId::VLP16) {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -99,7 +135,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "VLP-32C") {
+  } else if (model == ModelId::VLP32C) {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -118,7 +154,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "HDL-32E") {
+  } else if (model == ModelId::HDL32E) {
     // timing table calculation, from velodyne user manual
     timing_offsets.resize(12);
     for (auto &timing_offset : timing_offsets) {
@@ -137,7 +173,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
             (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
       }
     }
-  } else if (model == "Alpha Prime") {
+  } else if (model == ModelId::AlphaPrime) {
     timing_offsets.resize(3);
     for (auto &timing_offset : timing_offsets) {
       timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
@@ -155,9 +191,6 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(const std::string &m
                                (single_firing * firingGroupIndex) - offset_paket_time;
       }
     }
-  } else if (std::find(Config::SUPPORTED_MODELS.begin(), Config::SUPPORTED_MODELS.end(), model) ==
-             Config::SUPPORTED_MODELS.end()) {
-    throw std::runtime_error("Unsupported Velodyne model: " + model);
   } else {
     // TODO: add require_timings
     // throw std::runtime_error("Timings not available for Velodyne model " + model);
@@ -175,8 +208,8 @@ void PacketDecoder::setupSinCosCache() {
   }
 }
 
-void PacketDecoder::setupAzimuthCache() {
-  if (model_id_ == "Alpha Prime") {
+void PacketDecoder::setupAzimuthCache(ModelId model_id) {
+  if (model_id == ModelId::AlphaPrime) {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache_[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
@@ -205,17 +238,25 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
 
-  if (model_id_ == "Alpha Prime") {
-    unpack_vls128(raw_packet, pkt.stamp, cloud, scan_start_time);
-    return;
+  if (!model_id_.has_value()) {
+    initModel(raw_packet.model_id);
   }
 
-  if (calibration_.num_lasers == 16) {
-    unpack_vlp16(raw_packet, pkt.stamp, cloud, scan_start_time);
-    return;
+  switch (*model_id_) {
+  case ModelId::VLP32C:
+  case ModelId::VLP32A:
+  case ModelId::VLP32B:
+  case ModelId::HDL32E:
+  case ModelId::HDL64E:
+    return unpack_vlp32_vlp64(raw_packet, pkt.stamp, cloud, scan_start_time);
+  case ModelId::VLP16:
+  case ModelId::PuckHiRes:
+    return unpack_vlp16(raw_packet, pkt.stamp, cloud, scan_start_time);
+  case ModelId::AlphaPrime:
+    return unpack_vls128(raw_packet, pkt.stamp, cloud, scan_start_time);
+  default:
+    throw std::runtime_error("Unsupported Velodyne model ID: " + std::to_string((int)*model_id_));
   }
-
-  unpack_vlp32_vlp64(raw_packet, pkt.stamp, cloud, scan_start_time);
 }
 
 /** @brief convert raw VLP16 packet to point cloud

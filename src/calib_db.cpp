@@ -25,13 +25,13 @@ struct CompactCalibData {
 } // namespace
 
 CalibDB::CalibDB() {
-  std::map<std::string, float> resolutions = {
-      {"Alpha Prime", 0.004}, {"HDL-32E", 0.002}, {"Puck Hi-Res", 0.002},
-      {"VLP-16", 0.002},      {"VLP-32A", 0.004}, {"VLP-32C", 0.004},
+  std::map<ModelId, float> resolutions = {
+      {ModelId::AlphaPrime, 0.004}, {ModelId::HDL32E, 0.002}, {ModelId::PuckHiRes, 0.002},
+      {ModelId::VLP16, 0.002},      {ModelId::VLP32A, 0.004}, {ModelId::VLP32C, 0.004},
   };
 
-  std::map<std::string, std::vector<MinimalCalibData>> raw_calib_data;
-  raw_calib_data["Alpha Prime"] = {
+  std::map<ModelId, std::vector<MinimalCalibData>> raw_calib_data;
+  raw_calib_data[ModelId::AlphaPrime] = {
       {-6.354, -11.742}, {-4.548, -1.99}, {-2.732, 3.4},     {-0.911, -5.29},  {0.911, -0.78},
       {2.732, 4.61},     {4.548, -4.08},  {6.354, 1.31},     {-6.354, -6.5},   {-4.548, -1.11},
       {-2.732, 4.28},    {-0.911, -4.41}, {0.911, 0.1},      {2.732, 6.48},    {4.548, -3.2},
@@ -59,23 +59,23 @@ CalibDB::CalibDB() {
       {-6.354, 8.43},    {-4.548, -2.87}, {-2.732, 2.52},    {-0.911, -6.17},  {0.911, -1.66},
       {2.732, 3.73},     {4.548, -4.96},  {6.354, 0.43},
   };
-  raw_calib_data["HDL-32E"] = {
+  raw_calib_data[ModelId::HDL32E] = {
       {0, -30.67}, {0, -9.33},  {0, -29.33}, {0, -8},     {0, -28},    {0, -6.67},  {0, -26.67},
       {0, -5.33},  {0, -25.33}, {0, -4},     {0, -24},    {0, -2.67},  {0, -22.67}, {0, -1.33},
       {0, -21.33}, {0, 0},      {0, -20},    {0, 1.33},   {0, -18.67}, {0, 2.67},   {0, -17.33},
       {0, 4},      {0, -16},    {0, 5.33},   {0, -14.67}, {0, 6.67},   {0, -13.33}, {0, 8},
       {0, -12},    {0, 9.33},   {0, -10.67}, {0, 10.67},
   };
-  raw_calib_data["Puck Hi-Res"] = {
+  raw_calib_data[ModelId::PuckHiRes] = {
       {0, -10}, {0, 0.667}, {0, -8.667}, {0, 2},  {0, -7.333}, {0, 3.333},
       {0, -6},  {0, 4.667}, {0, -4.667}, {0, 6},  {0, -3.333}, {0, 7.333},
       {0, -2},  {0, 8.667}, {0, -0.667}, {0, 10},
   };
-  raw_calib_data["VLP-16"] = {
+  raw_calib_data[ModelId::VLP16] = {
       {0, -15}, {0, 1}, {0, -13}, {0, 3},  {0, -11}, {0, 5},  {0, -9}, {0, 7},
       {0, -7},  {0, 9}, {0, -5},  {0, 11}, {0, -3},  {0, 13}, {0, -1}, {0, 15},
   };
-  raw_calib_data["VLP-32A"] = {
+  raw_calib_data[ModelId::VLP32A] = {
       {-1.2, -14.3},  {1.2, 0.8337}, {-1.2, 12.5}, {1.2, -0.5},  {-1.2, -10.7},  {1.2, 2.167},
       {-1.2, 8.9},    {1.2, -1.834}, {-1.2, -7},   {3.6, 1.167}, {-1.2, 6},      {3.6, -0.167},
       {-1.2, -4.9},   {3.6, 2.5},    {-1.2, 3.8},  {3.6, -1.5},  {-1.2, -2.167}, {1.2, 10.7},
@@ -83,7 +83,7 @@ CalibDB::CalibDB() {
       {-1.2, -0.834}, {1.2, 14.3},   {-1.2, 0.5},  {1.2, -12.5}, {-3.6, -1.167}, {1.2, 7},
       {-3.6, 0.167},  {1.2, -6},
   };
-  raw_calib_data["VLP-32C"] = {
+  raw_calib_data[ModelId::VLP32C] = {
       {-1.4, -25},    {4.2, -1},     {-1.4, -1.667}, {1.4, -15.639}, {-1.4, -11.31}, {1.4, 0},
       {-4.2, -0.667}, {1.4, -8.843}, {-1.4, -7.254}, {4.2, 0.333},   {-1.4, -0.333}, {1.4, -6.148},
       {-4.2, -5.333}, {1.4, 1.333},  {-4.2, 0.667},  {1.4, -4},      {-1.4, -4.667}, {4.2, 1.667},
@@ -170,7 +170,7 @@ CalibDB::CalibDB() {
     calibrations_.emplace(model, Calibration{laser_corrections, resolutions[model]});
   }
   // VLP-32B is identical to VLP-32C
-  calibrations_.emplace("VLP-32B", calibrations_["VLP-32C"]);
+  calibrations_.emplace(ModelId::VLP32B, calibrations_[ModelId::VLP32C]);
 
   std::vector<LaserCorrection> hdl_64e_laser_corrs(64);
   for (size_t i = 0; i < hdl_64e_data.size(); i++) {
@@ -187,19 +187,19 @@ CalibDB::CalibDB() {
     corr.focal_slope             = data.focal_slope;
     corr.laser_idx               = i;
   }
-  calibrations_.emplace("HDL-64E", Calibration{hdl_64e_laser_corrs, 0.002f});
+  calibrations_.emplace(ModelId::HDL64E, Calibration{hdl_64e_laser_corrs, 0.002f});
 }
 
-Calibration CalibDB::getDefaultCalibration(const std::string &model_id) const {
+Calibration CalibDB::getDefaultCalibration(ModelId model_id) const {
   auto it = calibrations_.find(model_id);
   if (it == calibrations_.end()) {
-    throw std::runtime_error("No calibration found for model " + model_id);
+    throw std::runtime_error("No calibration found for model " + std::to_string((int)model_id));
   }
   return it->second;
 }
 
-std::vector<std::string> CalibDB::getAvailableModels() const {
-  std::vector<std::string> models;
+std::vector<ModelId> CalibDB::getAvailableModels() const {
+  std::vector<ModelId> models;
   for (const auto &[model, calib] : calibrations_) {
     models.push_back(model);
   }

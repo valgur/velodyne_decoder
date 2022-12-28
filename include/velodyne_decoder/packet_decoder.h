@@ -59,16 +59,19 @@ public:
   void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
 private:
+  void initModel(ModelId model_id);
+  void initModel(PacketModelId packet_model_id);
+  void initCalibration(const Calibration &calibration);
+
+  void setupSinCosCache();
+  void setupAzimuthCache(ModelId model_id);
+  void setupCalibrationCache(const Calibration &calibration);
+
   /** \brief setup per-point timing offsets
    *
    *  Runs during initialization and determines the firing time for each point in the scan
    */
-  static std::vector<std::vector<float>> buildTimings(const std::string &model);
-
-  void setupSinCosCache();
-  void setupAzimuthCache();
-
-  void setupCalibrationCache(const Calibration &calibration);
+  static std::vector<std::vector<float>> buildTimings(ModelId model);
 
   /** add private function to handle the VLP16 **/
   void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
@@ -89,8 +92,9 @@ private:
 
 private:
   velodyne_decoder::Calibration calibration_;
+  bool calib_initialized_ = false;
 
-  std::string model_id_;
+  std::optional<ModelId> model_id_;
   float min_range_;
   float max_range_;
   uint16_t min_azimuth_;

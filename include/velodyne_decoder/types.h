@@ -46,7 +46,20 @@ constexpr float VLS128_SEQ_TDURATION =
 constexpr float VLS128_TOH_ADJUSTMENT =
     8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
 
-enum DualReturnMode {
+enum class ModelId : uint8_t {
+  HDL32E     = 1,
+  HDL64E     = 2,
+  VLP32A     = 3,
+  VLP32B     = 4,
+  VLP32C     = 5,
+  VLP16      = 6,
+  PuckLite   = 6, // = VLP-16
+  PuckHiRes  = 7, // aka VLP-16 Hi-Res
+  VLS128     = 8,
+  AlphaPrime = 8, // = VLS-128
+};
+
+enum class DualReturnMode : uint8_t {
   STRONGEST_RETURN            = 0x37,
   LAST_RETURN                 = 0x38,
   DUAL_RETURN                 = 0x39,
@@ -54,7 +67,7 @@ enum DualReturnMode {
   DUAL_RETURN_WITH_CONFIDENCE = 0x3B,
 };
 
-enum PacketModelId {
+enum class PacketModelId : uint8_t {
   HDL32E     = 0x21, // decimal: 33
   VLP16      = 0x22, // decimal: 34
   VLP32AB    = 0x23, // decimal: 35
@@ -84,8 +97,8 @@ struct raw_block_t {
 struct raw_packet_t {
   raw_block_t blocks[BLOCKS_PER_PACKET];
   uint32_t stamp;
-  uint8_t return_mode;
-  uint8_t model_id;
+  DualReturnMode return_mode;
+  PacketModelId model_id;
   // In HDL-64E, the last bytes have a different meaning, but we are ignoring these.
   // uint16_t revolution;
   // uint8_t status[4];

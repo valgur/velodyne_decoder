@@ -51,17 +51,26 @@ PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   m.doc() = "";
 
+  py::enum_<ModelId>(m, "Model")
+      .value("HDL32E", ModelId::HDL32E, "HDL-32E")
+      .value("HDL64E", ModelId::HDL64E, "HDL-64E")
+      .value("VLP32A", ModelId::VLP32A, "VLP-32A")
+      .value("VLP32B", ModelId::VLP32B, "VLP-32B")
+      .value("VLP32C", ModelId::VLP32C, "VLP-32C")
+      .value("VLP16", ModelId::VLP16, "VLP-16")
+      .value("PuckLite", ModelId::PuckLite, "Puck Lite (aka VLP-16)")
+      .value("PuckHiRes", ModelId::PuckHiRes, "Puck Hi-Res (aka VLP-16 Hi-Res)")
+      .value("VLS128", ModelId::VLS128, "VLS-128 (aka Alpha Prime)")
+      .value("AlphaPrime", ModelId::AlphaPrime, "Alpha Prime (aka VLS-128)");
+
   py::class_<Config>(m, "Config")
       .def(py::init<>())
-      .def(py::init([](const std::string &model, const std::string &calibration_file,
+      .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
                        float min_range, float max_range, float min_angle, float max_angle,
                        bool timestamp_first_packet, bool gps_time) {
-             auto cfg         = std::make_unique<Config>();
-             cfg->calibration = calibration_file.empty()
-                                    ? CalibDB().getDefaultCalibration(cfg->model)
-                                    : Calibration::read(calibration_file);
-
-             cfg->model                  = Config::standardizeModelId(model);
+             auto cfg                    = std::make_unique<Config>();
+             cfg->model                  = model;
+             cfg->calibration            = calibration;
              cfg->min_range              = min_range;
              cfg->max_range              = max_range;
              cfg->min_angle              = min_angle;
@@ -70,24 +79,17 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
              cfg->gps_time               = gps_time;
              return cfg;
            }),
-           py::arg("model"),                          //
-           py::kw_only(),                             //
-           py::arg("calibration_file")       = "",    //
-           py::arg("min_range")              = 0.1,   //
-           py::arg("max_range")              = 200,   //
-           py::arg("min_angle")              = 0,     //
-           py::arg("max_angle")              = 360,   //
-           py::arg("timestamp_first_packet") = false, //
-           py::arg("gps_time")               = false  //
+           py::kw_only(),                                  //
+           py::arg("model")                  = py::none(), //
+           py::arg("calibration")            = py::none(), //
+           py::arg("min_range")              = 0.1,        //
+           py::arg("max_range")              = 200,        //
+           py::arg("min_angle")              = 0,          //
+           py::arg("max_angle")              = 360,        //
+           py::arg("timestamp_first_packet") = false,      //
+           py::arg("gps_time")               = false       //
            )
-      .def_property(
-          "model", [](const Config &c) { return c.model; },
-          [](Config &c, const std::string &model) {
-            c.model = Config::standardizeModelId(model);
-            if (!c.calibration) {
-              c.calibration = CalibDB().getDefaultCalibration(c.model);
-            }
-          })
+      .def_readwrite("model", &Config::model)
       .def_readwrite("calibration", &Config::calibration)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
@@ -95,7 +97,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("max_angle", &Config::max_angle)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
       .def_readwrite("gps_time", &Config::gps_time)
-      .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
       .def_readonly_static("TIMINGS_AVAILABLE", &Config::TIMINGS_AVAILABLE);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
