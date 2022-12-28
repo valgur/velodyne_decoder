@@ -11,22 +11,17 @@
 #include "velodyne_decoder/calibration.h"
 
 #define _USE_MATH_DEFINES
+#include <algorithm>
 #include <cmath>
 #include <fstream>
-#include <iostream>
-#include <limits>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
 namespace YAML {
-// The >> operator disappeared in yaml-cpp 0.5, so this function is
-// added to provide support for code written under the yaml-cpp 0.3 API.
-template <typename T> void operator>>(const YAML::Node &node, T &i) { i = node.as<T>(); }
-} // namespace YAML
 
-namespace velodyne_decoder {
-
+namespace {
 constexpr auto NUM_LASERS                  = "num_lasers";
 constexpr auto DISTANCE_RESOLUTION         = "distance_resolution";
 constexpr auto LASERS                      = "lasers";
@@ -43,160 +38,109 @@ constexpr auto MAX_INTENSITY               = "max_intensity";
 constexpr auto MIN_INTENSITY               = "min_intensity";
 constexpr auto FOCAL_DISTANCE              = "focal_distance";
 constexpr auto FOCAL_SLOPE                 = "focal_slope";
+} // namespace
 
-/** Read calibration for a single laser. */
-void operator>>(const YAML::Node &node, std::pair<int, LaserCorrection> &correction) {
-  node[LASER_ID] >> correction.first;
-  node[ROT_CORRECTION] >> correction.second.rot_correction;
-  node[VERT_CORRECTION] >> correction.second.vert_correction;
-  node[DIST_CORRECTION] >> correction.second.dist_correction;
-  if (node[TWO_PT_CORRECTION_AVAILABLE])
-    node[TWO_PT_CORRECTION_AVAILABLE] >> correction.second.two_pt_correction_available;
-  else
-    correction.second.two_pt_correction_available = false;
-  node[DIST_CORRECTION_X] >> correction.second.dist_correction_x;
-  node[DIST_CORRECTION_Y] >> correction.second.dist_correction_y;
-  node[VERT_OFFSET_CORRECTION] >> correction.second.vert_offset_correction;
-  if (node[HORIZ_OFFSET_CORRECTION])
-    node[HORIZ_OFFSET_CORRECTION] >> correction.second.horiz_offset_correction;
-  else
-    correction.second.horiz_offset_correction = 0;
+template <> struct convert<velodyne_decoder::LaserCorrection> {
+  static bool decode(const YAML::Node &node, velodyne_decoder::LaserCorrection &correction) {
+    correction.laser_idx                   = node[LASER_ID].as<int>();
+    correction.rot_correction              = node[ROT_CORRECTION].as<float>();
+    correction.vert_correction             = node[VERT_CORRECTION].as<float>();
+    correction.dist_correction             = node[DIST_CORRECTION].as<float>(0);
+    correction.two_pt_correction_available = node[TWO_PT_CORRECTION_AVAILABLE].as<bool>(false);
+    correction.dist_correction_x           = node[DIST_CORRECTION_X].as<float>(0);
+    correction.dist_correction_y           = node[DIST_CORRECTION_Y].as<float>(0);
+    correction.vert_offset_correction      = node[VERT_OFFSET_CORRECTION].as<float>(0);
+    correction.horiz_offset_correction     = node[HORIZ_OFFSET_CORRECTION].as<float>(0);
+    correction.max_intensity               = std::floor(node[MAX_INTENSITY].as<float>(255));
+    correction.min_intensity               = std::floor(node[MIN_INTENSITY].as<float>(0));
+    correction.focal_distance              = node[FOCAL_DISTANCE].as<float>(0);
+    correction.focal_slope                 = node[FOCAL_SLOPE].as<float>(0);
 
-  std::optional<YAML::Node> max_intensity_node;
-  if (node[MAX_INTENSITY]) {
-    *max_intensity_node = node[MAX_INTENSITY];
-  }
-  if (max_intensity_node) {
-    float max_intensity_float;
-    *max_intensity_node >> max_intensity_float;
-    correction.second.max_intensity = std::floor(max_intensity_float);
-  } else {
-    correction.second.max_intensity = 255;
-  }
+    // Calculate cached values
+    correction.cos_rot_correction  = cosf(correction.rot_correction);
+    correction.sin_rot_correction  = sinf(correction.rot_correction);
+    correction.cos_vert_correction = cosf(correction.vert_correction);
+    correction.sin_vert_correction = sinf(correction.vert_correction);
+    return true;
+  };
 
-  std::optional<YAML::Node> min_intensity_node;
-  if (node[MIN_INTENSITY]) {
-    *min_intensity_node = node[MIN_INTENSITY];
-  }
-  if (min_intensity_node) {
-    float min_intensity_float;
-    *min_intensity_node >> min_intensity_float;
-    correction.second.min_intensity = std::floor(min_intensity_float);
-  } else {
-    correction.second.min_intensity = 0;
-  }
-  node[FOCAL_DISTANCE] >> correction.second.focal_distance;
-  node[FOCAL_SLOPE] >> correction.second.focal_slope;
-
-  // Calculate cached values
-  correction.second.cos_rot_correction  = cosf(correction.second.rot_correction);
-  correction.second.sin_rot_correction  = sinf(correction.second.rot_correction);
-  correction.second.cos_vert_correction = cosf(correction.second.vert_correction);
-  correction.second.sin_vert_correction = sinf(correction.second.vert_correction);
-
-  correction.second.laser_ring = 0; // clear initially (set later)
-}
-
-/** Read entire calibration file. */
-void operator>>(const YAML::Node &node, Calibration &calibration) {
-  int num_lasers;
-  node[NUM_LASERS] >> num_lasers;
-  float distance_resolution_m;
-  node[DISTANCE_RESOLUTION] >> distance_resolution_m;
-  const YAML::Node &lasers = node[LASERS];
-  calibration.laser_corrections.clear();
-  calibration.num_lasers            = num_lasers;
-  calibration.distance_resolution_m = distance_resolution_m;
-  calibration.laser_corrections.resize(num_lasers);
-  for (int i = 0; i < num_lasers; i++) {
-    std::pair<int, LaserCorrection> correction;
-    lasers[i] >> correction;
-    const int index = correction.first;
-    if (index >= (int)calibration.laser_corrections.size()) {
-      calibration.laser_corrections.resize(index + 1);
+  static YAML::Node encode(const velodyne_decoder::LaserCorrection &correction) {
+    YAML::Node node;
+    if (correction.dist_correction != 0) {
+      node[DIST_CORRECTION] = correction.dist_correction;
     }
-    calibration.laser_corrections[index] = (correction.second);
+    if (correction.dist_correction_x != 0) {
+      node[DIST_CORRECTION_X] = correction.dist_correction_x;
+    }
+    if (correction.dist_correction_y != 0) {
+      node[DIST_CORRECTION_Y] = correction.dist_correction_y;
+    }
+    if (correction.focal_distance != 0) {
+      node[FOCAL_DISTANCE] = correction.focal_distance;
+    }
+    if (correction.focal_slope != 0) {
+      node[FOCAL_SLOPE] = correction.focal_slope;
+    }
+    if (correction.horiz_offset_correction != 0) {
+      node[HORIZ_OFFSET_CORRECTION] = correction.horiz_offset_correction;
+    }
+    node[LASER_ID] = correction.laser_idx;
+    if (correction.min_intensity != 0 || correction.max_intensity != 255) {
+      node[MAX_INTENSITY] = correction.max_intensity;
+      node[MIN_INTENSITY] = correction.min_intensity;
+    }
+    node[ROT_CORRECTION] = correction.rot_correction;
+    if (correction.two_pt_correction_available) {
+      node[TWO_PT_CORRECTION_AVAILABLE] = correction.two_pt_correction_available;
+    }
+    node[VERT_CORRECTION] = correction.vert_correction;
+    if (correction.vert_offset_correction != 0) {
+      node[VERT_OFFSET_CORRECTION] = correction.vert_offset_correction;
+    }
+    return node;
   }
+};
 
-  // For each laser ring, find the next-smallest vertical angle.
-  //
-  // This implementation is simple, but not efficient.  That is OK,
-  // since it only runs while starting up.
-  double next_angle = -std::numeric_limits<double>::infinity();
-  for (int ring = 0; ring < num_lasers; ++ring) {
-
-    // find minimum remaining vertical offset correction
-    double min_seen = std::numeric_limits<double>::infinity();
-    int next_index  = num_lasers;
-    for (int j = 0; j < num_lasers; ++j) {
-
-      double angle = calibration.laser_corrections[j].vert_correction;
-      if (next_angle < angle && angle < min_seen) {
-        min_seen   = angle;
-        next_index = j;
+template <> struct convert<velodyne_decoder::Calibration> {
+  static bool decode(const YAML::Node &node, velodyne_decoder::Calibration &calibration) {
+    int num_lasers = node[NUM_LASERS].as<int>();
+    std::vector<velodyne_decoder::LaserCorrection> corrections(num_lasers);
+    for (const auto &laser : node[LASERS]) {
+      auto correction = laser.as<velodyne_decoder::LaserCorrection>();
+      if (corrections.size() <= correction.laser_idx) {
+        corrections.resize(correction.laser_idx + 1);
       }
+      corrections[correction.laser_idx] = correction;
     }
+    calibration = {corrections, node[DISTANCE_RESOLUTION].as<float>()};
+    return true;
+  }
 
-    if (next_index < num_lasers) { // anything found in this ring?
-      // store this ring number with its corresponding laser number
-      calibration.laser_corrections[next_index].laser_ring = ring;
-      next_angle                                           = min_seen;
+  static YAML::Node encode(const velodyne_decoder::Calibration &calibration) {
+    YAML::Node node;
+    node[DISTANCE_RESOLUTION] = calibration.distance_resolution_m;
+    for (const auto &correction : calibration.laser_corrections) {
+      node[LASERS][correction.laser_idx] = correction;
     }
+    node[NUM_LASERS] = calibration.laser_corrections.size();
+    return node;
   }
-}
+};
 
-YAML::Emitter &operator<<(YAML::Emitter &out, const std::pair<int, LaserCorrection> correction) {
-  out << YAML::BeginMap;
-  out << YAML::Key << DIST_CORRECTION << YAML::Value << correction.second.dist_correction;
-  out << YAML::Key << DIST_CORRECTION_X << YAML::Value << correction.second.dist_correction_x;
-  out << YAML::Key << DIST_CORRECTION_Y << YAML::Value << correction.second.dist_correction_y;
-  out << YAML::Key << FOCAL_DISTANCE << YAML::Value << correction.second.focal_distance;
-  out << YAML::Key << FOCAL_SLOPE << YAML::Value << correction.second.focal_slope;
-  out << YAML::Key << HORIZ_OFFSET_CORRECTION << YAML::Value
-      << correction.second.horiz_offset_correction;
-  out << YAML::Key << LASER_ID << YAML::Value << correction.first;
-  if (correction.second.min_intensity != 0 || correction.second.max_intensity != 255) {
-    out << YAML::Key << MAX_INTENSITY << YAML::Value << correction.second.max_intensity;
-    out << YAML::Key << MIN_INTENSITY << YAML::Value << correction.second.min_intensity;
-  }
-  out << YAML::Key << ROT_CORRECTION << YAML::Value << correction.second.rot_correction;
-  if (correction.second.two_pt_correction_available) {
-    out << YAML::Key << TWO_PT_CORRECTION_AVAILABLE << YAML::Value
-        << correction.second.two_pt_correction_available;
-  }
-  out << YAML::Key << VERT_CORRECTION << YAML::Value << correction.second.vert_correction;
-  out << YAML::Key << VERT_OFFSET_CORRECTION << YAML::Value
-      << correction.second.vert_offset_correction;
-  out << YAML::EndMap;
-  return out;
-}
+} // namespace YAML
 
-YAML::Emitter &operator<<(YAML::Emitter &out, const Calibration &calibration) {
-  out << YAML::BeginMap;
-  out << YAML::Key << DISTANCE_RESOLUTION << YAML::Value << calibration.distance_resolution_m;
-  out << YAML::Key << LASERS << YAML::Value << YAML::BeginSeq;
-  for (size_t i = 0; i < calibration.laser_corrections.size(); i++) {
-    out << std::make_pair(i, calibration.laser_corrections[i]);
-  }
-  out << YAML::EndSeq;
-  out << YAML::Key << NUM_LASERS << YAML::Value << calibration.laser_corrections.size();
-  out << YAML::EndMap;
-  return out;
-}
+namespace velodyne_decoder {
 
-void Calibration::read(const std::string &calibration_file) {
-  std::ifstream fin{calibration_file};
-  if (!fin.is_open()) {
-    throw std::runtime_error("Unable to open calibration file: " + calibration_file);
+void Calibration::assignRingNumbers() {
+  // argsort by the vertical angle of the laser to assign ring numbers to lasers
+  std::vector<size_t> idx(num_lasers);
+  std::iota(idx.begin(), idx.end(), 0);
+  std::stable_sort(idx.begin(), idx.end(), [this](size_t i1, size_t i2) {
+    return laser_corrections[i1].vert_correction < laser_corrections[i2].vert_correction;
+  });
+  for (size_t i = 0; i < idx.size(); i++) {
+    laser_corrections[idx[i]].laser_ring = i;
   }
-  YAML::Load(fin) >> *this;
-  fin.close();
-  advanced_calibration = isAdvancedCalibration();
-}
-
-void Calibration::fromString(const std::string &calibration_content) {
-  YAML::Load(calibration_content) >> *this;
-  advanced_calibration = isAdvancedCalibration();
 }
 
 bool Calibration::isAdvancedCalibration() {
@@ -227,18 +171,27 @@ bool Calibration::isAdvancedCalibration() {
   return false;
 }
 
+Calibration Calibration::read(const std::string &calibration_file) {
+  std::ifstream fin{calibration_file};
+  if (!fin.is_open()) {
+    throw std::runtime_error("Unable to open calibration file: " + calibration_file);
+  }
+  std::stringstream buffer;
+  buffer << fin.rdbuf();
+  fin.close();
+  return fromString(buffer.str());
+}
+
 void Calibration::write(const std::string &calibration_file) const {
   std::ofstream fout{calibration_file};
-  YAML::Emitter out;
-  out << *this;
-  fout << out.c_str();
+  fout << toString();
   fout.close();
 }
 
-std::string Calibration::toString() const {
-  YAML::Emitter out;
-  out << *this;
-  return out.c_str();
+Calibration Calibration::fromString(const std::string &calibration_content) {
+  return YAML::Load(calibration_content).as<Calibration>();
 }
+
+std::string Calibration::toString() const { return YAML::Dump(YAML::Node(*this)); }
 
 } // namespace velodyne_decoder

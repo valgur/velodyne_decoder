@@ -170,7 +170,7 @@ CalibDB::CalibDB() {
       corr.sin_rot_correction  = std::sin(corr.rot_correction);
       corr.cos_vert_correction = std::cos(corr.vert_correction);
       corr.sin_vert_correction = std::sin(corr.vert_correction);
-      corr.laser_ring          = i;
+      corr.laser_idx           = i;
     }
     calibrations_.emplace(model, Calibration{laser_corrections, resolutions[model]});
   }
@@ -194,7 +194,7 @@ CalibDB::CalibDB() {
     corr.sin_rot_correction      = std::sin(corr.rot_correction);
     corr.cos_vert_correction     = std::cos(corr.vert_correction);
     corr.sin_vert_correction     = std::sin(corr.vert_correction);
-    corr.laser_ring              = i;
+    corr.laser_idx               = i;
   }
   calibrations_.emplace("HDL-64E", Calibration{hdl_64e_laser_corrs, 0.002f});
 }

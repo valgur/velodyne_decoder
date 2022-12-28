@@ -70,6 +70,7 @@ struct LaserCorrection {
   float cos_vert_correction = 1; ///< cosine of vert_correction
   float sin_vert_correction = 0; ///< sine of vert_correction
 
+  uint16_t laser_idx = -1; ///< index of the laser in the measurements block of a packet
   uint16_t laser_ring = -1; ///< ring number for this laser
 };
 
@@ -90,16 +91,18 @@ public:
       : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
     num_lasers           = (int)laser_corrections.size();
     advanced_calibration = isAdvancedCalibration();
+    assignRingNumbers();
   }
 
-  void read(const std::string &calibration_file);
+  static Calibration read(const std::string &calibration_file);
   void write(const std::string &calibration_file) const;
 
-  void fromString(const std::string &calibration_content);
+  static Calibration fromString(const std::string &calibration_content);
   std::string toString() const;
 
 private:
   bool isAdvancedCalibration();
+  void assignRingNumbers();
 };
 
 class CalibDB {
