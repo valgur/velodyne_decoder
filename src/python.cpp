@@ -46,12 +46,6 @@ py::array convert(PointCloud &cloud, bool as_pcl_structs) {
   }
 }
 
-std::string get_default_calibration(const std::string &model) {
-  py::function files = py::module::import("importlib_resources").attr("files");
-  return py::str(files("velodyne_decoder.calibrations").attr("joinpath")(model + ".yml"))
-      .cast<std::string>();
-}
-
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
 PYBIND11_MODULE(velodyne_decoder_pylib, m) {
@@ -62,12 +56,13 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init([](const std::string &model, const std::string &calibration_file,
                        float min_range, float max_range, double min_angle, double max_angle,
                        bool timestamp_first_packet, bool gps_time) {
-             auto cfg   = std::make_unique<Config>();
-             cfg->model = Config::standardizeModelId(model);
-             cfg->calibration_file =
-                 calibration_file.empty() ? get_default_calibration(model) : calibration_file;
-             cfg->min_range = min_range;
-             cfg->max_range = max_range;
+             auto cfg         = std::make_unique<Config>();
+             cfg->model       = Config::standardizeModelId(model);
+             cfg->calibration = calibration_file.empty()
+                                    ? CalibDB().getDefaultCalibration(cfg->model)
+                                    : Calibration::read(calibration_file);
+             cfg->min_range   = min_range;
+             cfg->max_range   = max_range;
              cfg->setMinAngleDeg(min_angle);
              cfg->setMaxAngleDeg(max_angle);
              cfg->timestamp_first_packet = timestamp_first_packet;
@@ -88,11 +83,11 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
           "model", [](const Config &c) { return c.model; },
           [](Config &c, const std::string &model) {
             c.model = Config::standardizeModelId(model);
-            if (c.calibration_file.empty()) {
-              c.calibration_file = get_default_calibration(c.model);
+            if (!c.calibration) {
+              c.calibration = CalibDB().getDefaultCalibration(c.model);
             }
           })
-      .def_readwrite("calibration_file", &Config::calibration_file)
+      .def_readwrite("calibration", &Config::calibration)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
       .def_property("min_angle", &Config::getMinAngleDeg, &Config::setMinAngleDeg)
@@ -101,8 +96,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("gps_time", &Config::gps_time)
       .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
       .def_readonly_static("TIMINGS_AVAILABLE", &Config::TIMINGS_AVAILABLE);
-
-  m.def("get_default_calibration", &get_default_calibration);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())

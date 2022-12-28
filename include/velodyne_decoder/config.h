@@ -5,20 +5,23 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "velodyne_decoder/calibration.h"
 
 namespace velodyne_decoder {
 
 struct Config {
   // PacketDecoder params
+  float min_range = 0.1;   ///< minimum range to publish
+  float max_range = 200;   ///< maximum range to publish
+  int min_angle   = 0;     ///< minimum angle to publish
+  int max_angle   = 36000; ///< maximum angle to publish
   std::string model;
-  std::string calibration_file; ///< calibration file path
-  float min_range = 0.1;        ///< minimum range to publish
-  float max_range = 200;        ///< maximum range to publish
-  int min_angle   = 0;          ///< minimum angle to publish
-  int max_angle   = 36000;      ///< maximum angle to publish
+  std::optional<Calibration> calibration; ///< calibration info, optional
 
   // ScanDecoder params
   bool timestamp_first_packet = false; ///< whether we are timestamping based on

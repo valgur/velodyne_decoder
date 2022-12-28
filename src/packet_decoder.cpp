@@ -46,12 +46,10 @@ PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
 
   timing_offsets_ = buildTimings(config_.model);
 
-  // get path to angles.config file for this device
-  if (config_.calibration_file.empty()) {
-    throw std::invalid_argument("Calibration config file not provided ");
+  if (!config_.calibration) {
+    throw std::invalid_argument("No calibration provided!");
   }
-
-  calibration_.read(config_.calibration_file);
+  calibration_ = *config_.calibration;
 
   setupSinCosCache();
   setupAzimuthCache();
