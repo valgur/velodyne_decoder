@@ -58,12 +58,6 @@ public:
 
   void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
-  /** configuration parameters */
-  Config config_;
-
-  /** calibration file */
-  velodyne_decoder::Calibration calibration_;
-
 private:
   /** \brief setup per-point timing offsets
    *
@@ -94,6 +88,14 @@ private:
   bool azimuthInRange(int azimuth) const;
 
 private:
+  velodyne_decoder::Calibration calibration_;
+
+  std::string model_id_;
+  float min_range_;
+  float max_range_;
+  uint16_t min_azimuth_;
+  uint16_t max_azimuth_;
+
   float sin_rot_table_[ROTATION_MAX_UNITS];
   float cos_rot_table_[ROTATION_MAX_UNITS];
 

@@ -37,30 +37,40 @@
 namespace velodyne_decoder {
 template <typename T> constexpr T SQR(T val) { return val * val; }
 
-PacketDecoder::PacketDecoder(const Config &config) : config_(config) {
-  if (config_.model.empty()) {
+PacketDecoder::PacketDecoder(const Config &config) {
+  if (config.model.empty()) {
     throw std::invalid_argument("No Velodyne sensor model specified!");
   }
-  if (!config_.calibration) {
+  model_id_ = config.model;
+  if (!config.calibration) {
     throw std::invalid_argument("No calibration provided!");
   }
-  calibration_ = *config_.calibration;
+  calibration_ = *config.calibration;
+
+  min_range_   = config.min_range;
+  max_range_   = config.max_range;
+  min_azimuth_ = std::lround(std::fmod(std::fmod(config.min_angle, 360) + 360, 360) * 100);
+  max_azimuth_ = std::lround(std::fmod(std::fmod(config.max_angle, 360) + 360, 360) * 100);
+  if (min_azimuth_ == max_azimuth_) {
+    min_azimuth_ = 0;
+    max_azimuth_ = 36000;
+  }
 
   setupCalibrationCache(calibration_);
-  timing_offsets_ = buildTimings(config_.model);
+  timing_offsets_ = buildTimings(model_id_);
   setupSinCosCache();
   setupAzimuthCache();
 }
 
 bool PacketDecoder::distanceInRange(float range) const {
-  return range >= config_.min_range && range <= config_.max_range;
+  return range >= min_range_ && range <= max_range_;
 }
 
 bool PacketDecoder::azimuthInRange(int azimuth) const {
-  if (config_.min_angle <= config_.max_angle) {
-    return azimuth >= config_.min_angle && azimuth <= config_.max_angle;
+  if (min_azimuth_ <= max_azimuth_) {
+    return azimuth >= min_azimuth_ && azimuth <= max_azimuth_;
   } else {
-    return azimuth <= config_.min_angle && azimuth >= config_.max_angle;
+    return azimuth <= min_azimuth_ && azimuth >= max_azimuth_;
   }
 }
 
@@ -166,7 +176,7 @@ void PacketDecoder::setupSinCosCache() {
 }
 
 void PacketDecoder::setupAzimuthCache() {
-  if (config_.model == "Alpha Prime") {
+  if (model_id_ == "Alpha Prime") {
     for (uint8_t i = 0; i < 16; i++) {
       vls_128_laser_azimuth_cache_[i] =
           (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
@@ -195,7 +205,7 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
 
-  if (config_.model == "Alpha Prime") {
+  if (model_id_ == "Alpha Prime") {
     unpack_vls128(raw_packet, pkt.stamp, cloud, scan_start_time);
     return;
   }

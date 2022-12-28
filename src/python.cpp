@@ -54,17 +54,18 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   py::class_<Config>(m, "Config")
       .def(py::init<>())
       .def(py::init([](const std::string &model, const std::string &calibration_file,
-                       float min_range, float max_range, double min_angle, double max_angle,
+                       float min_range, float max_range, float min_angle, float max_angle,
                        bool timestamp_first_packet, bool gps_time) {
              auto cfg         = std::make_unique<Config>();
-             cfg->model       = Config::standardizeModelId(model);
              cfg->calibration = calibration_file.empty()
                                     ? CalibDB().getDefaultCalibration(cfg->model)
                                     : Calibration::read(calibration_file);
-             cfg->min_range   = min_range;
-             cfg->max_range   = max_range;
-             cfg->setMinAngleDeg(min_angle);
-             cfg->setMaxAngleDeg(max_angle);
+
+             cfg->model                  = Config::standardizeModelId(model);
+             cfg->min_range              = min_range;
+             cfg->max_range              = max_range;
+             cfg->min_angle              = min_angle;
+             cfg->max_angle              = max_angle;
              cfg->timestamp_first_packet = timestamp_first_packet;
              cfg->gps_time               = gps_time;
              return cfg;
@@ -90,8 +91,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("calibration", &Config::calibration)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
-      .def_property("min_angle", &Config::getMinAngleDeg, &Config::setMinAngleDeg)
-      .def_property("max_angle", &Config::getMaxAngleDeg, &Config::setMaxAngleDeg)
+      .def_readwrite("min_angle", &Config::min_angle)
+      .def_readwrite("max_angle", &Config::max_angle)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
       .def_readwrite("gps_time", &Config::gps_time)
       .def_readonly_static("SUPPORTED_MODELS", &Config::SUPPORTED_MODELS)
