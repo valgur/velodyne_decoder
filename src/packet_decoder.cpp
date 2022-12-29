@@ -7,25 +7,6 @@
  *  License: Modified BSD Software License Agreement
  */
 
-/**
- *  @file
- *
- *  Velodyne 3D LIDAR data accessor class implementation.
- *
- *  Class for unpacking raw Velodyne LIDAR packets into useful
- *  formats.
- *
- *  Derived classes accept raw Velodyne data for either single packets
- *  or entire rotations, and provide it in various formats for either
- *  on-line or off-line processing.
- *
- *  @author Patrick Beeson
- *  @author Jack O'Quin
- *  @author Shawn Hanna
- *
- *  HDL-64E S2 calibration support provided by Nick Hillier
- */
-
 #include "velodyne_decoder/packet_decoder.h"
 
 #define _USE_MATH_DEFINES
@@ -151,7 +132,56 @@ bool PacketDecoder::azimuthInRange(uint16_t azimuth) const {
  */
 std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
   // timing table calculation, based on Velodyne user manuals
-  if (model == ModelId::VLP16 || model == ModelId::PuckHiRes) {
+  if (model == ModelId::HDL64E_S1) {
+    // S1 has no details about timing info provided:
+    // https://usermanual.wiki/Pdf/HDL64E20Manual.196042455/view
+    // Return a table with zeros for consistency with other models.
+    return std::vector<std::vector<float>>{12, std::vector<float>(32, 0.0f)};
+  } else if (model == ModelId::HDL64E_S2) {
+    // https://www.termocam.it/pdf/manuale-HDL-64E.pdf#page=38
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
+    // Fill the timing info based on the "Laser firing time table" in the manual
+    const std::array<double, 4> pattern = {0., 1.26, 2.46, 3.66};
+    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
+      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
+        double offset = 48.0 * (block_idx / 2) + 6.0 * (laser_idx / 4) + pattern[laser_idx % 4];
+        offset *= 1e-6;
+        timing_offsets[block_idx][laser_idx] = (float)offset;
+      }
+    }
+    return timing_offsets;
+  } else if (model == ModelId::HDL64E_S3) {
+    // https://www.researchgate.net/profile/Joerg-Fricke/post/How_the_LiDARs_photodetector_distinguishes_lasers_returns/attachment/5fa947b8543da600017dcf9b/AS%3A955957442002980%401604929423693/download/HDL-64E_S3_UsersManual.pdf#page=48
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
+    // Fill the timing info based on the "Laser firing time table" in the manual
+    const std::array<double, 4> pattern = {0, 1.3, 2.5, 3.7};
+    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
+      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
+        double offset = 57.6 * (block_idx / 2) + 7.2 * (laser_idx / 4) + pattern[laser_idx % 4];
+        offset *= 1e-6;
+        timing_offsets[block_idx][laser_idx] = (float)offset;
+      }
+    }
+    return timing_offsets;
+  } else if (model == ModelId::HDL32E) {
+    // https://velodynelidar.com/wp-content/uploads/2019/09/63-9277-Rev-D-HDL-32E-Application-Note-Packet-Structure-Timing-Definition.pdf#page=20
+    // https://www.termocam.it/pdf/manuale-HDL-32E.pdf#page=12
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
+    // constants
+    // 1.152 μs x 32 firings + 9.216 μs recharge time = 46.080 μs full cycle
+    const double full_firing_cycle = 46.080 * 1e-6; // seconds
+    const double single_firing     = 1.152 * 1e-6;  // seconds
+    // compute timing offsets
+    for (size_t x = 0; x < timing_offsets.size(); ++x) {
+      for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
+        uint16_t block_index  = x;
+        uint16_t firing_index = y / 2;
+        timing_offsets[x][y] =
+            (float)(full_firing_cycle * block_index + single_firing * firing_index);
+      }
+    }
+    return timing_offsets;
+  } else if (model == ModelId::VLP16 || model == ModelId::PuckHiRes) {
     // https://velodynelidar.com/wp-content/uploads/2019/12/63-9243-Rev-E-VLP-16-User-Manual.pdf#page=50
     // Puck Hi-Res is the same as VLP-16 but with a tighter vertical angle distribution.
     std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
@@ -191,24 +221,6 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
       }
     }
     return timing_offsets;
-  } else if (model == ModelId::HDL32E) {
-    // https://velodynelidar.com/wp-content/uploads/2019/09/63-9277-Rev-D-HDL-32E-Application-Note-Packet-Structure-Timing-Definition.pdf#page=20
-    // https://www.termocam.it/pdf/manuale-HDL-32E.pdf#page=12
-    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
-    // constants
-    // 1.152 μs x 32 firings + 9.216 μs recharge time = 46.080 μs full cycle
-    const double full_firing_cycle = 46.080 * 1e-6; // seconds
-    const double single_firing     = 1.152 * 1e-6;  // seconds
-    // compute timing offsets
-    for (size_t x = 0; x < timing_offsets.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        uint16_t block_index  = x;
-        uint16_t firing_index = y / 2;
-        timing_offsets[x][y] =
-            (float)(full_firing_cycle * block_index + single_firing * firing_index);
-      }
-    }
-    return timing_offsets;
   } else if (model == ModelId::AlphaPrime) {
     std::vector<std::vector<float>> timing_offsets{3, std::vector<float>(128)};
     // Sequence duration. Sequence is a set of laser group firings including recharging.
@@ -226,36 +238,6 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
         timing_offsets[x][y] =
             (float)(full_firing_cycle * sequence_index + single_firing * (laser_index / 8) +
                     maintenace_time - offset_packet_time);
-      }
-    }
-    return timing_offsets;
-  } else if (model == ModelId::HDL64E_S1) {
-    // S1 has no details about timing info provided:
-    // https://usermanual.wiki/Pdf/HDL64E20Manual.196042455/view
-    return std::vector<std::vector<float>>{12, std::vector<float>{32, 0.0f}};
-  } else if (model == ModelId::HDL64E_S2) {
-    // https://www.termocam.it/pdf/manuale-HDL-64E.pdf#page=38
-    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
-    // Fill the timing info based on the "Laser firing time table" in the manual
-    const std::array<double, 4> pattern = {0., 1.26, 2.46, 3.66};
-    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
-      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
-        double offset = 48.0 * (block_idx / 2) + 6.0 * (laser_idx / 4) + pattern[laser_idx % 4];
-        offset *= 1e-6;
-        timing_offsets[block_idx][laser_idx] = (float)offset;
-      }
-    }
-    return timing_offsets;
-  } else if (model == ModelId::HDL64E_S3) {
-    // https://www.researchgate.net/profile/Joerg-Fricke/post/How_the_LiDARs_photodetector_distinguishes_lasers_returns/attachment/5fa947b8543da600017dcf9b/AS%3A955957442002980%401604929423693/download/HDL-64E_S3_UsersManual.pdf#page=48
-    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
-    // Fill the timing info based on the "Laser firing time table" in the manual
-    const std::array<double, 4> pattern = {0, 1.3, 2.5, 3.7};
-    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
-      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
-        double offset = 57.6 * (block_idx / 2) + 7.2 * (laser_idx / 4) + pattern[laser_idx % 4];
-        offset *= 1e-6;
-        timing_offsets[block_idx][laser_idx] = (float)offset;
       }
     }
     return timing_offsets;
