@@ -73,6 +73,8 @@ private:
    */
   static std::vector<std::vector<float>> buildTimings(ModelId model);
 
+  static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
+
   /** add private function to handle the VLP16 **/
   void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                     Time scan_start_time) const;
@@ -87,8 +89,8 @@ private:
                          uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
-  bool distanceInRange(float range) const;
-  bool azimuthInRange(int azimuth) const;
+  [[nodiscard]] bool distanceInRange(float range) const;
+  [[nodiscard]] bool azimuthInRange(int azimuth) const;
 
 private:
   velodyne_decoder::Calibration calibration_;

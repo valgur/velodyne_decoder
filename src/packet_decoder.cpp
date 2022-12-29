@@ -92,6 +92,41 @@ void PacketDecoder::initModel(ModelId model_id) {
   }
 }
 
+void PacketDecoder::verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id) {
+  PacketModelId expected;
+  switch (model_id) {
+  case ModelId::HDL64E:
+    return; // HDL-64E does not set the model ID in the packet
+  case ModelId::HDL32E:
+    expected = PacketModelId::HDL32E;
+    break;
+  case ModelId::VLP32A:
+  case ModelId::VLP32B:
+    expected = PacketModelId::VLP32AB;
+    break;
+  case ModelId::VLP32C:
+    expected = PacketModelId::VLP32C;
+    break;
+  case ModelId::VLP16:
+    expected = PacketModelId::VLP16;
+    break;
+  case ModelId::PuckHiRes:
+    expected = PacketModelId::VLP16HiRes;
+    break;
+  case ModelId::VLS128:
+    expected = PacketModelId::VLS128;
+    break;
+  default:
+    throw std::runtime_error("Unknown model ID: " + std::to_string((int)model_id));
+  }
+  if (expected != packet_model_id) {
+    throw std::runtime_error(
+        "Expected model ID <" + std::to_string((int)expected) + "> in packet, got <" +
+        std::to_string((int)packet_model_id) +
+        ">. Note: if the device is HDL-64E, please set the model in Config explicitly.");
+  }
+}
+
 void PacketDecoder::initCalibration(const Calibration &calibration) {
   calibration_       = calibration;
   calib_initialized_ = true;
@@ -238,7 +273,9 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
 
-  if (!model_id_.has_value()) {
+  if (model_id_.has_value()) {
+    verifyPacketModelId(raw_packet.model_id, *model_id_);
+  } else {
     initModel(raw_packet.model_id);
   }
 
