@@ -210,21 +210,22 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
     }
     return timing_offsets;
   } else if (model == ModelId::AlphaPrime) {
-    // 17: +1 for the maintenance time after firing group 8
-    std::vector<std::vector<float>> timing_offsets{3, std::vector<float>(17)};
-    // Sequence duration. Sequence is a set of laser firings including recharging.
+    std::vector<std::vector<float>> timing_offsets{3, std::vector<float>(128)};
+    // Sequence duration. Sequence is a set of laser group firings including recharging.
     const double full_firing_cycle = 53.3 * 1e-6;
-    // Channel duration. Channels correspond to one laser firing
+    // Channel duration. Channels correspond to a group of 8 lasers firing.
     const double single_firing = 2.665 * 1e-6;
     // ToH adjustment. Top of the Hour is aligned with the fourth firing group in a firing sequence.
     const double offset_packet_time = 8.7 * 1e-6;
     // Compute timing offsets
     for (size_t x = 0; x < timing_offsets.size(); ++x) {
       for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        uint16_t sequence_index     = x;
-        uint16_t firing_group_index = y;
-        timing_offsets[x][y]        = (float)(full_firing_cycle * sequence_index +
-                                       single_firing * firing_group_index - offset_packet_time);
+        uint16_t sequence_index = x;
+        uint16_t laser_index    = y;
+        double maintenace_time  = single_firing * (laser_index / 64);
+        timing_offsets[x][y] =
+            (float)(full_firing_cycle * sequence_index + single_firing * (laser_index / 8) +
+                    maintenace_time - offset_packet_time);
       }
     }
     return timing_offsets;
@@ -348,23 +349,24 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
     bool last_return_mode = (dual_return && i % 2 == 0) || //
                             raw.return_mode == DualReturnMode::LAST_RETURN;
 
+    float t0 = timing_offsets_[dual_return ? i / 2 : i][0];
+
     for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
         if (block.data[j].distance == 0)
           continue;
 
-        float dt   = timing_offsets_[dual_return ? i / 2 : i][firing * 16 + dsr];
-        float time = dt + time_diff_start_to_this_packet;
-
         // correct for the laser rotation as a function of timing during the firings
-        float azimuth_corrected_f  = azimuth + rotation_rate * dt;
-        uint16_t azimuth_corrected = std::lround(azimuth_corrected_f + 36000) % 36000;
+        float time                 = timing_offsets_[dual_return ? i / 2 : i][firing * 16 + dsr];
+        float dt                   = time - t0;
+        uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
 
         if (!azimuthInRange(azimuth_corrected))
           continue;
 
         const auto &measurement = block.data[j];
-        unpackPoint(cloud, dsr, measurement, azimuth_corrected, time, last_return_mode);
+        float full_time         = time + time_diff_start_to_this_packet;
+        unpackPoint(cloud, dsr, measurement, azimuth_corrected, full_time, last_return_mode);
       }
     }
   }
@@ -390,6 +392,8 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
       timing_offsets_[0][0];
   float rotation_rate = (float)azimuth_diff / duration;
 
+  const int blocks_per_column = calibration_.num_lasers / SCANS_PER_BLOCK;
+
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
 
@@ -405,21 +409,22 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
     bool last_return_mode = !is_hdl64e && ((dual_return && i % 2 == 0) ||
                                            raw.return_mode == DualReturnMode::LAST_RETURN);
 
+    float t0 = timing_offsets_[i / blocks_per_column / (1 + dual_return)][0];
+
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       if (block.data[j].distance == 0)
         continue;
 
       const uint8_t laser_number = j + bank_origin;
 
-      float dt   = timing_offsets_[dual_return ? i / 2 : i][j];
-      float time = dt + time_diff_start_to_this_packet;
-
       // correct for the laser rotation as a function of timing during the firings
-      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
-      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+      float time                 = timing_offsets_[dual_return ? i / 2 : i][j];
+      float dt                   = time - t0;
+      uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
 
       const auto &measurement = block.data[j];
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time, last_return_mode);
+      float full_time         = time + time_diff_start_to_this_packet;
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, full_time, last_return_mode);
     }
   }
 }
@@ -477,6 +482,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     bool last_return_mode = (dual_return && block % 2 == 0) || //
                             raw.return_mode == DualReturnMode::LAST_RETURN;
 
+    float t0 = timing_offsets_[dual_return ? 0 : block / 4][0];
+
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       // distance extraction
       uint16_t raw_distance = current_block.data[j].distance;
@@ -484,19 +491,16 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
         continue;
 
       // Offset the laser in this block by which block it's in
-      uint8_t laser_number = j + bank_origin;
-      uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
-
-      float time = timing_offsets_[dual_return ? 0 : block / 4][firing_order + laser_number / 64] +
-                   time_diff_start_to_this_packet;
+      uint8_t laser_number = bank_origin + j;
 
       // correct for the laser rotation as a function of timing during the firings
-      float dt                   = firing_order * VLS128_CHANNEL_TDURATION;
-      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
-      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+      float time                 = timing_offsets_[dual_return ? 0 : block / 4][laser_number];
+      float dt                   = time - t0;
+      uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
 
       const auto &measurement = current_block.data[j];
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time, last_return_mode);
+      float full_time         = time + time_diff_start_to_this_packet;
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, full_time, last_return_mode);
     }
   }
 }
