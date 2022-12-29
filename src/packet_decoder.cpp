@@ -85,7 +85,6 @@ void PacketDecoder::initModel(ModelId model_id) {
   }
   model_id_       = model_id;
   timing_offsets_ = buildTimings(model_id);
-  setupAzimuthCache(model_id);
   if (!calib_initialized_) {
     Calibration calib = CalibDB().getDefaultCalibration(model_id);
     initCalibration(calib);
@@ -139,7 +138,7 @@ bool PacketDecoder::distanceInRange(float range) const {
   return range >= min_range_ && range <= max_range_;
 }
 
-bool PacketDecoder::azimuthInRange(int azimuth) const {
+bool PacketDecoder::azimuthInRange(uint16_t azimuth) const {
   if (min_azimuth_ <= max_azimuth_) {
     return azimuth >= min_azimuth_ && azimuth <= max_azimuth_;
   } else {
@@ -273,15 +272,6 @@ void PacketDecoder::setupSinCosCache() {
   }
 }
 
-void PacketDecoder::setupAzimuthCache(ModelId model_id) {
-  if (model_id == ModelId::AlphaPrime) {
-    for (uint8_t i = 0; i < 16; i++) {
-      // full cycle duration / firing duration = 20
-      vls_128_laser_azimuth_cache_[i] = (i + i / 8) / 20.f;
-    }
-  }
-}
-
 void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
   apply_advanced_calibration_ = calibration.isAdvancedCalibration();
   cos_rot_correction_.resize(calibration.num_lasers);
@@ -366,23 +356,21 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
       last_azimuth_diff = azimuth_diff;
     }
 
+    float t_block       = timing_offsets_[i][0] + time_diff_start_to_this_packet;
+    float rotation_rate = azimuth_diff / VLP16_BLOCK_TDURATION;
+
     for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
         if (block.data[j].distance == 0)
           continue;
 
         /** correct for the laser rotation as a function of timing during the firings **/
-        float azimuth_corrected_f =
-            azimuth + (azimuth_diff * (dsr * VLP16_DSR_TOFFSET + firing * VLP16_FIRING_TOFFSET) /
-                       VLP16_BLOCK_TDURATION);
-        int azimuth_corrected = std::lround(azimuth_corrected_f + 36000) % 36000;
+        float time = timing_offsets_[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
+        float azimuth_corrected_f  = azimuth + (time - t_block) * rotation_rate;
+        uint16_t azimuth_corrected = std::lround(azimuth_corrected_f + 36000) % 36000;
 
         if (!azimuthInRange(azimuth_corrected))
           continue;
-
-        float time = 0;
-        if (!timing_offsets_.empty())
-          time = timing_offsets_[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
 
         const auto &measurement = block.data[j];
         unpackPointCommon(cloud, dsr, measurement, azimuth_corrected, time);
@@ -397,6 +385,9 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
                                        Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
+  uint16_t azimuth_next   = raw.blocks[0].rotation;
+  float last_azimuth_diff = 0;
+
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
 
@@ -404,7 +395,23 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
     // lower bank lasers are [32..63]
     int bank_origin = (block.header == UPPER_BANK) ? 0 : 32;
 
-    uint16_t azimuth = block.rotation;
+    // Calculate difference between current and next block's azimuth angle.
+    uint16_t azimuth = azimuth_next;
+    float azimuth_diff;
+    if (i < (BLOCKS_PER_PACKET - 1)) {
+      azimuth_next      = raw.blocks[i + 1].rotation;
+      azimuth_diff      = (float)((36000 + azimuth_next - azimuth) % 36000);
+      last_azimuth_diff = azimuth_diff;
+    } else {
+      azimuth_diff = last_azimuth_diff;
+    }
+
+    float t_block = 0;
+    if (!timing_offsets_.empty()) {
+      t_block = timing_offsets_[i][0] + time_diff_start_to_this_packet;
+    }
+    float block_duration = timing_offsets_[i][SCANS_PER_BLOCK - 1] - timing_offsets_[i][0];
+    float rotation_rate  = azimuth_diff / block_duration;
 
     if (!azimuthInRange(azimuth))
       continue;
@@ -420,8 +427,12 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
         time = timing_offsets_[i][j] + time_diff_start_to_this_packet;
       }
 
+      // correct for the laser rotation as a function of timing during the firings
+      float azimuth_corrected_f  = azimuth + (time - t_block) * rotation_rate;
+      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+
       const auto &measurement = block.data[j];
-      unpackPointCommon(cloud, laser_number, measurement, azimuth, time);
+      unpackPointCommon(cloud, laser_number, measurement, azimuth_corrected, time);
     }
   }
 }
@@ -578,6 +589,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     if (!azimuthInRange(azimuth))
       continue;
 
+    float rotation_rate = azimuth_diff / VLS128_SEQ_TDURATION;
+
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       // distance extraction
       uint16_t raw_distance = current_block.data[j].distance;
@@ -588,15 +601,12 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
       uint8_t laser_number = j + bank_origin;
       uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
-      float time = 0;
-      if (!timing_offsets_.empty()) {
-        time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
-               time_diff_start_to_this_packet;
-      }
+      float time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
+                   time_diff_start_to_this_packet;
 
       // correct for the laser rotation as a function of timing during the firings
-      float azimuth_corrected_f =
-          azimuth + azimuth_diff * vls_128_laser_azimuth_cache_[firing_order];
+      float dt                   = firing_order * VLS128_CHANNEL_TDURATION;
+      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = current_block.data[j];

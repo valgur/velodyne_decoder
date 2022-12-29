@@ -64,7 +64,6 @@ private:
   void initCalibration(const Calibration &calibration);
 
   void setupSinCosCache();
-  void setupAzimuthCache(ModelId model_id);
   void setupCalibrationCache(const Calibration &calibration);
 
   /** \brief setup per-point timing offsets
@@ -90,7 +89,7 @@ private:
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;
-  [[nodiscard]] bool azimuthInRange(int azimuth) const;
+  [[nodiscard]] bool azimuthInRange(uint16_t azimuth) const;
 
 private:
   velodyne_decoder::Calibration calibration_;
@@ -112,9 +111,6 @@ private:
   std::vector<float> cos_vert_correction_; ///< cosine of vert_corrections
   std::vector<float> sin_vert_correction_; ///< sine of vert_corrections
   std::vector<uint16_t> ring_cache_;       ///< cache for ring lookup
-
-  // Caches the azimuth percent offset for the VLS-128 laser firings
-  float vls_128_laser_azimuth_cache_[16];
 
   // timing offset lookup table
   std::vector<std::vector<float>> timing_offsets_;

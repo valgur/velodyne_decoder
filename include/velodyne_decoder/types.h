@@ -40,6 +40,11 @@ constexpr uint16_t VLS128_BANK_2 = 0xddff;
 constexpr uint16_t VLS128_BANK_3 = 0xccff;
 constexpr uint16_t VLS128_BANK_4 = 0xbbff;
 
+// [µs] Channels corresponds to one laser firing
+constexpr float VLS128_CHANNEL_TDURATION = 2.665f;
+// [µs] Sequence is a set of laser firings including recharging
+constexpr float VLS128_SEQ_TDURATION = 53.3f;
+
 enum class ModelId : uint8_t {
   HDL64E_S1  = 1,
   HDL64E_S2  = 2,
