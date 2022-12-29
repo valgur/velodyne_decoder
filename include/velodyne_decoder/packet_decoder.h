@@ -82,10 +82,15 @@ private:
                           Time scan_start_time) const;
 
   void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                     Time scan_start_time) const;
+                     Time scan_start_time);
 
   void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
-                   uint16_t azimuth, float time) const;
+                   uint16_t azimuth, float time, bool last_return_mode) const;
+
+  /** Calculate the average rotation rate in a packet. In deg/100 units.
+   *  Not applicable to VLS-128.
+   */
+  [[nodiscard]] float calcRotationRate(const raw_packet_t &raw) const;
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;
@@ -114,6 +119,10 @@ private:
 
   // timing offset lookup table
   std::vector<std::vector<float>> timing_offsets_;
+
+  // First azimuth in the previous packet.
+  // Needed for dual-return mode VLS-128, where only a single column is stored per-packet.
+  uint16_t prev_packet_azimuth_ = std::numeric_limits<uint16_t>::max();
 };
 
 } // namespace velodyne_decoder

@@ -178,6 +178,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   m.attr("PACKET_SIZE") = PACKET_SIZE;
 
+  m.attr("LAST_MODE_RING_OFFSET") = LAST_MODE_RING_OFFSET;
+
 #define STRING(s) #s
 #ifdef VERSION_INFO
   m.attr("__version__") = STRING(VERSION_INFO);

@@ -25,13 +25,9 @@ constexpr uint16_t LOWER_BANK = 0xddff;
 /** Special Defines for VLP16 support **/
 constexpr int VLP16_FIRINGS_PER_BLOCK = 2;
 constexpr int VLP16_SCANS_PER_FIRING  = 16;
-constexpr float VLP16_BLOCK_TDURATION = 110.592f; // [µs]
-constexpr float VLP16_DSR_TOFFSET     = 2.304f;   // [µs]
-constexpr float VLP16_FIRING_TOFFSET  = 55.296f;  // [µs]
 
 constexpr int PACKET_SIZE       = 1206;
 constexpr int BLOCKS_PER_PACKET = 12;
-constexpr int SCANS_PER_PACKET  = (SCANS_PER_BLOCK * BLOCKS_PER_PACKET);
 
 /** Special Definitions for VLS-128 / Alpha Prime support **/
 // These are used to detect which bank of 32 lasers is in this block
@@ -44,6 +40,10 @@ constexpr uint16_t VLS128_BANK_4 = 0xbbff;
 constexpr float VLS128_CHANNEL_TDURATION = 2.665f;
 // [µs] Sequence is a set of laser firings including recharging
 constexpr float VLS128_SEQ_TDURATION = 53.3f;
+
+// Offset added to ring values if the returned point is in "last return" mode
+// instead of the default "strongest return".
+constexpr uint16_t LAST_MODE_RING_OFFSET = 512;
 
 enum class ModelId : uint8_t {
   HDL64E_S1  = 1,

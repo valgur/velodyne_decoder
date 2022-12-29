@@ -317,14 +317,21 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
     throw std::runtime_error("Unsupported Velodyne model ID: " + std::to_string((int)*model_id_));
   }
 }
-
 /** @brief convert raw VLP16 packet to point cloud
  */
 void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
                                  Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
-  float last_azimuth_diff = 0;
+  bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
+
+  // Calculate the average rotation rate for this packet
+  int azimuth_diff = (int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation;
+  azimuth_diff     = (azimuth_diff + 36000) % 36000;
+  float duration =
+      timing_offsets_[dual_return ? (BLOCKS_PER_PACKET - 1) / 2 : (BLOCKS_PER_PACKET - 1)][0] -
+      timing_offsets_[0][0];
+  float rotation_rate = (float)azimuth_diff / duration;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
@@ -335,35 +342,18 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
     }
 
     // Calculate difference between current and next block's azimuth angle.
-    float azimuth      = block.rotation;
-    float azimuth_diff = last_azimuth_diff;
-    if (i < (BLOCKS_PER_PACKET - 1)) {
-      int raw_azimuth_diff = raw.blocks[i + 1].rotation - block.rotation;
-      azimuth_diff         = (float)((36000 + raw_azimuth_diff) % 36000);
-      // some packets contain an angle overflow where azimuth_diff < 0
-      if (raw_azimuth_diff < 0) {
-        // if last_azimuth_diff was not zero, we can assume that the velodyne's speed did not change
-        // very much and use the same difference
-        if (last_azimuth_diff > 0) {
-          azimuth_diff = last_azimuth_diff;
-        }
-        // otherwise we are not able to use this data
-        // TODO: we might just not use the second 16 firings
-        else {
-          continue;
-        }
-      }
-      last_azimuth_diff = azimuth_diff;
-    }
+    uint16_t azimuth = block.rotation;
 
-    float rotation_rate = azimuth_diff / VLP16_BLOCK_TDURATION;
+    // In dual return mode, the even columns contain the last returns and odd the strongest
+    bool last_return_mode = (dual_return && i % 2 == 0) || //
+                            raw.return_mode == DualReturnMode::LAST_RETURN;
 
     for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
       for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
         if (block.data[j].distance == 0)
           continue;
 
-        float dt   = timing_offsets_[i][firing * 16 + dsr];
+        float dt   = timing_offsets_[dual_return ? i / 2 : i][firing * 16 + dsr];
         float time = dt + time_diff_start_to_this_packet;
 
         // correct for the laser rotation as a function of timing during the firings
@@ -374,7 +364,7 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
           continue;
 
         const auto &measurement = block.data[j];
-        unpackPoint(cloud, dsr, measurement, azimuth_corrected, time);
+        unpackPoint(cloud, dsr, measurement, azimuth_corrected, time, last_return_mode);
       }
     }
   }
@@ -386,10 +376,19 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
                                        Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
-  uint16_t azimuth_next   = raw.blocks[0].rotation;
-  float last_azimuth_diff = 0;
+  // HDL-64E S3 actually supports dual-return mode, but does not specify this in the packet.
+  // The other HDL-64E models do not support dual-return mode at all.
+  bool is_hdl64e = *model_id_ == ModelId::HDL64E_S1 || *model_id_ == ModelId::HDL64E_S2 ||
+                   *model_id_ == ModelId::HDL64E_S3;
+  bool dual_return = !is_hdl64e && raw.return_mode == DualReturnMode::DUAL_RETURN;
 
-  const float block_duration = timing_offsets_[1][0] - timing_offsets_[0][0];
+  // Calculate the average rotation rate for this packet
+  int azimuth_diff = (int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation;
+  azimuth_diff     = (azimuth_diff + 36000) % 36000;
+  float duration =
+      timing_offsets_[dual_return ? (BLOCKS_PER_PACKET - 1) / 2 : (BLOCKS_PER_PACKET - 1)][0] -
+      timing_offsets_[0][0];
+  float rotation_rate = (float)azimuth_diff / duration;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
@@ -398,21 +397,13 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
     // lower bank lasers are [32..63]
     int bank_origin = (block.header == UPPER_BANK) ? 0 : 32;
 
-    // Calculate difference between current and next block's azimuth angle.
-    uint16_t azimuth = azimuth_next;
-    float azimuth_diff;
-    if (i < (BLOCKS_PER_PACKET - 1)) {
-      azimuth_next      = raw.blocks[i + 1].rotation;
-      azimuth_diff      = (float)((36000 + azimuth_next - azimuth) % 36000);
-      last_azimuth_diff = azimuth_diff;
-    } else {
-      azimuth_diff = last_azimuth_diff;
-    }
-
-    float rotation_rate = block_duration == 0 ? 0 : azimuth_diff / block_duration;
-
+    uint16_t azimuth = block.rotation;
     if (!azimuthInRange(azimuth))
       continue;
+
+    // In dual return mode, the even columns contain the last returns and odd the strongest
+    bool last_return_mode = !is_hdl64e && ((dual_return && i % 2 == 0) ||
+                                           raw.return_mode == DualReturnMode::LAST_RETURN);
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       if (block.data[j].distance == 0)
@@ -420,7 +411,7 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
 
       const uint8_t laser_number = j + bank_origin;
 
-      float dt   = timing_offsets_[i][j];
+      float dt   = timing_offsets_[dual_return ? i / 2 : i][j];
       float time = dt + time_diff_start_to_this_packet;
 
       // correct for the laser rotation as a function of timing during the firings
@@ -428,7 +419,7 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = block.data[j];
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time);
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time, last_return_mode);
     }
   }
 }
@@ -436,17 +427,32 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
 /** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
  */
 void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                  Time scan_start_time) const {
+                                  Time scan_start_time) {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
 
-  uint16_t azimuth_next   = raw.blocks[0].rotation;
-  float last_azimuth_diff = 0;
+  // Calculate the average rotation rate for this packet
+  float rotation_rate = 0;
+  if (prev_packet_azimuth_ < 36000) {
+    int azimuth_diff = (int)raw.blocks[0].rotation - (int)prev_packet_azimuth_;
+    azimuth_diff     = (azimuth_diff + 36000) % 36000;
+    // Packets in dual-return mode contain only a single column, 3 in standard mode.
+    float duration = dual_return ? VLS128_SEQ_TDURATION : 3 * VLS128_SEQ_TDURATION;
+    rotation_rate  = (float)azimuth_diff / duration;
+  }
+  prev_packet_azimuth_ = raw.blocks[0].rotation;
 
-  for (int block = 0; block < BLOCKS_PER_PACKET - (4 * dual_return); block++) {
+  // The last 4 blocks are empty in dual-return mode.
+  int num_blocks = dual_return ? 8 : 12;
+
+  for (int block = 0; block < num_blocks; block++) {
     // cache block for use
     const raw_block_t &current_block = raw.blocks[block];
+
+    uint16_t azimuth = current_block.rotation;
+    if (!azimuthInRange(azimuth))
+      continue;
 
     int bank_origin = 0;
     // Used to detect which bank of 32 lasers is in this block
@@ -467,29 +473,9 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
       return; // bad packet: skip the rest
     }
 
-    // Calculate difference between current and next block's azimuth angle.
-    uint16_t azimuth = azimuth_next;
-    float azimuth_diff;
-    if (block < (BLOCKS_PER_PACKET - (1 + dual_return))) {
-      // Get the next block rotation to calculate how far we rotate between blocks
-      azimuth_next = raw.blocks[block + (1 + dual_return)].rotation;
-
-      // Finds the difference between two successive blocks
-      azimuth_diff = (float)((36000 + azimuth_next - azimuth) % 36000);
-
-      // This is used when the last block is next to predict rotation amount
-      last_azimuth_diff = azimuth_diff;
-    } else {
-      // This makes the assumption the difference between the last block and the next packet is the
-      // same as the last to the second to last.
-      // Assumes RPM doesn't change much between blocks
-      azimuth_diff = (block == BLOCKS_PER_PACKET - (4 * dual_return) - 1) ? 0 : last_azimuth_diff;
-    }
-
-    if (!azimuthInRange(azimuth))
-      continue;
-
-    float rotation_rate = azimuth_diff / VLS128_SEQ_TDURATION;
+    // In dual return mode, the even columns contain the last returns and odd the strongest
+    bool last_return_mode = (dual_return && block % 2 == 0) || //
+                            raw.return_mode == DualReturnMode::LAST_RETURN;
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
       // distance extraction
@@ -501,7 +487,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
       uint8_t laser_number = j + bank_origin;
       uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
 
-      float time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
+      float time = timing_offsets_[dual_return ? 0 : block / 4][firing_order + laser_number / 64] +
                    time_diff_start_to_this_packet;
 
       // correct for the laser rotation as a function of timing during the firings
@@ -510,7 +496,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = current_block.data[j];
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time);
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time, last_return_mode);
     }
   }
 }
@@ -518,8 +504,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
 /** @brief Applies calibration, converts to a Cartesian 3D point and appends to the cloud.
  */
 void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
-                                const raw_measurement_t &measurement, uint16_t azimuth,
-                                float time) const {
+                                const raw_measurement_t &measurement, uint16_t azimuth, float time,
+                                bool last_return_mode) const {
   float distance = measurement.distance * calibration_.distance_resolution_m;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
@@ -544,7 +530,9 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     float y = -xy_distance * sin_rot_angle;
     float z = distance * sin_vert_angle;
 
-    cloud.emplace_back(x, y, z, (float)measurement.intensity, ring_cache_[laser_idx], time);
+    uint16_t ring = ring_cache_[laser_idx] + last_return_mode * LAST_MODE_RING_OFFSET;
+
+    cloud.emplace_back(x, y, z, (float)measurement.intensity, ring, time);
 
   } else {
     const auto &corrections = calibration_.laser_corrections[laser_idx];
@@ -607,7 +595,9 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     intensity = (intensity < min_intensity) ? min_intensity : intensity;
     intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
-    cloud.emplace_back(x_coord, y_coord, z_coord, intensity, corrections.laser_ring, time);
+    uint16_t ring = corrections.laser_ring + last_return_mode * LAST_MODE_RING_OFFSET;
+
+    cloud.emplace_back(x_coord, y_coord, z_coord, intensity, ring, time);
   }
 }
 
