@@ -252,7 +252,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
     const std::array<double, 4> pattern = {0, 1.3, 2.5, 3.7};
     for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
       for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
-        double offset = 57.6 * (block_idx / 4) + 7.2 * (laser_idx / 4) + pattern[laser_idx % 4];
+        double offset = 57.6 * (block_idx / 2) + 7.2 * (laser_idx / 4) + pattern[laser_idx % 4];
         offset *= 1e-6;
         timing_offsets[block_idx][laser_idx] = (float)offset;
       }
