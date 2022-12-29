@@ -52,8 +52,10 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   m.doc() = "";
 
   py::enum_<ModelId>(m, "Model")
+      .value("HDL64E_S1", ModelId::HDL64E_S1, "HDL-64E S1")
+      .value("HDL64E_S2", ModelId::HDL64E_S2, "HDL-64E S2 and S2.1")
+      .value("HDL64E_S3", ModelId::HDL64E_S3, "HDL-64E S3")
       .value("HDL32E", ModelId::HDL32E, "HDL-32E")
-      .value("HDL64E", ModelId::HDL64E, "HDL-64E")
       .value("VLP32A", ModelId::VLP32A, "VLP-32A")
       .value("VLP32B", ModelId::VLP32B, "VLP-32B")
       .value("VLP32C", ModelId::VLP32C, "VLP-32C")

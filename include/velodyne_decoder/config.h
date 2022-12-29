@@ -37,8 +37,9 @@ struct Config {
 };
 
 inline const std::vector<ModelId> Config::SUPPORTED_MODELS = //
-    {ModelId::HDL32E, ModelId::HDL64E, ModelId::VLP32A,    ModelId::VLP32B,
-     ModelId::VLP32C, ModelId::VLP16,  ModelId::PuckHiRes, ModelId::AlphaPrime};
+    {ModelId::HDL64E_S1, ModelId::HDL64E_S2, ModelId::HDL64E_S3, ModelId::HDL32E,
+     ModelId::VLP32A,    ModelId::VLP32B,    ModelId::VLP32C,    ModelId::VLP16,
+     ModelId::PuckHiRes, ModelId::AlphaPrime};
 
 inline const std::vector<ModelId> Config::TIMINGS_AVAILABLE = //
     {ModelId::HDL32E, ModelId::VLP16, ModelId::VLP32C, ModelId::AlphaPrime};

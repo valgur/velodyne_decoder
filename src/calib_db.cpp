@@ -187,7 +187,10 @@ CalibDB::CalibDB() {
     corr.focal_slope             = data.focal_slope;
     corr.laser_idx               = i;
   }
-  calibrations_.emplace(ModelId::HDL64E, Calibration{hdl_64e_laser_corrs, 0.002f});
+  // TODO: this calibration is probably only applicable to one of the HDL-64E versions
+  calibrations_.emplace(ModelId::HDL64E_S1, Calibration{hdl_64e_laser_corrs, 0.002f});
+  calibrations_.emplace(ModelId::HDL64E_S2, Calibration{hdl_64e_laser_corrs, 0.002f});
+  calibrations_.emplace(ModelId::HDL64E_S3, Calibration{hdl_64e_laser_corrs, 0.002f});
 }
 
 Calibration CalibDB::getDefaultCalibration(ModelId model_id) const {

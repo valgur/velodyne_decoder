@@ -40,23 +40,19 @@ constexpr uint16_t VLS128_BANK_2 = 0xddff;
 constexpr uint16_t VLS128_BANK_3 = 0xccff;
 constexpr uint16_t VLS128_BANK_4 = 0xbbff;
 
-constexpr float VLS128_CHANNEL_TDURATION = 2.665f; // [µs] Channels corresponds to one laser firing
-constexpr float VLS128_SEQ_TDURATION =
-    53.3f; // [µs] Sequence is a set of laser firings including recharging
-constexpr float VLS128_TOH_ADJUSTMENT =
-    8.7f; // [µs] μs. Top Of the Hour is aligned with the fourth firing group in a firing sequence.
-
 enum class ModelId : uint8_t {
-  HDL32E     = 1,
-  HDL64E     = 2,
-  VLP32A     = 3,
-  VLP32B     = 4,
-  VLP32C     = 5,
-  VLP16      = 6,
-  PuckLite   = 6, // = VLP-16
-  PuckHiRes  = 7, // aka VLP-16 Hi-Res
-  VLS128     = 8,
-  AlphaPrime = 8, // = VLS-128
+  HDL64E_S1  = 1,
+  HDL64E_S2  = 2,
+  HDL64E_S3  = 3,
+  HDL32E     = 4,
+  VLP32A     = 5,
+  VLP32B     = 6,
+  VLP32C     = 7,
+  VLP16      = 8,
+  PuckLite   = 8, // = VLP-16
+  PuckHiRes  = 9, // aka VLP-16 Hi-Res
+  VLS128     = 10,
+  AlphaPrime = 10, // = VLS-128
 };
 
 enum class DualReturnMode : uint8_t {

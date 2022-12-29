@@ -95,7 +95,9 @@ void PacketDecoder::initModel(ModelId model_id) {
 void PacketDecoder::verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id) {
   PacketModelId expected;
   switch (model_id) {
-  case ModelId::HDL64E:
+  case ModelId::HDL64E_S1:
+  case ModelId::HDL64E_S2:
+  case ModelId::HDL64E_S3:
     return; // HDL-64E does not set the model ID in the packet
   case ModelId::HDL32E:
     expected = PacketModelId::HDL32E;
@@ -149,88 +151,116 @@ bool PacketDecoder::azimuthInRange(int azimuth) const {
  * Build a timing table for each block/firing.
  */
 std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
-  std::vector<std::vector<float>> timing_offsets;
-  if (model == ModelId::VLP16) {
-    // timing table calculation, from velodyne user manual
-    timing_offsets.resize(12);
-    for (auto &timing_offset : timing_offsets) {
-      timing_offset.resize(32);
-    }
+  // timing table calculation, based on Velodyne user manuals
+  if (model == ModelId::VLP16 || model == ModelId::PuckHiRes) {
+    // https://velodynelidar.com/wp-content/uploads/2019/12/63-9243-Rev-E-VLP-16-User-Manual.pdf#page=50
+    // Puck Hi-Res is the same as VLP-16 but with a tighter vertical angle distribution.
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
     // constants
-    double full_firing_cycle = 55.296 * 1e-6; // seconds
-    double single_firing     = 2.304 * 1e-6;  // seconds
-    bool dual_mode           = false;
+    // 2.304 μs x 16 firings + 18.43 μs recharge time = 55.296 μs full cycle
+    const double full_firing_cycle = 55.296 * 1e-6; // seconds
+    const double single_firing     = 2.304 * 1e-6;  // seconds
+    const int num_lasers           = 16;
     // compute timing offsets
     for (size_t x = 0; x < timing_offsets.size(); ++x) {
       for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        double dataBlockIndex = 2 * (dual_mode ? x / 2 : x) + y / 16;
-        double dataPointIndex = y % 16;
+        uint16_t block_index = 2 * x + y / num_lasers;
+        uint16_t point_index = y % num_lasers;
         // timing_offsets[block][firing]
         timing_offsets[x][y] =
-            (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
+            (float)(full_firing_cycle * block_index + single_firing * point_index);
       }
     }
-  } else if (model == ModelId::VLP32C) {
-    // timing table calculation, from velodyne user manual
-    timing_offsets.resize(12);
-    for (auto &timing_offset : timing_offsets) {
-      timing_offset.resize(32);
-    }
+    return timing_offsets;
+  } else if (model == ModelId::VLP32C || model == ModelId::VLP32B || model == ModelId::VLP32A) {
+    // VLP-32C: https://icave2.cse.buffalo.edu/resources/sensor-modeling/VLP32CManual.pdf#page=49
+    // No manual found for VLP-32A and VLP-32B.
+    // VLP-32C and VLP-32B likely have the same timings since their calibrations are identical.
+    // FIXME: I'm guessing the timings are the same for VLP-32A as well.
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
     // constants
-    double full_firing_cycle = 55.296 * 1e-6; // seconds
-    double single_firing     = 2.304 * 1e-6;  // seconds
-    bool dual_mode           = false;
+    // 2.304 μs x 16 firings + 18.43 μs recharge time = 55.296 μs full cycle
+    const double full_firing_cycle = 55.296 * 1e-6; // seconds
+    const double single_firing     = 2.304 * 1e-6;  // seconds
     // compute timing offsets
     for (size_t x = 0; x < timing_offsets.size(); ++x) {
       for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        double dataBlockIndex = dual_mode ? x / 2 : x;
-        double dataPointIndex = y / 2;
-        timing_offsets[x][y] =
-            (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
+        uint16_t block_index  = x;
+        uint16_t firing_index = y / 2;
+        timing_offsets[block_index][y] =
+            (float)(full_firing_cycle * block_index + single_firing * firing_index);
       }
     }
+    return timing_offsets;
   } else if (model == ModelId::HDL32E) {
-    // timing table calculation, from velodyne user manual
-    timing_offsets.resize(12);
-    for (auto &timing_offset : timing_offsets) {
-      timing_offset.resize(32);
-    }
+    // https://velodynelidar.com/wp-content/uploads/2019/09/63-9277-Rev-D-HDL-32E-Application-Note-Packet-Structure-Timing-Definition.pdf#page=20
+    // https://www.termocam.it/pdf/manuale-HDL-32E.pdf#page=12
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
     // constants
-    double full_firing_cycle = 46.080 * 1e-6; // seconds
-    double single_firing     = 1.152 * 1e-6;  // seconds
-    bool dual_mode           = false;
+    // 1.152 μs x 32 firings + 9.216 μs recharge time = 46.080 μs full cycle
+    const double full_firing_cycle = 46.080 * 1e-6; // seconds
+    const double single_firing     = 1.152 * 1e-6;  // seconds
     // compute timing offsets
     for (size_t x = 0; x < timing_offsets.size(); ++x) {
       for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        double dataBlockIndex = dual_mode ? x / 2 : x;
-        double dataPointIndex = y / 2;
+        uint16_t block_index  = x;
+        uint16_t firing_index = y / 2;
         timing_offsets[x][y] =
-            (full_firing_cycle * dataBlockIndex) + (single_firing * dataPointIndex);
+            (float)(full_firing_cycle * block_index + single_firing * firing_index);
       }
     }
+    return timing_offsets;
   } else if (model == ModelId::AlphaPrime) {
-    timing_offsets.resize(3);
-    for (auto &timing_offset : timing_offsets) {
-      timing_offset.resize(17); // 17 (+1 for the maintenance time after firing group 8)
-    }
-
-    double full_firing_cycle = VLS128_SEQ_TDURATION * 1e-6;     // seconds
-    double single_firing     = VLS128_CHANNEL_TDURATION * 1e-6; // seconds
-    double offset_paket_time = VLS128_TOH_ADJUSTMENT * 1e-6;    // seconds
+    // 17: +1 for the maintenance time after firing group 8
+    std::vector<std::vector<float>> timing_offsets{3, std::vector<float>(17)};
+    // Sequence duration. Sequence is a set of laser firings including recharging.
+    const double full_firing_cycle = 53.3 * 1e-6;
+    // Channel duration. Channels correspond to one laser firing
+    const double single_firing = 2.665 * 1e-6;
+    // ToH adjustment. Top of the Hour is aligned with the fourth firing group in a firing sequence.
+    const double offset_packet_time = 8.7 * 1e-6;
     // Compute timing offsets
     for (size_t x = 0; x < timing_offsets.size(); ++x) {
       for (size_t y = 0; y < timing_offsets[x].size(); ++y) {
-        double sequenceIndex    = x;
-        double firingGroupIndex = y;
-        timing_offsets[x][y]    = (full_firing_cycle * sequenceIndex) +
-                               (single_firing * firingGroupIndex) - offset_paket_time;
+        uint16_t sequence_index     = x;
+        uint16_t firing_group_index = y;
+        timing_offsets[x][y]        = (float)(full_firing_cycle * sequence_index +
+                                       single_firing * firing_group_index - offset_packet_time);
       }
     }
-  } else {
-    // TODO: add require_timings
-    // throw std::runtime_error("Timings not available for Velodyne model " + model);
+    return timing_offsets;
+  } else if (model == ModelId::HDL64E_S1) {
+    // S1 has no details about timing info provided:
+    // https://usermanual.wiki/Pdf/HDL64E20Manual.196042455/view
+    return {};
+  } else if (model == ModelId::HDL64E_S2) {
+    // https://www.termocam.it/pdf/manuale-HDL-64E.pdf#page=38
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
+    // Fill the timing info based on the "Laser firing time table" in the manual
+    const std::array<double, 4> pattern = {0., 1.26, 2.46, 3.66};
+    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
+      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
+        double offset = 48.0 * (block_idx / 2) + 6.0 * (laser_idx / 4) + pattern[laser_idx % 4];
+        offset *= 1e-6;
+        timing_offsets[block_idx][laser_idx] = (float)offset;
+      }
+    }
+    return timing_offsets;
+  } else if (model == ModelId::HDL64E_S3) {
+    // https://www.researchgate.net/profile/Joerg-Fricke/post/How_the_LiDARs_photodetector_distinguishes_lasers_returns/attachment/5fa947b8543da600017dcf9b/AS%3A955957442002980%401604929423693/download/HDL-64E_S3_UsersManual.pdf#page=48
+    std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
+    // Fill the timing info based on the "Laser firing time table" in the manual
+    const std::array<double, 4> pattern = {0, 1.3, 2.5, 3.7};
+    for (uint16_t block_idx = 0; block_idx < 12; ++block_idx) {
+      for (uint16_t laser_idx = 0; laser_idx < 32; ++laser_idx) {
+        double offset = 57.6 * (block_idx / 4) + 7.2 * (laser_idx / 4) + pattern[laser_idx % 4];
+        offset *= 1e-6;
+        timing_offsets[block_idx][laser_idx] = (float)offset;
+      }
+    }
+    return timing_offsets;
   }
-  return timing_offsets;
+  return {};
 }
 
 void PacketDecoder::setupSinCosCache() {
@@ -246,8 +276,8 @@ void PacketDecoder::setupSinCosCache() {
 void PacketDecoder::setupAzimuthCache(ModelId model_id) {
   if (model_id == ModelId::AlphaPrime) {
     for (uint8_t i = 0; i < 16; i++) {
-      vls_128_laser_azimuth_cache_[i] =
-          (VLS128_CHANNEL_TDURATION / VLS128_SEQ_TDURATION) * (i + i / 8);
+      // full cycle duration / firing duration = 20
+      vls_128_laser_azimuth_cache_[i] = (i + i / 8) / 20.f;
     }
   }
 }
@@ -284,7 +314,9 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
   case ModelId::VLP32A:
   case ModelId::VLP32B:
   case ModelId::HDL32E:
-  case ModelId::HDL64E:
+  case ModelId::HDL64E_S1:
+  case ModelId::HDL64E_S2:
+  case ModelId::HDL64E_S3:
     return unpack_vlp32_vlp64(raw_packet, pkt.stamp, cloud, scan_start_time);
   case ModelId::VLP16:
   case ModelId::PuckHiRes:
