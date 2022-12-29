@@ -70,7 +70,7 @@ private:
    *
    *  Runs during initialization and determines the firing time for each point in the scan
    */
-  static std::vector<std::vector<float>> buildTimings(ModelId model);
+  [[nodiscard]] static std::vector<std::vector<float>> buildTimings(ModelId model);
 
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
@@ -84,8 +84,8 @@ private:
   void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
                      Time scan_start_time) const;
 
-  void unpackPointCommon(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
-                         uint16_t azimuth, float time) const;
+  void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
+                   uint16_t azimuth, float time) const;
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;

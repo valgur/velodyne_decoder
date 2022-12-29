@@ -374,7 +374,7 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
           continue;
 
         const auto &measurement = block.data[j];
-        unpackPointCommon(cloud, dsr, measurement, azimuth_corrected, time);
+        unpackPoint(cloud, dsr, measurement, azimuth_corrected, time);
       }
     }
   }
@@ -428,16 +428,98 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = block.data[j];
-      unpackPointCommon(cloud, laser_number, measurement, azimuth_corrected, time);
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time);
+    }
+  }
+}
+
+/** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
+ */
+void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
+                                  Time scan_start_time) const {
+  float time_diff_start_to_this_packet = stamp - scan_start_time;
+
+  bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
+
+  uint16_t azimuth_next   = raw.blocks[0].rotation;
+  float last_azimuth_diff = 0;
+
+  for (int block = 0; block < BLOCKS_PER_PACKET - (4 * dual_return); block++) {
+    // cache block for use
+    const raw_block_t &current_block = raw.blocks[block];
+
+    int bank_origin = 0;
+    // Used to detect which bank of 32 lasers is in this block
+    switch (current_block.header) {
+    case VLS128_BANK_1:
+      bank_origin = 0;
+      break;
+    case VLS128_BANK_2:
+      bank_origin = 32;
+      break;
+    case VLS128_BANK_3:
+      bank_origin = 64;
+      break;
+    case VLS128_BANK_4:
+      bank_origin = 96;
+      break;
+    default:
+      return; // bad packet: skip the rest
+    }
+
+    // Calculate difference between current and next block's azimuth angle.
+    uint16_t azimuth = azimuth_next;
+    float azimuth_diff;
+    if (block < (BLOCKS_PER_PACKET - (1 + dual_return))) {
+      // Get the next block rotation to calculate how far we rotate between blocks
+      azimuth_next = raw.blocks[block + (1 + dual_return)].rotation;
+
+      // Finds the difference between two successive blocks
+      azimuth_diff = (float)((36000 + azimuth_next - azimuth) % 36000);
+
+      // This is used when the last block is next to predict rotation amount
+      last_azimuth_diff = azimuth_diff;
+    } else {
+      // This makes the assumption the difference between the last block and the next packet is the
+      // same as the last to the second to last.
+      // Assumes RPM doesn't change much between blocks
+      azimuth_diff = (block == BLOCKS_PER_PACKET - (4 * dual_return) - 1) ? 0 : last_azimuth_diff;
+    }
+
+    if (!azimuthInRange(azimuth))
+      continue;
+
+    float rotation_rate = azimuth_diff / VLS128_SEQ_TDURATION;
+
+    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+      // distance extraction
+      uint16_t raw_distance = current_block.data[j].distance;
+      if (raw_distance == 0)
+        continue;
+
+      // Offset the laser in this block by which block it's in
+      uint8_t laser_number = j + bank_origin;
+      uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
+
+      float time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
+                   time_diff_start_to_this_packet;
+
+      // correct for the laser rotation as a function of timing during the firings
+      float dt                   = firing_order * VLS128_CHANNEL_TDURATION;
+      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
+      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
+
+      const auto &measurement = current_block.data[j];
+      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, time);
     }
   }
 }
 
 /** @brief Applies calibration, converts to a Cartesian 3D point and appends to the cloud.
  */
-void PacketDecoder::unpackPointCommon(PointCloud &cloud, int laser_idx,
-                                      const raw_measurement_t &measurement, uint16_t azimuth,
-                                      float time) const {
+void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
+                                const raw_measurement_t &measurement, uint16_t azimuth,
+                                float time) const {
   float distance = measurement.distance * calibration_.distance_resolution_m;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
@@ -526,88 +608,6 @@ void PacketDecoder::unpackPointCommon(PointCloud &cloud, int laser_idx,
     intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
     cloud.emplace_back(x_coord, y_coord, z_coord, intensity, corrections.laser_ring, time);
-  }
-}
-
-/** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
- */
-void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                  Time scan_start_time) const {
-  float time_diff_start_to_this_packet = stamp - scan_start_time;
-
-  bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
-
-  uint16_t azimuth_next   = raw.blocks[0].rotation;
-  float last_azimuth_diff = 0;
-
-  for (int block = 0; block < BLOCKS_PER_PACKET - (4 * dual_return); block++) {
-    // cache block for use
-    const raw_block_t &current_block = raw.blocks[block];
-
-    int bank_origin = 0;
-    // Used to detect which bank of 32 lasers is in this block
-    switch (current_block.header) {
-    case VLS128_BANK_1:
-      bank_origin = 0;
-      break;
-    case VLS128_BANK_2:
-      bank_origin = 32;
-      break;
-    case VLS128_BANK_3:
-      bank_origin = 64;
-      break;
-    case VLS128_BANK_4:
-      bank_origin = 96;
-      break;
-    default:
-      return; // bad packet: skip the rest
-    }
-
-    // Calculate difference between current and next block's azimuth angle.
-    uint16_t azimuth = azimuth_next;
-    float azimuth_diff;
-    if (block < (BLOCKS_PER_PACKET - (1 + dual_return))) {
-      // Get the next block rotation to calculate how far we rotate between blocks
-      azimuth_next = raw.blocks[block + (1 + dual_return)].rotation;
-
-      // Finds the difference between two successive blocks
-      azimuth_diff = (float)((36000 + azimuth_next - azimuth) % 36000);
-
-      // This is used when the last block is next to predict rotation amount
-      last_azimuth_diff = azimuth_diff;
-    } else {
-      // This makes the assumption the difference between the last block and the next packet is the
-      // same as the last to the second to last.
-      // Assumes RPM doesn't change much between blocks
-      azimuth_diff = (block == BLOCKS_PER_PACKET - (4 * dual_return) - 1) ? 0 : last_azimuth_diff;
-    }
-
-    if (!azimuthInRange(azimuth))
-      continue;
-
-    float rotation_rate = azimuth_diff / VLS128_SEQ_TDURATION;
-
-    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      // distance extraction
-      uint16_t raw_distance = current_block.data[j].distance;
-      if (raw_distance == 0)
-        continue;
-
-      // Offset the laser in this block by which block it's in
-      uint8_t laser_number = j + bank_origin;
-      uint8_t firing_order = laser_number / 8; // VLS-128 fires 8 lasers at a time
-
-      float time = timing_offsets_[block / 4][firing_order + laser_number / 64] +
-                   time_diff_start_to_this_packet;
-
-      // correct for the laser rotation as a function of timing during the firings
-      float dt                   = firing_order * VLS128_CHANNEL_TDURATION;
-      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
-      uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
-
-      const auto &measurement = current_block.data[j];
-      unpackPointCommon(cloud, laser_number, measurement, azimuth_corrected, time);
-    }
   }
 }
 
