@@ -231,7 +231,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
   } else if (model == ModelId::HDL64E_S1) {
     // S1 has no details about timing info provided:
     // https://usermanual.wiki/Pdf/HDL64E20Manual.196042455/view
-    return {};
+    return std::vector<std::vector<float>>{12, std::vector<float>{32, 0.0f}};
   } else if (model == ModelId::HDL64E_S2) {
     // https://www.termocam.it/pdf/manuale-HDL-64E.pdf#page=38
     std::vector<std::vector<float>> timing_offsets{12, std::vector<float>(32)};
@@ -259,7 +259,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
     }
     return timing_offsets;
   }
-  return {};
+  throw std::runtime_error("Requested timings for an unknown model");
 }
 
 void PacketDecoder::setupSinCosCache() {
@@ -356,7 +356,6 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
       last_azimuth_diff = azimuth_diff;
     }
 
-    float t_block       = timing_offsets_[i][0] + time_diff_start_to_this_packet;
     float rotation_rate = azimuth_diff / VLP16_BLOCK_TDURATION;
 
     for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
@@ -364,9 +363,11 @@ void PacketDecoder::unpack_vlp16(const raw_packet_t &raw, Time stamp, PointCloud
         if (block.data[j].distance == 0)
           continue;
 
-        /** correct for the laser rotation as a function of timing during the firings **/
-        float time = timing_offsets_[i][firing * 16 + dsr] + time_diff_start_to_this_packet;
-        float azimuth_corrected_f  = azimuth + (time - t_block) * rotation_rate;
+        float dt   = timing_offsets_[i][firing * 16 + dsr];
+        float time = dt + time_diff_start_to_this_packet;
+
+        // correct for the laser rotation as a function of timing during the firings
+        float azimuth_corrected_f  = azimuth + rotation_rate * dt;
         uint16_t azimuth_corrected = std::lround(azimuth_corrected_f + 36000) % 36000;
 
         if (!azimuthInRange(azimuth_corrected))
@@ -388,6 +389,8 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
   uint16_t azimuth_next   = raw.blocks[0].rotation;
   float last_azimuth_diff = 0;
 
+  const float block_duration = timing_offsets_[1][0] - timing_offsets_[0][0];
+
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
 
@@ -406,12 +409,7 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
       azimuth_diff = last_azimuth_diff;
     }
 
-    float t_block = 0;
-    if (!timing_offsets_.empty()) {
-      t_block = timing_offsets_[i][0] + time_diff_start_to_this_packet;
-    }
-    float block_duration = timing_offsets_[i][SCANS_PER_BLOCK - 1] - timing_offsets_[i][0];
-    float rotation_rate  = azimuth_diff / block_duration;
+    float rotation_rate = block_duration == 0 ? 0 : azimuth_diff / block_duration;
 
     if (!azimuthInRange(azimuth))
       continue;
@@ -422,13 +420,11 @@ void PacketDecoder::unpack_vlp32_vlp64(const raw_packet_t &raw, Time stamp, Poin
 
       const uint8_t laser_number = j + bank_origin;
 
-      float time = 0;
-      if (!timing_offsets_.empty()) {
-        time = timing_offsets_[i][j] + time_diff_start_to_this_packet;
-      }
+      float dt   = timing_offsets_[i][j];
+      float time = dt + time_diff_start_to_this_packet;
 
       // correct for the laser rotation as a function of timing during the firings
-      float azimuth_corrected_f  = azimuth + (time - t_block) * rotation_rate;
+      float azimuth_corrected_f  = azimuth + rotation_rate * dt;
       uint16_t azimuth_corrected = std::lround(azimuth_corrected_f) % 36000;
 
       const auto &measurement = block.data[j];
