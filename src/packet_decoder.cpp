@@ -425,8 +425,15 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     int azimuth_diff = (int)raw.blocks[0].rotation - (int)prev_packet_azimuth_;
     azimuth_diff     = (azimuth_diff + 36000) % 36000;
     // Packets in dual-return mode contain only a single column, 3 in standard mode.
-    float duration = dual_return ? VLS128_SEQ_TDURATION : 3 * VLS128_SEQ_TDURATION;
-    rotation_rate  = (float)azimuth_diff / duration;
+    float packet_duration = dual_return ? VLS128_SEQ_TDURATION : 3 * VLS128_SEQ_TDURATION;
+    rotation_rate         = (float)azimuth_diff / packet_duration;
+    if (prev_rotation_rate_ > 0 && rotation_rate > prev_rotation_rate_ * 1.8f) {
+      // A packet has been dropped inbetween the current and last packet.
+      // Use the previous azimuth diff instead.
+      rotation_rate = prev_rotation_rate_;
+    } else {
+      prev_rotation_rate_ = rotation_rate;
+    }
   }
   prev_packet_azimuth_ = raw.blocks[0].rotation;
 

@@ -118,6 +118,7 @@ private:
   // First azimuth in the previous packet.
   // Needed for dual-return mode VLS-128, where only a single column is stored per-packet.
   uint16_t prev_packet_azimuth_ = std::numeric_limits<uint16_t>::max();
+  float prev_rotation_rate_        = 0;
 };
 
 } // namespace velodyne_decoder
