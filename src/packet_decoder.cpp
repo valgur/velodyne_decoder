@@ -325,7 +325,7 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
       return; // bad packet: skip the rest
     }
 
-    uint16_t azimuth = block.rotation;
+    uint16_t block_azimuth = block.rotation;
 
     // In dual return mode, the even columns contain the last returns and odd the strongest
     bool last_return_mode = (dual_return && i % 2 == 0) || //
@@ -339,16 +339,16 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
         continue;
 
       // correct for the laser rotation as a function of timing during the firings
-      float time                 = timing_offsets_[dual_return ? i / 2 : i][j];
-      float dt                   = time - t0;
-      uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
+      float time       = timing_offsets_[dual_return ? i / 2 : i][j];
+      float dt         = time - t0;
+      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
-      if (!azimuthInRange(azimuth_corrected))
+      if (!azimuthInRange(azimuth))
         continue;
 
       float full_time = time + time_diff_start_to_this_packet;
       int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
-      unpackPoint(cloud, laser_idx, measurement, azimuth_corrected, full_time, last_return_mode);
+      unpackPoint(cloud, laser_idx, measurement, azimuth, full_time, last_return_mode);
     }
   }
 }
@@ -378,8 +378,8 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
     // lower bank lasers are [32..63]
     int bank_origin = (block.header == UPPER_BANK) ? 0 : 32;
 
-    uint16_t azimuth = block.rotation;
-    if (!azimuthInRange(azimuth))
+    uint16_t block_azimuth = block.rotation;
+    if (!azimuthInRange(block_azimuth))
       continue;
 
     // In dual return mode, the odd columns contain the last returns and even the strongest.
@@ -391,19 +391,19 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
     float t0 = timing_offsets_[dual_return ? i / 4 * 2 : i / 2 * 2][0];
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      if (block.data[j].distance == 0)
+      const auto &measurement = block.data[j];
+      if (measurement.distance == 0)
         continue;
 
       const uint8_t laser_number = j + bank_origin;
 
       // correct for the laser rotation as a function of timing during the firings
-      float time                 = timing_offsets_[dual_return ? i / 2 : i][j];
-      float dt                   = time - t0;
-      uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
+      float time       = timing_offsets_[dual_return ? i / 2 : i][j];
+      float dt         = time - t0;
+      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
-      const auto &measurement = block.data[j];
-      float full_time         = time + time_diff_start_to_this_packet;
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, full_time, last_return_mode);
+      float full_time = time + time_diff_start_to_this_packet;
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, last_return_mode);
     }
   }
 }
@@ -441,8 +441,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     // cache block for use
     const raw_block_t &current_block = raw.blocks[block];
 
-    uint16_t azimuth = current_block.rotation;
-    if (!azimuthInRange(azimuth))
+    uint16_t block_azimuth = current_block.rotation;
+    if (!azimuthInRange(block_azimuth))
       continue;
 
     int bank_origin = 0;
@@ -471,22 +471,20 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     float t0 = timing_offsets_[dual_return ? 0 : block / 4][0];
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      // distance extraction
-      uint16_t raw_distance = current_block.data[j].distance;
-      if (raw_distance == 0)
+      const auto &measurement = current_block.data[j];
+      if (measurement.distance == 0)
         continue;
 
       // Offset the laser in this block by which block it's in
       uint8_t laser_number = bank_origin + j;
 
       // correct for the laser rotation as a function of timing during the firings
-      float time                 = timing_offsets_[dual_return ? 0 : block / 4][laser_number];
-      float dt                   = time - t0;
-      uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
+      float time       = timing_offsets_[dual_return ? 0 : block / 4][laser_number];
+      float dt         = time - t0;
+      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
-      const auto &measurement = current_block.data[j];
-      float full_time         = time + time_diff_start_to_this_packet;
-      unpackPoint(cloud, laser_number, measurement, azimuth_corrected, full_time, last_return_mode);
+      float full_time = time + time_diff_start_to_this_packet;
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, last_return_mode);
     }
   }
 }
