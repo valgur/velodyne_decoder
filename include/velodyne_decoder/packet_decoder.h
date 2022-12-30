@@ -74,10 +74,8 @@ private:
 
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
-  void unpack_16_beam(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                      Time scan_start_time) const;
-  void unpack_32_beam(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                      Time scan_start_time) const;
+  void unpack_16_32_beam(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                         Time scan_start_time) const;
   void unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
                      Time scan_start_time) const;
   void unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud, Time scan_start_time);

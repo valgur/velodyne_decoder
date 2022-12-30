@@ -285,12 +285,11 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
   switch (*model_id_) {
   case ModelId::VLP16:
   case ModelId::PuckHiRes:
-    return unpack_16_beam(raw_packet, pkt.stamp, cloud, scan_start_time);
   case ModelId::HDL32E:
   case ModelId::VLP32A:
   case ModelId::VLP32B:
   case ModelId::VLP32C:
-    return unpack_32_beam(raw_packet, pkt.stamp, cloud, scan_start_time);
+    return unpack_16_32_beam(raw_packet, pkt.stamp, cloud, scan_start_time);
   case ModelId::HDL64E_S1:
   case ModelId::HDL64E_S2:
   case ModelId::HDL64E_S3:
@@ -301,10 +300,11 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
     throw std::runtime_error("Unsupported Velodyne model ID: " + std::to_string((int)*model_id_));
   }
 }
-/** @brief convert raw VLP-16 packet to point cloud
+
+/** @brief convert raw VLP-16, HDL-32E or VLP-32A/B/C packet to point cloud
  */
-void PacketDecoder::unpack_16_beam(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                   Time scan_start_time) const {
+void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
+                                      Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
@@ -321,62 +321,11 @@ void PacketDecoder::unpack_16_beam(const raw_packet_t &raw, Time stamp, PointClo
     const auto &block = raw.blocks[i];
 
     // ignore packets with mangled or otherwise different contents
-    if (UPPER_BANK != block.header) {
+    if (block.header != UPPER_BANK) {
       return; // bad packet: skip the rest
     }
 
-    // Calculate difference between current and next block's azimuth angle.
     uint16_t azimuth = block.rotation;
-
-    // In dual return mode, the even columns contain the last returns and odd the strongest
-    bool last_return_mode = (dual_return && i % 2 == 0) || //
-                            raw.return_mode == DualReturnMode::LAST_RETURN;
-
-    float t0 = timing_offsets_[dual_return ? i / 2 : i][0];
-
-    for (int firing = 0, j = 0; firing < VLP16_FIRINGS_PER_BLOCK; firing++) {
-      for (int dsr = 0; dsr < VLP16_SCANS_PER_FIRING; dsr++, j++) {
-        if (block.data[j].distance == 0)
-          continue;
-
-        // correct for the laser rotation as a function of timing during the firings
-        float time                 = timing_offsets_[dual_return ? i / 2 : i][firing * 16 + dsr];
-        float dt                   = time - t0;
-        uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
-
-        if (!azimuthInRange(azimuth_corrected))
-          continue;
-
-        const auto &measurement = block.data[j];
-        float full_time         = time + time_diff_start_to_this_packet;
-        unpackPoint(cloud, dsr, measurement, azimuth_corrected, full_time, last_return_mode);
-      }
-    }
-  }
-}
-
-/** @brief convert raw HDL-32E or VLP-32A/B/C packet to point cloud
- */
-void PacketDecoder::unpack_32_beam(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                   Time scan_start_time) const {
-  float time_diff_start_to_this_packet = stamp - scan_start_time;
-
-  bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
-
-  // Calculate the average rotation rate for this packet
-  int azimuth_diff = (int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation;
-  azimuth_diff     = (azimuth_diff + 36000) % 36000;
-  float duration =
-      timing_offsets_[dual_return ? (BLOCKS_PER_PACKET - 1) / 2 : (BLOCKS_PER_PACKET - 1)][0] -
-      timing_offsets_[0][0];
-  float rotation_rate = (float)azimuth_diff / duration;
-
-  for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
-    const auto &block = raw.blocks[i];
-
-    uint16_t azimuth = block.rotation;
-    if (!azimuthInRange(azimuth))
-      continue;
 
     // In dual return mode, the even columns contain the last returns and odd the strongest
     bool last_return_mode = (dual_return && i % 2 == 0) || //
@@ -385,7 +334,8 @@ void PacketDecoder::unpack_32_beam(const raw_packet_t &raw, Time stamp, PointClo
     float t0 = timing_offsets_[dual_return ? i / 2 : i][0];
 
     for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      if (block.data[j].distance == 0)
+      const auto &measurement = block.data[j];
+      if (measurement.distance == 0)
         continue;
 
       // correct for the laser rotation as a function of timing during the firings
@@ -393,9 +343,12 @@ void PacketDecoder::unpack_32_beam(const raw_packet_t &raw, Time stamp, PointClo
       float dt                   = time - t0;
       uint16_t azimuth_corrected = std::lround(azimuth + rotation_rate * dt + 36000) % 36000;
 
-      const auto &measurement = block.data[j];
-      float full_time         = time + time_diff_start_to_this_packet;
-      unpackPoint(cloud, j, measurement, azimuth_corrected, full_time, last_return_mode);
+      if (!azimuthInRange(azimuth_corrected))
+        continue;
+
+      float full_time = time + time_diff_start_to_this_packet;
+      int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
+      unpackPoint(cloud, laser_idx, measurement, azimuth_corrected, full_time, last_return_mode);
     }
   }
 }
@@ -403,7 +356,7 @@ void PacketDecoder::unpack_32_beam(const raw_packet_t &raw, Time stamp, PointClo
 /** @brief convert raw HDL-64E packet to point cloud
  */
 void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                   Time scan_start_time) const {
+                                  Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   // HDL-64E does not have a separate packet field for dual return mode info.
@@ -458,7 +411,7 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
 /** @brief convert raw VLS-128 / Alpha Prime packet to point cloud
  */
 void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
-                                    Time scan_start_time) {
+                                  Time scan_start_time) {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
   bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
