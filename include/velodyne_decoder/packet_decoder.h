@@ -74,15 +74,13 @@ private:
 
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
-  /** add private function to handle the VLP16 **/
-  void unpack_vlp16(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                    Time scan_start_time) const;
-
-  void unpack_vlp32_vlp64(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                          Time scan_start_time) const;
-
-  void unpack_vls128(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
-                     Time scan_start_time);
+  void unpack_16_beam(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                      Time scan_start_time) const;
+  void unpack_32_beam(const raw_packet_t &raw, Time udp_stamp, PointCloud &cloud,
+                      Time scan_start_time) const;
+  void unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointCloud &cloud,
+                     Time scan_start_time) const;
+  void unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud, Time scan_start_time);
 
   void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
                    uint16_t azimuth, float time, bool last_return_mode) const;
@@ -118,7 +116,7 @@ private:
   // First azimuth in the previous packet.
   // Needed for dual-return mode VLS-128, where only a single column is stored per-packet.
   uint16_t prev_packet_azimuth_ = std::numeric_limits<uint16_t>::max();
-  float prev_rotation_rate_        = 0;
+  float prev_rotation_rate_     = 0;
 };
 
 } // namespace velodyne_decoder
