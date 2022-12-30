@@ -307,6 +307,7 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
                                       Time scan_start_time) const {
   float time_diff_start_to_this_packet = stamp - scan_start_time;
 
+  // Note: for HDL-32E, this field is only set since firmware version 2.2.20.0, 2016-02-02.
   bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
 
   // Calculate the average rotation rate for this packet
