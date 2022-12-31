@@ -18,23 +18,8 @@ constexpr int SCANS_PER_BLOCK = 32;
 constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
 constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
 
-/** @todo make this work for both big and little-endian machines */
-constexpr uint16_t UPPER_BANK = 0xeeff;
-constexpr uint16_t LOWER_BANK = 0xddff;
-
-/** Special Defines for VLP16 support **/
-constexpr int VLP16_FIRINGS_PER_BLOCK = 2;
-constexpr int VLP16_SCANS_PER_FIRING  = 16;
-
 constexpr int PACKET_SIZE       = 1206;
 constexpr int BLOCKS_PER_PACKET = 12;
-
-/** Special Definitions for VLS-128 / Alpha Prime support **/
-// These are used to detect which bank of 32 lasers is in this block
-constexpr uint16_t VLS128_BANK_1 = 0xeeff;
-constexpr uint16_t VLS128_BANK_2 = 0xddff;
-constexpr uint16_t VLS128_BANK_3 = 0xccff;
-constexpr uint16_t VLS128_BANK_4 = 0xbbff;
 
 // Channels corresponds to one laser firing
 constexpr float VLS128_CHANNEL_TDURATION = 2.665f * 1e-6f;
@@ -44,6 +29,14 @@ constexpr float VLS128_SEQ_TDURATION = 53.3f * 1e-6f;
 // Offset added to ring values if the returned point is in "last return" mode
 // instead of the default "strongest return".
 constexpr uint16_t LAST_MODE_RING_OFFSET = 512;
+
+// These are used to detect which bank of 32 lasers is contained in this block
+enum class LaserBankId : uint16_t {
+  BANK_0 = 0xeeff, // lasers [0..31], aka upper bank for HDL-64E
+  BANK_1 = 0xddff, // lasers [32..63], aka lower bank for HDL-64E
+  BANK_2 = 0xccff, // lasers [64..95]
+  BANK_3 = 0xbbff, // lasers [96..127]
+};
 
 enum class ModelId : uint8_t {
   HDL64E_S1  = 1,
@@ -60,14 +53,6 @@ enum class ModelId : uint8_t {
   AlphaPrime = 10, // = VLS-128
 };
 
-enum class DualReturnMode : uint8_t {
-  STRONGEST_RETURN            = 0x37,
-  LAST_RETURN                 = 0x38,
-  DUAL_RETURN                 = 0x39,
-  TRIPLE_RETURN               = 0x3A,
-  DUAL_RETURN_WITH_CONFIDENCE = 0x3B,
-};
-
 enum class PacketModelId : uint8_t {
   HDL32E     = 0x21, // decimal: 33
   VLP16      = 0x22, // decimal: 34
@@ -76,6 +61,12 @@ enum class PacketModelId : uint8_t {
   VLP32C     = 0x28, // decimal: 40
   Velarray   = 0x31, // decimal: 49
   VLS128     = 0xa1, // decimal: 161
+};
+
+enum class DualReturnMode : uint8_t {
+  STRONGEST_RETURN = 0x37,
+  LAST_RETURN      = 0x38,
+  DUAL_RETURN      = 0x39,
 };
 
 #pragma pack(push, 1)
@@ -90,13 +81,13 @@ struct raw_measurement_t {
  *  bank.  The device returns three times as many upper bank blocks.
  */
 struct raw_block_t {
-  uint16_t header;   ///< UPPER_BANK or LOWER_BANK
-  uint16_t rotation; ///< 0-35999, divide by 100 to get degrees
-  raw_measurement_t data[SCANS_PER_BLOCK];
+  LaserBankId bank_id; ///< which bank of 32 lasers is contained in this block
+  uint16_t rotation;   ///< 0-35999, divide by 100 to get degrees
+  std::array<raw_measurement_t, SCANS_PER_BLOCK> data;
 };
 
 struct raw_packet_t {
-  raw_block_t blocks[BLOCKS_PER_PACKET];
+  std::array<raw_block_t, BLOCKS_PER_PACKET> blocks;
   uint32_t stamp;
   DualReturnMode return_mode;
   PacketModelId model_id;

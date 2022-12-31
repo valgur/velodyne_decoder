@@ -322,7 +322,7 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
     const auto &block = raw.blocks[i];
 
     // ignore packets with mangled or otherwise different contents
-    if (block.header != UPPER_BANK) {
+    if (block.bank_id != LaserBankId::BANK_0) {
       return; // bad packet: skip the rest
     }
 
@@ -375,9 +375,7 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
 
-    // upper bank lasers are numbered [0..31]
-    // lower bank lasers are [32..63]
-    int bank_origin = (block.header == UPPER_BANK) ? 0 : 32;
+    int bank_origin = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
 
     uint16_t block_azimuth = block.rotation;
     if (!azimuthInRange(block_azimuth))
@@ -448,17 +446,17 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
 
     int bank_origin = 0;
     // Used to detect which bank of 32 lasers is in this block
-    switch (current_block.header) {
-    case VLS128_BANK_1:
+    switch (current_block.bank_id) {
+    case LaserBankId::BANK_0:
       bank_origin = 0;
       break;
-    case VLS128_BANK_2:
+    case LaserBankId::BANK_1:
       bank_origin = 32;
       break;
-    case VLS128_BANK_3:
+    case LaserBankId::BANK_2:
       bank_origin = 64;
       break;
-    case VLS128_BANK_4:
+    case LaserBankId::BANK_3:
       bank_origin = 96;
       break;
     default:
