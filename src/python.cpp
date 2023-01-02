@@ -64,7 +64,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .value("AlphaPrime", ModelId::AlphaPrime, "Alpha Prime (aka VLS-128)");
 
   py::class_<Config>(m, "Config")
-      .def(py::init<>())
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
                        float min_range, float max_range, float min_angle, float max_angle,
                        bool timestamp_first_packet, bool gps_time) {
