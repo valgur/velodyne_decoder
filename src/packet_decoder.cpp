@@ -226,6 +226,7 @@ std::vector<std::vector<float>> PacketDecoder::buildTimings(ModelId model) {
     // Sequence duration. Sequence is a set of laser group firings including recharging.
     const double full_firing_cycle = 53.3 * 1e-6;
     // Channel duration. Channels correspond to a group of 8 lasers firing.
+    // FIXME: 2.89 usec since firmware v5.2.3.0 (based on Rev4 of the manual)
     const double single_firing = 2.665 * 1e-6;
     // ToH adjustment. Top of the Hour is aligned with the fourth firing group in a firing sequence.
     const double offset_packet_time = 8.7 * 1e-6;
