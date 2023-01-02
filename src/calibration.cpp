@@ -16,6 +16,7 @@
 #include <fstream>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <yaml-cpp/yaml.h>
 

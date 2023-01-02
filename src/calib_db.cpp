@@ -1,5 +1,6 @@
 #include <cmath>
 #include <map>
+#include <stdexcept>
 #include <string>
 
 #include "velodyne_decoder/calibration.h"
