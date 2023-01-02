@@ -8,7 +8,7 @@ from velodyne_decoder_pylib import *
 is_py2 = sys.version_info[0] == 2
 
 
-def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
+def read_pcap(pcap_file, config=None, as_pcl_structs=False, time_range=(None, None)):
     """Decodes and yields all point clouds stored in a PCAP file.
 
     `model` must be set in the provided config.
@@ -16,7 +16,7 @@ def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
     Parameters
     ----------
     pcap_file : path or file handle
-    config : Config
+    config : Config, optional
     as_pcl_structs : bool
         If False, the returned NumPy arrays will be a contiguous array of floats (default).
         If True, the returned NumPy arrays will contain PCL-compatible structs with dtype
@@ -31,6 +31,8 @@ def read_pcap(pcap_file, config, as_pcl_structs=False, time_range=(None, None)):
     timestamp: float
     point_cloud : numpy.ndarray
     """
+    if config is None:
+        config = Config()
     decoder = StreamDecoder(config)
     start_time, end_time = time_range
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
@@ -61,7 +63,7 @@ def _get_velodyne_scan_topics(bag):
     return topics
 
 
-def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_time=True,
+def read_bag(bag_file, config=None, topics=None, as_pcl_structs=False, use_header_time=True,
              return_frame_id=False, time_range=(None, None)):
     """Decodes and yields all point clouds stored in a ROS bag file.
 
@@ -70,7 +72,7 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     Parameters
     ----------
     bag_file : path or file handle
-    config : Config
+    config : Config, optional
     topics : str or list of str
     as_pcl_structs : bool
         If False, the returned NumPy arrays will be a contiguous array of floats (default).
@@ -94,6 +96,9 @@ def read_bag(bag_file, config, topics=None, as_pcl_structs=False, use_header_tim
     """
     from rosbag import Bag
     from rospy import Time
+
+    if config is None:
+        config = Config()
 
     decoder = ScanDecoder(config)
 
