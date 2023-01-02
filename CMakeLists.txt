@@ -55,13 +55,12 @@ target_include_directories(${PROJECT_NAME} PUBLIC include PRIVATE SYSTEM ${YAML_
 target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
 
 if(BUILD_PYTHON)
-  #find_package(pybind11 2.6...<3 QUIET)
-  find_package(pybind11 2.6 QUIET)
+  find_package(pybind11 QUIET)
   if(NOT pybind11_FOUND)
     include(FetchContent)
     FetchContent_Declare(pybind11
       GIT_REPOSITORY https://github.com/pybind/pybind11.git
-      GIT_TAG stable
+      GIT_TAG v2.9.2
       GIT_SHALLOW ON
       )
     FetchContent_MakeAvailable(pybind11)
