@@ -97,8 +97,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("min_angle", &Config::min_angle)
       .def_readwrite("max_angle", &Config::max_angle)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
-      .def_readwrite("gps_time", &Config::gps_time)
-      .def_readonly_static("TIMINGS_AVAILABLE", &Config::TIMINGS_AVAILABLE);
+      .def_readwrite("gps_time", &Config::gps_time);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())

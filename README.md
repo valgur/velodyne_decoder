@@ -98,13 +98,6 @@ The main parameter `config.model` must always be set. For a list of supported mo
 ['HDL64E_S1', 'HDL64E_S2', 'HDL64E_S3', 'HDL32E', 'VLP32A', 'VLP32B', 'VLP32C', 'VLP16', 'PuckLite', 'PuckHiRes', 'VLS128', 'AlphaPrime']
 ```
 
-Note that timing info is available for only a subset of the models:
-
-```python
->> > velodyne_decoder.Config.TIMINGS_AVAILABLE
-['HDL-32E', 'VLP-16', 'VLP-32C', 'Alpha Prime']
-```
-
 Other available options are:
 
 * `calibration_file` – the beam calibration details from Velodyne are used by default based on the model ID. If you

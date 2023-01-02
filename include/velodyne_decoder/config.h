@@ -33,15 +33,11 @@ struct Config {
                                        ///< false: use the time of arrival
 
   static const std::vector<ModelId> SUPPORTED_MODELS;
-  static const std::vector<ModelId> TIMINGS_AVAILABLE;
 };
 
 inline const std::vector<ModelId> Config::SUPPORTED_MODELS = //
     {ModelId::HDL64E_S1, ModelId::HDL64E_S2, ModelId::HDL64E_S3, ModelId::HDL32E,
      ModelId::VLP32A,    ModelId::VLP32B,    ModelId::VLP32C,    ModelId::VLP16,
      ModelId::PuckHiRes, ModelId::AlphaPrime};
-
-inline const std::vector<ModelId> Config::TIMINGS_AVAILABLE = //
-    {ModelId::HDL32E, ModelId::VLP16, ModelId::VLP32C, ModelId::AlphaPrime};
 
 } // namespace velodyne_decoder
