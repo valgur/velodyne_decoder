@@ -9,7 +9,6 @@
 
 #include "velodyne_decoder/packet_decoder.h"
 
-#define _USE_MATH_DEFINES
 #include <algorithm>
 #include <cmath>
 #include <cstring>

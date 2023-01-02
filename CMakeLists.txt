@@ -52,6 +52,7 @@ add_library(${PROJECT_NAME} STATIC
   src/stream_decoder.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${YAML_CPP_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PUBLIC include PRIVATE SYSTEM ${YAML_CPP_INCLUDE_DIRS})
+target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
 
 if(BUILD_PYTHON)
   #find_package(pybind11 2.6...<3 QUIET)
