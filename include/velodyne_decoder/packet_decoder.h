@@ -70,7 +70,7 @@ private:
    *
    *  Runs during initialization and determines the firing time for each point in the scan
    */
-  [[nodiscard]] static std::vector<std::vector<float>> buildTimings(ModelId model);
+  [[nodiscard]] static std::array<std::array<float, 32>, 12> buildTimings(ModelId model);
 
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
@@ -107,7 +107,7 @@ private:
   std::vector<uint16_t> ring_cache_;       ///< cache for ring lookup
 
   // timing offset lookup table
-  std::vector<std::vector<float>> timing_offsets_;
+  std::array<std::array<float, 32>, 12> timing_offsets_;
 
   // First azimuth in the previous packet.
   // Needed for dual-return mode VLS-128, where only a single column is stored per-packet.

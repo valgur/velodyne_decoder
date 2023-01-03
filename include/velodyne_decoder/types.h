@@ -21,11 +21,6 @@ constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
 constexpr int PACKET_SIZE       = 1206;
 constexpr int BLOCKS_PER_PACKET = 12;
 
-// Channels corresponds to one laser firing
-constexpr float VLS128_CHANNEL_TDURATION = 2.665f * 1e-6f;
-// Sequence is a set of laser firings including recharging
-constexpr float VLS128_SEQ_TDURATION = 53.3f * 1e-6f;
-
 // Offset added to ring values if the returned point is in "last return" mode
 // instead of the default "strongest return".
 constexpr uint16_t LAST_MODE_RING_OFFSET = 512;
