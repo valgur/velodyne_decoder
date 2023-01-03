@@ -81,7 +81,7 @@ private:
   void unpack_vls128(const raw_packet_t &raw, Time stamp, PointCloud &cloud, Time scan_start_time);
 
   void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
-                   uint16_t azimuth, float time, bool last_return_mode) const;
+                   uint16_t azimuth, float time, bool is_last_return_mode) const;
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;

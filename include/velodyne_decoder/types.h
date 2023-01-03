@@ -64,9 +64,9 @@ enum class PacketModelId : uint8_t {
 };
 
 enum class DualReturnMode : uint8_t {
-  STRONGEST_RETURN = 0x37,
-  LAST_RETURN      = 0x38,
-  DUAL_RETURN      = 0x39,
+  STRONGEST_RETURN = 0x37, // decimal: 55
+  LAST_RETURN      = 0x38, // decimal: 56
+  DUAL_RETURN      = 0x39, // decimal: 57
 };
 
 #pragma pack(push, 1)

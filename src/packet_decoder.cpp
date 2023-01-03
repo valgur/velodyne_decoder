@@ -329,8 +329,8 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
     uint16_t block_azimuth = block.rotation;
 
     // In dual return mode, the even columns contain the last returns and odd the strongest
-    bool last_return_mode = (dual_return && i % 2 == 0) || //
-                            raw.return_mode == DualReturnMode::LAST_RETURN;
+    bool is_last_return_mode = (dual_return && i % 2 == 0) || //
+                               raw.return_mode == DualReturnMode::LAST_RETURN;
 
     float t0 = timing_offsets_[dual_return ? i / 2 : i][0];
 
@@ -349,7 +349,7 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, Time stamp, Point
 
       float full_time = time + time_diff_start_to_this_packet;
       int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
-      unpackPoint(cloud, laser_idx, measurement, azimuth, full_time, last_return_mode);
+      unpackPoint(cloud, laser_idx, measurement, azimuth, full_time, is_last_return_mode);
     }
   }
 }
@@ -381,9 +381,7 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
     if (!azimuthInRange(block_azimuth))
       continue;
 
-    // In dual return mode, the odd columns contain the last returns and even the strongest.
-    // Note: this is opposite of the ordering in other models.
-    bool last_return_mode = dual_return && (i % 2 == 1);
+    bool is_last_return_mode = dual_return && ((i / 2) % 2 == 1);
 
     // The time of the first firing in a column, which spans over two or four blocks
     // (depending on dual return mode).
@@ -397,12 +395,14 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, Time stamp, PointClou
       const uint8_t laser_number = j + bank_origin;
 
       // correct for the laser rotation as a function of timing during the firings
-      float time       = timing_offsets_[dual_return ? i / 2 : i][j];
+      // dual mode blocks correspond to single mode indices with the following pattern:
+      // 0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5
+      float time       = timing_offsets_[dual_return ? i / 4 * 2 + i % 2 : i][j];
       float dt         = time - t0;
       uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
       float full_time = time + time_diff_start_to_this_packet;
-      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, last_return_mode);
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
     }
   }
 }
@@ -464,8 +464,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
     }
 
     // In dual return mode, the even columns contain the last returns and odd the strongest
-    bool last_return_mode = (dual_return && block % 2 == 0) || //
-                            raw.return_mode == DualReturnMode::LAST_RETURN;
+    bool is_last_return_mode = (dual_return && block % 2 == 0) || //
+                               raw.return_mode == DualReturnMode::LAST_RETURN;
 
     float t0 = timing_offsets_[dual_return ? 0 : block / 4][0];
 
@@ -483,7 +483,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
       uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
       float full_time = time + time_diff_start_to_this_packet;
-      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, last_return_mode);
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
     }
   }
 }
@@ -492,7 +492,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, Time stamp, PointClou
  */
 void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
                                 const raw_measurement_t &measurement, uint16_t azimuth, float time,
-                                bool last_return_mode) const {
+                                bool is_last_return_mode) const {
   float distance = measurement.distance * calibration_.distance_resolution_m;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
@@ -517,7 +517,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     float y = -xy_distance * sin_rot_angle;
     float z = distance * sin_vert_angle;
 
-    uint16_t ring = ring_cache_[laser_idx] + last_return_mode * LAST_MODE_RING_OFFSET;
+    uint16_t ring = ring_cache_[laser_idx] + is_last_return_mode * LAST_MODE_RING_OFFSET;
 
     cloud.emplace_back(x, y, z, (float)measurement.intensity, ring, time);
 
@@ -582,7 +582,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     intensity = (intensity < min_intensity) ? min_intensity : intensity;
     intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
-    uint16_t ring = corrections.laser_ring + last_return_mode * LAST_MODE_RING_OFFSET;
+    uint16_t ring = corrections.laser_ring + is_last_return_mode * LAST_MODE_RING_OFFSET;
 
     cloud.emplace_back(x_coord, y_coord, z_coord, intensity, ring, time);
   }
