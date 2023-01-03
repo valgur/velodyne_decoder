@@ -87,11 +87,6 @@ private:
   void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
                    uint16_t azimuth, float time, bool last_return_mode) const;
 
-  /** Calculate the average rotation rate in a packet. In deg/100 units.
-   *  Not applicable to VLS-128.
-   */
-  [[nodiscard]] float calcRotationRate(const raw_packet_t &raw) const;
-
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;
   [[nodiscard]] bool azimuthInRange(uint16_t azimuth) const;
