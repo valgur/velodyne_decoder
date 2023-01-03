@@ -99,4 +99,6 @@ def test_bag_time_range(sample_bag_path):
 
 @pytest.mark.parametrize("model_id", list(vd.Model.__members__.values()))
 def test_bundled_calibrations(model_id):
+    if model_id.name.startswith("HDL64E"):
+        pytest.skip("Default calibrations for HDL-64E are not provided")
     vd.ScanDecoder(vd.Config(model=model_id))

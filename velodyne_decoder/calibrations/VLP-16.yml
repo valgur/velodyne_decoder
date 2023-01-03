@@ -1,3 +1,4 @@
+# aka Puck LITE
 # converted from https://gitlab.kitware.com/LidarView/velodyneplugin/-/tree/0cddc1f92e69b7b26ffc5619aceb1c00854442e6/CalibrationsFiles
 # using https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py
 distance_resolution: 0.002

@@ -1,4 +1,4 @@
-# converted from https://gitlab.kitware.com/LidarView/velodyneplugin/-/tree/0cddc1f92e69b7b26ffc5619aceb1c00854442e6/CalibrationsFiles
+# converted from https://gitlab.kitware.com/LidarView/velodyneplugin/-/blob/releasev5.1.0-paraview5.11/Plugin/VelodyneLidar/CalibrationsFiles/HDL-64.xml
 # using https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py
 distance_resolution: 0.002
 lasers:
