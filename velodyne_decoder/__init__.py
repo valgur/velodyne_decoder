@@ -1,9 +1,11 @@
+import sys
 from collections import namedtuple
 from contextlib import contextmanager
 
 import dpkt
-import sys
 from velodyne_decoder_pylib import *
+
+from velodyne_decoder.calibrations import get_bundled_calibration
 
 is_py2 = sys.version_info[0] == 2
 
@@ -39,7 +41,7 @@ def read_pcap(pcap_file, config=None, as_pcl_structs=False, time_range=(None, No
     with _fopen(pcap_file, "rb") as f:
         for stamp, buf in dpkt.pcap.Reader(f):
             if (start_time is not None and stamp < start_time or
-                end_time is not None and stamp > end_time):
+                    end_time is not None and stamp > end_time):
                 continue
             data = dpkt.ethernet.Ethernet(buf).data.data.data
             if is_py2:
