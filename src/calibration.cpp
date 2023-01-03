@@ -22,39 +22,39 @@
 namespace YAML {
 
 namespace {
-constexpr auto NUM_LASERS                  = "num_lasers";
-constexpr auto DISTANCE_RESOLUTION         = "distance_resolution";
-constexpr auto LASERS                      = "lasers";
-constexpr auto LASER_ID                    = "laser_id";
-constexpr auto ROT_CORRECTION              = "rot_correction";
-constexpr auto VERT_CORRECTION             = "vert_correction";
-constexpr auto DIST_CORRECTION             = "dist_correction";
-constexpr auto TWO_PT_CORRECTION_AVAILABLE = "two_pt_correction_available";
-constexpr auto DIST_CORRECTION_X           = "dist_correction_x";
-constexpr auto DIST_CORRECTION_Y           = "dist_correction_y";
-constexpr auto VERT_OFFSET_CORRECTION      = "vert_offset_correction";
-constexpr auto HORIZ_OFFSET_CORRECTION     = "horiz_offset_correction";
-constexpr auto MAX_INTENSITY               = "max_intensity";
-constexpr auto MIN_INTENSITY               = "min_intensity";
-constexpr auto FOCAL_DISTANCE              = "focal_distance";
-constexpr auto FOCAL_SLOPE                 = "focal_slope";
+constexpr auto NUM_LASERS              = "num_lasers";
+constexpr auto DISTANCE_RESOLUTION     = "distance_resolution";
+constexpr auto LASERS                  = "lasers";
+constexpr auto LASER_ID                = "laser_id";
+constexpr auto ROT_CORRECTION          = "rot_correction";
+constexpr auto VERT_CORRECTION         = "vert_correction";
+constexpr auto DIST_CORRECTION         = "dist_correction";
+constexpr auto DIST_CORRECTION_X       = "dist_correction_x";
+constexpr auto DIST_CORRECTION_Y       = "dist_correction_y";
+constexpr auto VERT_OFFSET_CORRECTION  = "vert_offset_correction";
+constexpr auto HORIZ_OFFSET_CORRECTION = "horiz_offset_correction";
+constexpr auto MAX_INTENSITY           = "max_intensity";
+constexpr auto MIN_INTENSITY           = "min_intensity";
+constexpr auto FOCAL_DISTANCE          = "focal_distance";
+constexpr auto FOCAL_SLOPE             = "focal_slope";
 } // namespace
 
 template <> struct convert<velodyne_decoder::LaserCorrection> {
   static bool decode(const YAML::Node &node, velodyne_decoder::LaserCorrection &correction) {
-    correction.laser_idx                   = node[LASER_ID].as<int>();
-    correction.rot_correction              = node[ROT_CORRECTION].as<float>();
-    correction.vert_correction             = node[VERT_CORRECTION].as<float>();
-    correction.dist_correction             = node[DIST_CORRECTION].as<float>(0);
-    correction.two_pt_correction_available = node[TWO_PT_CORRECTION_AVAILABLE].as<bool>(false);
-    correction.dist_correction_x           = node[DIST_CORRECTION_X].as<float>(0);
-    correction.dist_correction_y           = node[DIST_CORRECTION_Y].as<float>(0);
-    correction.vert_offset_correction      = node[VERT_OFFSET_CORRECTION].as<float>(0);
-    correction.horiz_offset_correction     = node[HORIZ_OFFSET_CORRECTION].as<float>(0);
-    correction.max_intensity               = std::floor(node[MAX_INTENSITY].as<float>(255));
-    correction.min_intensity               = std::floor(node[MIN_INTENSITY].as<float>(0));
-    correction.focal_distance              = node[FOCAL_DISTANCE].as<float>(0);
-    correction.focal_slope                 = node[FOCAL_SLOPE].as<float>(0);
+    correction.laser_idx               = node[LASER_ID].as<int>();
+    correction.rot_correction          = node[ROT_CORRECTION].as<float>();
+    correction.vert_correction         = node[VERT_CORRECTION].as<float>();
+    correction.dist_correction         = node[DIST_CORRECTION].as<float>(0);
+    correction.dist_correction_x       = node[DIST_CORRECTION_X].as<float>(0);
+    correction.dist_correction_y       = node[DIST_CORRECTION_Y].as<float>(0);
+    correction.vert_offset_correction  = node[VERT_OFFSET_CORRECTION].as<float>(0);
+    correction.horiz_offset_correction = node[HORIZ_OFFSET_CORRECTION].as<float>(0);
+    correction.max_intensity           = std::floor(node[MAX_INTENSITY].as<float>(255));
+    correction.min_intensity           = std::floor(node[MIN_INTENSITY].as<float>(0));
+    correction.focal_distance          = node[FOCAL_DISTANCE].as<float>(0);
+    correction.focal_slope             = node[FOCAL_SLOPE].as<float>(0);
+    correction.two_pt_correction_available =
+        correction.dist_correction_x != 0 && correction.dist_correction_y != 0;
     return true;
   };
 
@@ -83,10 +83,7 @@ template <> struct convert<velodyne_decoder::LaserCorrection> {
       node[MAX_INTENSITY] = correction.max_intensity;
       node[MIN_INTENSITY] = correction.min_intensity;
     }
-    node[ROT_CORRECTION] = correction.rot_correction;
-    if (correction.two_pt_correction_available) {
-      node[TWO_PT_CORRECTION_AVAILABLE] = correction.two_pt_correction_available;
-    }
+    node[ROT_CORRECTION]  = correction.rot_correction;
     node[VERT_CORRECTION] = correction.vert_correction;
     if (correction.vert_offset_correction != 0) {
       node[VERT_OFFSET_CORRECTION] = correction.vert_offset_correction;

@@ -175,18 +175,19 @@ CalibDB::CalibDB() {
 
   std::vector<LaserCorrection> hdl_64e_laser_corrs(64);
   for (size_t i = 0; i < hdl_64e_data.size(); i++) {
-    auto &corr                   = hdl_64e_laser_corrs[i];
-    auto &data                   = hdl_64e_data[i];
-    corr.rot_correction          = (float)(data.rot_correction_deg * M_PI / 180.0);
-    corr.vert_correction         = (float)(data.vert_correction_deg * M_PI / 180.0);
-    corr.dist_correction         = data.dist_correction;
-    corr.dist_correction_x       = data.dist_correction_x;
-    corr.dist_correction_y       = data.dist_correction_y;
-    corr.vert_offset_correction  = data.vert_offset_correction;
-    corr.horiz_offset_correction = data.horiz_offset_correction;
-    corr.focal_distance          = data.focal_distance;
-    corr.focal_slope             = data.focal_slope;
-    corr.laser_idx               = i;
+    auto &corr                       = hdl_64e_laser_corrs[i];
+    auto &data                       = hdl_64e_data[i];
+    corr.rot_correction              = (float)(data.rot_correction_deg * M_PI / 180.0);
+    corr.vert_correction             = (float)(data.vert_correction_deg * M_PI / 180.0);
+    corr.dist_correction             = data.dist_correction;
+    corr.dist_correction_x           = data.dist_correction_x;
+    corr.dist_correction_y           = data.dist_correction_y;
+    corr.two_pt_correction_available = true;
+    corr.vert_offset_correction      = data.vert_offset_correction;
+    corr.horiz_offset_correction     = data.horiz_offset_correction;
+    corr.focal_distance              = data.focal_distance;
+    corr.focal_slope                 = data.focal_slope;
+    corr.laser_idx                   = i;
   }
   // TODO: this calibration is probably only applicable to one of the HDL-64E versions
   calibrations_.emplace(ModelId::HDL64E_S1, Calibration{hdl_64e_laser_corrs, 0.002f});
