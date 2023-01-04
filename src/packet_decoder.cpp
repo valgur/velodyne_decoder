@@ -16,7 +16,13 @@
 #include <array>
 
 namespace velodyne_decoder {
+
+namespace {
 template <typename T> constexpr T SQR(T val) { return val * val; }
+constexpr uint32_t wrap(uint32_t azimuth) { return (azimuth + 36000) % 36000; }
+constexpr uint32_t wrap(int azimuth) { return (uint16_t)((azimuth + 36000) % 36000); }
+constexpr uint32_t wrap(float azimuth) { return (uint16_t)(std::lround(azimuth + 36000) % 36000); }
+} // namespace
 
 PacketDecoder::PacketDecoder(const Config &config) {
   if (config.calibration.has_value()) {
@@ -302,8 +308,8 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_
   bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
 
   // Calculate the average rotation rate for this packet
-  int azimuth_diff = (int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation;
-  azimuth_diff     = (azimuth_diff + 36000) % 36000;
+  uint16_t azimuth_diff =
+      wrap((int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation);
   float duration =
       timing_offsets_[dual_return ? (BLOCKS_PER_PACKET - 1) / 2 : (BLOCKS_PER_PACKET - 1)][0] -
       timing_offsets_[0][0];
@@ -333,7 +339,7 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_
       // correct for the laser rotation as a function of timing during the firings
       float time       = timing_offsets_[dual_return ? i / 2 : i][j];
       float dt         = time - t0;
-      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
+      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
 
       if (!azimuthInRange(azimuth))
         continue;
@@ -361,7 +367,7 @@ void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_s
   std::array<int, BLOCKS_PER_PACKET> delta_az;
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     int prev    = i == 0 ? prev_packet_azimuth_ : raw.blocks[i - 1].rotation;
-    delta_az[i] = ((int)raw.blocks[i].rotation - prev + 36000) % 36000;
+    delta_az[i] = wrap((int)raw.blocks[i].rotation - prev);
   }
   prev_packet_azimuth_ = raw.blocks.back().rotation;
 
@@ -412,7 +418,7 @@ void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_s
       // Assume that the firings are distributed evenly across the block,
       // which is probably not the case but should be close enough.
       float dt         = block_durations[i] * (j / 32.0f);
-      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
+      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
 
       float full_time            = rel_packet_stamp + block_time + dt;
       const uint8_t laser_number = j + bank_origin;
@@ -431,11 +437,10 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
   bool dual_return = raw.blocks[0].rotation == raw.blocks[2].rotation;
 
   // Calculate the average rotation rate for this packet
-  int azimuth_diff = (int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation;
-  azimuth_diff     = (azimuth_diff + 36000) % 36000;
+  uint16_t azimuth_diff =
+      wrap((int)raw.blocks[BLOCKS_PER_PACKET - 1].rotation - (int)raw.blocks[0].rotation);
   float duration =
-      timing_offsets_[dual_return ? (BLOCKS_PER_PACKET - 1) / 2 : (BLOCKS_PER_PACKET - 1)][0] -
-      timing_offsets_[0][0];
+      timing_offsets_[(BLOCKS_PER_PACKET - 1) / (dual_return ? 2 : 1)][0] - timing_offsets_[0][0];
   float rotation_rate = (float)azimuth_diff / duration;
 
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
@@ -462,7 +467,7 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
       // 0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5
       float time       = timing_offsets_[dual_return ? i / 4 * 2 + i % 2 : i][j];
       float dt         = time - t0;
-      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
+      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
 
       float full_time            = rel_packet_stamp + time;
       const uint8_t laser_number = j + bank_origin;
@@ -480,8 +485,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
   // Calculate the average rotation rate for this packet
   float rotation_rate = 0;
   if (prev_packet_azimuth_ < 36000) {
-    int azimuth_diff = (int)raw.blocks[0].rotation - (int)prev_packet_azimuth_;
-    azimuth_diff     = (azimuth_diff + 36000) % 36000;
+    uint16_t azimuth_diff = wrap((int)raw.blocks[0].rotation - (int)prev_packet_azimuth_);
     // Packets in dual-return mode contain only a single column, 3 in standard mode.
     float sequence_duration = timing_offsets_[4][0] - timing_offsets_[0][0];
     float packet_duration   = dual_return ? sequence_duration : 3 * sequence_duration;
@@ -540,7 +544,7 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
       // correct for the laser rotation as a function of timing during the firings
       float time       = timing_offsets_[dual_return ? block / 2 : block][j];
       float dt         = time - t0;
-      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
+      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
 
       float full_time      = rel_packet_stamp + time;
       uint8_t laser_number = bank_origin + j;
