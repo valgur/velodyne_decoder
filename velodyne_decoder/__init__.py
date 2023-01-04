@@ -6,6 +6,7 @@ import dpkt
 from velodyne_decoder_pylib import *
 from velodyne_decoder_pylib import __version__ as _pylib_version
 
+from velodyne_decoder import hdl64e
 from velodyne_decoder.calibrations import get_bundled_calibration
 
 __version__ = _pylib_version
@@ -13,7 +14,12 @@ __version__ = _pylib_version
 is_py2 = sys.version_info[0] == 2
 
 
-def read_pcap(pcap_file, config=None, as_pcl_structs=False, time_range=(None, None)):
+def read_pcap(
+    pcap_file,
+    config=None,
+    as_pcl_structs=False,
+    time_range=(None, None),
+):
     """Decodes and yields all point clouds stored in a PCAP file.
 
     `model` must be set in the provided config.
@@ -43,8 +49,9 @@ def read_pcap(pcap_file, config=None, as_pcl_structs=False, time_range=(None, No
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
     with _fopen(pcap_file, "rb") as f:
         for stamp, buf in dpkt.pcap.Reader(f):
-            if (start_time is not None and stamp < start_time or
-                    end_time is not None and stamp > end_time):
+            if start_time is not None and stamp < start_time:
+                continue
+            if end_time is not None and stamp > end_time:
                 continue
             data = dpkt.ethernet.Ethernet(buf).data.data.data
             if is_py2:
@@ -68,8 +75,15 @@ def _get_velodyne_scan_topics(bag):
     return topics
 
 
-def read_bag(bag_file, config=None, topics=None, as_pcl_structs=False, use_header_time=True,
-             return_frame_id=False, time_range=(None, None)):
+def read_bag(
+    bag_file,
+    config=None,
+    topics=None,
+    as_pcl_structs=False,
+    use_header_time=True,
+    return_frame_id=False,
+    time_range=(None, None),
+):
     """Decodes and yields all point clouds stored in a ROS bag file.
 
     `model` parameter must be set in the provided config.
@@ -124,8 +138,9 @@ def read_bag(bag_file, config=None, topics=None, as_pcl_structs=False, use_heade
     Result = namedtuple("ResultTuple", ("stamp", "points", "topic"))
     ResultWithFrameId = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
     try:
-        for topic, scan_msg, ros_time in bag.read_messages(topics, start_time=start_time,
-                                                           end_time=end_time):
+        for topic, scan_msg, ros_time in bag.read_messages(
+            topics, start_time=start_time, end_time=end_time
+        ):
             if is_py2:
                 for packet in scan_msg.packets:
                     packet.data = bytearray(packet.data)
