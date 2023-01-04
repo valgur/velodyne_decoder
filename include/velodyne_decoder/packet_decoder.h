@@ -75,6 +75,7 @@ private:
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
   void unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
+  void unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
   void unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
   void unpack_vls128(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
 

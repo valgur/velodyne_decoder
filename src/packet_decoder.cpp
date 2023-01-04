@@ -136,7 +136,10 @@ std::array<std::array<float, 32>, 12> PacketDecoder::buildTimings(ModelId model)
   if (model == ModelId::HDL64E_S1) {
     // S1 has no details about timing info provided:
     // https://usermanual.wiki/Pdf/HDL64E20Manual.196042455/view
-    // Return a table with zeros for consistency with other models.
+    // The timing info was estimated from on block azimuth values in this dataset instead:
+    // http://download.ros.org/data/velodyne/class.pcap
+    // The timing values are calculated on the fly in the decoding function because the timings
+    // do not appear to have a fixed pattern.
   } else if (model == ModelId::HDL64E_S2) {
     // https://www.termocam.it/pdf/manuale-HDL-64E.pdf#page=38
     // Fill the timing info based on the "Laser firing time table" in the manual
@@ -280,6 +283,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
   case ModelId::VLP32C:
     return unpack_16_32_beam(raw_packet, rel_packet_stamp, cloud);
   case ModelId::HDL64E_S1:
+    return unpack_hdl64e_s1(raw_packet, rel_packet_stamp, cloud);
   case ModelId::HDL64E_S2:
   case ModelId::HDL64E_S3:
     return unpack_hdl64e(raw_packet, rel_packet_stamp, cloud);
@@ -334,14 +338,91 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_
       if (!azimuthInRange(azimuth))
         continue;
 
-      Time full_time = rel_packet_stamp + time;
-      int laser_idx  = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
+      float full_time = rel_packet_stamp + time;
+      int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
       unpackPoint(cloud, laser_idx, measurement, azimuth, (float)full_time, is_last_return_mode);
     }
   }
 }
 
-/** @brief convert raw HDL-64E packet to point cloud
+/** @brief convert raw HDL-64E S1 packet to point cloud
+ */
+void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_stamp,
+                                     PointCloud &cloud) {
+  // Calculate the time durations for each block.
+  // This is estimated from on the azimuth values of the blocks in sample data.
+  // The block durations appear to vary between either 25 usec or 50 usec,
+  // with the longer one occurring approximately every 3.5 blocks with no clear pattern.
+
+  // Calculate azimuth deltas for each block.
+  if (prev_packet_azimuth_ > 36000) {
+    prev_packet_azimuth_ = raw.blocks.front().rotation;
+  }
+  std::array<int, BLOCKS_PER_PACKET> delta_az;
+  for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
+    int prev    = i == 0 ? prev_packet_azimuth_ : raw.blocks[i - 1].rotation;
+    delta_az[i] = ((int)raw.blocks[i].rotation - prev + 36000) % 36000;
+  }
+  prev_packet_azimuth_ = raw.blocks.back().rotation;
+
+  // Calculate the pattern of longer durations based on azimuth deltas.
+  uint16_t min_delta_az = *std::min_element(delta_az.begin() + 1, delta_az.end());
+  std::array<bool, BLOCKS_PER_PACKET> timing_pattern = {false};
+  for (int i = 0; i < BLOCKS_PER_PACKET - 1; i++) {
+    // true, if twice as long as the shortest azimuth delta
+    timing_pattern[i] = delta_az[i + 1] > min_delta_az * 3 / 2;
+  }
+  // Would have to know the next packet's first azimuth to calculate the duration of the last block.
+  // Estimate this from the previous durations instead.
+  // 97% of the time, the next duration is longer if only one of the previous six ones is.
+  timing_pattern[BLOCKS_PER_PACKET - 1] =
+      (timing_pattern[5] + timing_pattern[6] + timing_pattern[7] + //
+       timing_pattern[8] + timing_pattern[9] + timing_pattern[10]) == 1;
+
+  constexpr float cycle_duration = 24.81236 * 1e-6; // estimated from data
+  std::array<float, BLOCKS_PER_PACKET> block_durations;
+  for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
+    block_durations[i] = (float)(timing_pattern[i] + 1) * cycle_duration;
+    // subtract from the packet stamp since the stamp is always the packet arrival time for S1
+    rel_packet_stamp -= block_durations[i];
+  }
+
+  // Calculate the average rotation rate for this packet
+  float rotation_rate = 0;
+  for (int i = 1; i < BLOCKS_PER_PACKET - 1; i++) {
+    rotation_rate += (float)delta_az[i] / block_durations[i];
+  }
+  rotation_rate /= BLOCKS_PER_PACKET - 2;
+
+  float block_time = 0;
+  for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
+    const auto &block = raw.blocks[i];
+
+    uint16_t block_azimuth = block.rotation;
+    if (!azimuthInRange(block_azimuth))
+      continue;
+
+    int bank_origin = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
+
+    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+      const auto &measurement = block.data[j];
+      if (measurement.distance == 0)
+        continue;
+
+      // Assume that the firings are distributed evenly across the block,
+      // which is probably not the case but should be close enough.
+      float dt         = block_durations[i] * (j / 32.0f);
+      uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
+
+      float full_time            = rel_packet_stamp + block_time + dt;
+      const uint8_t laser_number = j + bank_origin;
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, false);
+    }
+    block_time += block_durations[i];
+  }
+}
+
+/** @brief convert raw HDL-64E S2/S3 packet to point cloud
  */
 void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp,
                                   PointCloud &cloud) const {
@@ -360,12 +441,11 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
   for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
     const auto &block = raw.blocks[i];
 
-    int bank_origin = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
-
     uint16_t block_azimuth = block.rotation;
     if (!azimuthInRange(block_azimuth))
       continue;
 
+    int bank_origin          = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
     bool is_last_return_mode = dual_return && ((i / 2) % 2 == 1);
 
     // The time of the first firing in a column, which spans over two or four blocks
@@ -377,8 +457,6 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
       if (measurement.distance == 0)
         continue;
 
-      const uint8_t laser_number = j + bank_origin;
-
       // correct for the laser rotation as a function of timing during the firings
       // dual mode blocks correspond to single mode indices with the following pattern:
       // 0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5
@@ -386,8 +464,9 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
       float dt         = time - t0;
       uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
-      Time full_time = rel_packet_stamp + time;
-      unpackPoint(cloud, laser_number, measurement, azimuth, (float)full_time, is_last_return_mode);
+      float full_time            = rel_packet_stamp + time;
+      const uint8_t laser_number = j + bank_origin;
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
     }
   }
 }
@@ -463,9 +542,9 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
       float dt         = time - t0;
       uint16_t azimuth = std::lround(block_azimuth + rotation_rate * dt + 36000) % 36000;
 
-      Time full_time       = rel_packet_stamp + time;
+      float full_time      = rel_packet_stamp + time;
       uint8_t laser_number = bank_origin + j;
-      unpackPoint(cloud, laser_number, measurement, azimuth, (float)full_time, is_last_return_mode);
+      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
     }
   }
 }
