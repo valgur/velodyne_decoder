@@ -10,18 +10,18 @@
 #include "velodyne_decoder/packet_decoder.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
-#include <array>
 
 namespace velodyne_decoder {
 
 namespace {
 template <typename T> constexpr T SQR(T val) { return val * val; }
-constexpr uint32_t wrap(uint32_t azimuth) { return (azimuth + 36000) % 36000; }
-constexpr uint32_t wrap(int azimuth) { return (uint16_t)((azimuth + 36000) % 36000); }
-constexpr uint32_t wrap(float azimuth) { return (uint16_t)(std::lround(azimuth + 36000) % 36000); }
+uint32_t wrap(uint32_t azimuth) { return (azimuth + 36000) % 36000; }
+uint32_t wrap(int azimuth) { return (uint16_t)((azimuth + 36000) % 36000); }
+uint32_t wrap(float azimuth) { return (uint16_t)(std::lround(azimuth + 36000) % 36000); }
 } // namespace
 
 PacketDecoder::PacketDecoder(const Config &config) {

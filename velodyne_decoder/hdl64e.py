@@ -80,7 +80,7 @@ __all__ = [
 ]
 
 
-def crc16(data: bytes):
+def crc16(data):
     xor_in = 0x0000  # initial value
     xor_out = 0x0000  # final XOR value
     poly = 0x8005  # generator polynomial (normal form)
