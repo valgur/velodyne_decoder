@@ -143,19 +143,22 @@ def read_status_info(raw_packets):
             start = values.find(b"UNIT#")
             if start < 0:
                 warnings.warn("Did not find a 'UNIT#' start token in the status data")
-                values = bytearray(CALIB_DATA_SIZE)
                 count = 0
                 continue
             values = values[start:] + values[:start]
-            # Ignoring checksum errors, since the validation does not appear to be working correctly for some reason...
-            # expected_checksum = struct.unpack("<H", values[-2:])[0]
-            # checksum = crc16(values[:-2])
-            # if expected_checksum != CALIB_DATA_SIZE or expected_checksum != checksum:
-            #     warnings.warn(f"Checksum failed {checksum} != {expected_checksum}")
-            #     values = bytearray(CALIB_DATA_SIZE)
-            #     count = 0
-            #     continue
-            return decode_status_bytes(values, cur_status)
+            expected_checksum = struct.unpack("<H", values[-2:])[0]
+            calib_data = b"".join(x[1:21] for x in chunks(values[7 : -3 * 7], 28))
+            checksum = crc16(calib_data)
+            # S3 uses a checksum, S2 sets only the expected length of data as the last bytes
+            if expected_checksum == checksum or expected_checksum == CALIB_DATA_SIZE:
+                return decode_status_bytes(values, cur_status)
+            else:
+                warnings.warn(
+                    f"Checksum validation of calibration data failed: "
+                    f"calculated {checksum:X} != expected {expected_checksum:X}."
+                )
+                count = CALIB_DATA_SIZE - start if start > 0 else 0
+                continue
     raise ValueError(f"Not enough status bytes in stream: {count} < {CALIB_DATA_SIZE}")
 
 
