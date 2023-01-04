@@ -179,9 +179,10 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   m.attr("LAST_MODE_RING_OFFSET") = LAST_MODE_RING_OFFSET;
 
-#define STRING(s) #s
+#define STRINGIFY(x) #x
+#define MACRO_STRINGIFY(x) STRINGIFY(x)
 #ifdef VERSION_INFO
-  m.attr("__version__") = STRING(VERSION_INFO);
+  m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
   m.attr("__version__") = "dev";
 #endif

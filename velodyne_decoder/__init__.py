@@ -4,8 +4,11 @@ from contextlib import contextmanager
 
 import dpkt
 from velodyne_decoder_pylib import *
+from velodyne_decoder_pylib import __version__ as _pylib_version
 
 from velodyne_decoder.calibrations import get_bundled_calibration
+
+__version__ = _pylib_version
 
 is_py2 = sys.version_info[0] == 2
 
