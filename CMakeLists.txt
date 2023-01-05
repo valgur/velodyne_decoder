@@ -71,3 +71,12 @@ if(BUILD_PYTHON)
   target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME})
   target_compile_definitions(${PROJECT_NAME}_pylib PRIVATE VERSION_INFO=${VERSION_INFO})
 endif()
+
+## Install
+include(GNUInstallDirs)
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}_Targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
