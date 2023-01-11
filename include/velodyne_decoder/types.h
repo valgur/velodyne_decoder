@@ -21,10 +21,6 @@ constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
 constexpr int PACKET_SIZE       = 1206;
 constexpr int BLOCKS_PER_PACKET = 12;
 
-// Offset added to ring values if the returned point is in "last return" mode
-// instead of the default "strongest return".
-constexpr uint16_t LAST_MODE_RING_OFFSET = 512;
-
 // These are used to detect which bank of 32 lasers is contained in this block
 enum class LaserBankId : uint16_t {
   BANK_0 = 0xeeff, // lasers [0..31], aka upper bank for HDL-64E
@@ -62,6 +58,14 @@ enum class DualReturnMode : uint8_t {
   STRONGEST_RETURN = 0x37, // decimal: 55
   LAST_RETURN      = 0x38, // decimal: 56
   DUAL_RETURN      = 0x39, // decimal: 57
+};
+
+// Offset added to ring values depending on the type of point
+enum ReturnModeFlag : uint16_t {
+  SINGLE_RETURN_FLAG    = 0,    // point is from single-return mode
+  BOTH_RETURN_FLAG      = 0,    // point is both the last and strongest one
+  STRONGEST_RETURN_FLAG = 1024, // the strongest point in firing
+  LAST_RETURN_FLAG      = 2048, // the last point in firing
 };
 
 #pragma pack(push, 1)

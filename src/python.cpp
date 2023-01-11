@@ -177,7 +177,15 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   m.attr("PACKET_SIZE") = PACKET_SIZE;
 
-  m.attr("LAST_MODE_RING_OFFSET") = LAST_MODE_RING_OFFSET;
+  py::enum_<ReturnModeFlag>(
+      m, "ReturnModeFlag",
+      "Flag added to the 'ring' field of a point depending on its return type.")
+      .value("SINGLE_RETURN", ReturnModeFlag::SINGLE_RETURN_FLAG, "Single-return mode")
+      .value("BOTH", ReturnModeFlag::BOTH_RETURN_FLAG,
+             "Point is both the last and the strongest reflection in a firing")
+      .value("STRONGEST", ReturnModeFlag::STRONGEST_RETURN_FLAG,
+             "The strongest reflection in a firing")
+      .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing");
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)

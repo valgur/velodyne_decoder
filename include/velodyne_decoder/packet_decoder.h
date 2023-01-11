@@ -79,8 +79,11 @@ private:
   void unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
   void unpack_vls128(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
 
-  void unpackPoint(PointCloud &cloud, int laser_idx, const raw_measurement_t &measurement,
-                   uint16_t azimuth, float time, bool is_last_return_mode) const;
+  void unpackPointDual(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
+                       raw_measurement_t last, raw_measurement_t strongest) const;
+
+  void unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
+                   raw_measurement_t measurement, ReturnModeFlag return_mode_flag) const;
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;

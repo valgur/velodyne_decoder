@@ -19,7 +19,6 @@ namespace velodyne_decoder {
 
 namespace {
 template <typename T> constexpr T SQR(T val) { return val * val; }
-uint32_t wrap(uint32_t azimuth) { return (azimuth + 36000) % 36000; }
 uint32_t wrap(int azimuth) { return (uint16_t)((azimuth + 36000) % 36000); }
 uint32_t wrap(float azimuth) { return (uint16_t)(std::lround(azimuth + 36000) % 36000); }
 } // namespace
@@ -315,7 +314,8 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_
       timing_offsets_[0][0];
   float rotation_rate = (float)azimuth_diff / duration;
 
-  for (int i = 0; i < BLOCKS_PER_PACKET; i++) {
+  const int block_step = dual_return ? 2 : 1;
+  for (int i = 0; i < BLOCKS_PER_PACKET; i += block_step) {
     const auto &block = raw.blocks[i];
 
     // ignore packets with mangled or otherwise different contents
@@ -325,28 +325,45 @@ void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_
 
     uint16_t block_azimuth = block.rotation;
 
-    // In dual return mode, the even columns contain the last returns and odd the strongest
-    bool is_last_return_mode = (dual_return && i % 2 == 0) || //
-                               raw.return_mode == DualReturnMode::LAST_RETURN;
+    if (!dual_return) {
+      // single return mode
+      float t0 = timing_offsets_[i][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &measurement = block.data[j];
+        if (measurement.distance == 0)
+          continue;
 
-    float t0 = timing_offsets_[dual_return ? i / 2 : i][0];
+        // correct for the laser rotation as a function of timing during the firings
+        float time       = timing_offsets_[i][j];
+        float dt         = time - t0;
+        uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
+        if (!azimuthInRange(azimuth))
+          continue;
 
-    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      const auto &measurement = block.data[j];
-      if (measurement.distance == 0)
-        continue;
+        float full_time = rel_packet_stamp + time;
+        int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
+        unpackPoint(cloud, laser_idx, azimuth, full_time, measurement, SINGLE_RETURN_FLAG);
+      }
+    } else {
+      // dual return mode
+      float t0 = timing_offsets_[i / 2][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &last      = raw.blocks[i].data[j];
+        const auto &strongest = raw.blocks[i + 1].data[j];
+        if (last.distance == 0 && strongest.distance == 0)
+          continue;
 
-      // correct for the laser rotation as a function of timing during the firings
-      float time       = timing_offsets_[dual_return ? i / 2 : i][j];
-      float dt         = time - t0;
-      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
+        // correct for the laser rotation as a function of timing during the firings
+        float time       = timing_offsets_[i / 2][j];
+        float dt         = time - t0;
+        uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
+        if (!azimuthInRange(azimuth))
+          continue;
 
-      if (!azimuthInRange(azimuth))
-        continue;
-
-      float full_time = rel_packet_stamp + time;
-      int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
-      unpackPoint(cloud, laser_idx, measurement, azimuth, (float)full_time, is_last_return_mode);
+        float full_time = rel_packet_stamp + time;
+        int laser_idx   = calibration_.num_lasers == 16 && j >= 16 ? j - 16 : j;
+        unpackPointDual(cloud, laser_idx, azimuth, full_time, last, strongest);
+      }
     }
   }
 }
@@ -422,7 +439,7 @@ void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_s
 
       float full_time            = rel_packet_stamp + block_time + dt;
       const uint8_t laser_number = j + bank_origin;
-      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, false);
+      unpackPoint(cloud, laser_number, azimuth, full_time, measurement, SINGLE_RETURN_FLAG);
     }
     block_time += block_durations[i];
   }
@@ -450,28 +467,40 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
     if (!azimuthInRange(block_azimuth))
       continue;
 
-    int bank_origin          = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
-    bool is_last_return_mode = dual_return && ((i / 2) % 2 == 1);
+    int bank_origin = (block.bank_id == LaserBankId::BANK_0) ? 0 : 32;
 
-    // The time of the first firing in a column, which spans over two or four blocks
-    // (depending on dual return mode).
-    float t0 = timing_offsets_[dual_return ? i / 4 * 2 : i / 2 * 2][0];
-
-    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      const auto &measurement = block.data[j];
-      if (measurement.distance == 0)
-        continue;
-
-      // correct for the laser rotation as a function of timing during the firings
+    if (!dual_return) {
+      // The time of the first firing in a column
+      float t0 = timing_offsets_[i / 2 * 2][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &measurement = block.data[j];
+        if (measurement.distance == 0)
+          continue;
+        float time                 = timing_offsets_[i][j];
+        float dt                   = time - t0;
+        uint16_t azimuth           = wrap(block_azimuth + rotation_rate * dt);
+        float full_time            = rel_packet_stamp + time;
+        const uint8_t laser_number = j + bank_origin;
+        unpackPoint(cloud, laser_number, azimuth, full_time, measurement, SINGLE_RETURN_FLAG);
+      }
+    } else {
       // dual mode blocks correspond to single mode indices with the following pattern:
       // 0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5
-      float time       = timing_offsets_[dual_return ? i / 4 * 2 + i % 2 : i][j];
-      float dt         = time - t0;
-      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
-
-      float full_time            = rel_packet_stamp + time;
-      const uint8_t laser_number = j + bank_origin;
-      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
+      if (i % 4 > 1)
+        continue;
+      float t0 = timing_offsets_[i / 4 * 2][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &strongest = block.data[j];
+        const auto &last      = raw.blocks[i + 2].data[j];
+        if (strongest.distance == 0 && last.distance == 0)
+          continue;
+        float time                 = timing_offsets_[i / 4 * 2 + i % 2][j];
+        float dt                   = time - t0;
+        uint16_t azimuth           = wrap(block_azimuth + rotation_rate * dt);
+        float full_time            = rel_packet_stamp + time;
+        const uint8_t laser_number = j + bank_origin;
+        unpackPointDual(cloud, laser_number, azimuth, full_time, last, strongest);
+      }
     }
   }
 }
@@ -502,8 +531,9 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
 
   // The last 4 blocks are empty in dual-return mode.
   int num_blocks = dual_return ? 8 : 12;
+  int block_step = dual_return ? 2 : 1;
 
-  for (int block = 0; block < num_blocks; block++) {
+  for (int block = 0; block < num_blocks; block += block_step) {
     // cache block for use
     const raw_block_t &current_block = raw.blocks[block];
 
@@ -530,34 +560,60 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
       return; // bad packet: skip the rest
     }
 
-    // In dual return mode, the even columns contain the last returns and odd the strongest
-    bool is_last_return_mode = (dual_return && block % 2 == 0) || //
-                               raw.return_mode == DualReturnMode::LAST_RETURN;
+    if (!dual_return) {
+      float t0 = timing_offsets_[block / 4 * 4][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &measurement = current_block.data[j];
+        if (measurement.distance == 0)
+          continue;
+        // correct for the laser rotation as a function of timing during the firings
+        float time           = timing_offsets_[block][j];
+        float dt             = time - t0;
+        uint16_t azimuth     = wrap(block_azimuth + rotation_rate * dt);
+        float full_time      = rel_packet_stamp + time;
+        uint8_t laser_number = bank_origin + j;
+        unpackPoint(cloud, laser_number, azimuth, full_time, measurement, SINGLE_RETURN_FLAG);
+      }
+    } else {
+      float t0 = timing_offsets_[0][0];
+      for (int j = 0; j < SCANS_PER_BLOCK; j++) {
+        const auto &last      = raw.blocks[block].data[j];
+        const auto &strongest = raw.blocks[block + 1].data[j];
+        if (last.distance == 0 && strongest.distance == 0)
+          continue;
+        float time           = timing_offsets_[block / 2][j];
+        float dt             = time - t0;
+        uint16_t azimuth     = wrap(block_azimuth + rotation_rate * dt);
+        float full_time      = rel_packet_stamp + time;
+        uint8_t laser_number = bank_origin + j;
+        unpackPointDual(cloud, laser_number, azimuth, full_time, last, strongest);
+      }
+    }
+  }
+}
 
-    float t0 = timing_offsets_[dual_return ? 0 : block / 4 * 4][0];
-
-    for (int j = 0; j < SCANS_PER_BLOCK; j++) {
-      const auto &measurement = current_block.data[j];
-      if (measurement.distance == 0)
-        continue;
-
-      // correct for the laser rotation as a function of timing during the firings
-      float time       = timing_offsets_[dual_return ? block / 2 : block][j];
-      float dt         = time - t0;
-      uint16_t azimuth = wrap(block_azimuth + rotation_rate * dt);
-
-      float full_time      = rel_packet_stamp + time;
-      uint8_t laser_number = bank_origin + j;
-      unpackPoint(cloud, laser_number, measurement, azimuth, full_time, is_last_return_mode);
+void PacketDecoder::unpackPointDual(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
+                                    const raw_measurement_t last,
+                                    const raw_measurement_t strongest) const {
+  if (last.distance == 0 && strongest.distance == 0)
+    return;
+  if (last.distance == strongest.distance) {
+    unpackPoint(cloud, laser_idx, azimuth, time, strongest, BOTH_RETURN_FLAG);
+  } else {
+    if (last.distance > 0) {
+      unpackPoint(cloud, laser_idx, azimuth, time, last, LAST_RETURN_FLAG);
+    }
+    if (strongest.distance > 0) {
+      unpackPoint(cloud, laser_idx, azimuth, time, strongest, STRONGEST_RETURN_FLAG);
     }
   }
 }
 
 /** @brief Applies calibration, converts to a Cartesian 3D point and appends to the cloud.
  */
-void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
-                                const raw_measurement_t &measurement, uint16_t azimuth, float time,
-                                bool is_last_return_mode) const {
+void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
+                                const raw_measurement_t measurement,
+                                ReturnModeFlag return_mode_flag) const {
   float distance = measurement.distance * calibration_.distance_resolution_m;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
@@ -582,7 +638,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     float y = -xy_distance * sin_rot_angle;
     float z = distance * sin_vert_angle;
 
-    uint16_t ring = ring_cache_[laser_idx] + is_last_return_mode * LAST_MODE_RING_OFFSET;
+    uint16_t ring = ring_cache_[laser_idx] | return_mode_flag;
 
     cloud.emplace_back(x, y, z, (float)measurement.intensity, ring, time);
 
@@ -647,7 +703,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx,
     intensity = (intensity < min_intensity) ? min_intensity : intensity;
     intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
-    uint16_t ring = corrections.laser_ring + is_last_return_mode * LAST_MODE_RING_OFFSET;
+    uint16_t ring = corrections.laser_ring | return_mode_flag;
 
     cloud.emplace_back(x_coord, y_coord, z_coord, intensity, ring, time);
   }
