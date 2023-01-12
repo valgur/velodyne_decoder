@@ -100,7 +100,7 @@ def crc16(data):
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i : i + n]
+        yield lst[i: i + n]
 
 
 def iter_pcap_packets(pcap_path):
@@ -147,23 +147,23 @@ def read_status_info(raw_packets):
                 continue
             values = values[start:] + values[:start]
             expected_checksum = struct.unpack("<H", values[-2:])[0]
-            calib_data = b"".join(x[1:21] for x in chunks(values[7 : -3 * 7], 28))
+            calib_data = b"".join(x[1:21] for x in chunks(values[7: -3 * 7], 28))
             checksum = crc16(calib_data)
             # S3 uses a checksum, S2 sets only the expected length of data as the last bytes
             if expected_checksum == checksum or expected_checksum == CALIB_DATA_SIZE:
                 return decode_status_bytes(values, cur_status)
             else:
                 warnings.warn(
-                    f"Checksum validation of calibration data failed: "
-                    f"calculated {checksum:X} != expected {expected_checksum:X}."
+                    "Checksum validation of calibration data failed: "
+                    "calculated {:X} != expected {:X}.".format(checksum, expected_checksum)
                 )
                 count = CALIB_DATA_SIZE - start if start > 0 else 0
                 continue
-    raise ValueError(f"Not enough status bytes in stream: {count} < {CALIB_DATA_SIZE}")
+    raise ValueError("Not enough status bytes in stream: {} < {}".format(count, CALIB_DATA_SIZE))
 
 
 def decode_status_bytes(status_bytes, cur_status):
-    tail = status_bytes[-4 * 7 :]
+    tail = status_bytes[-4 * 7:]
     data = {}
     data["Current Time"] = datetime.datetime(
         2000 + cur_status["Y"],
@@ -204,7 +204,7 @@ def decode_status_bytes(status_bytes, cur_status):
         data["Warnings"] = d
 
     data["Calibration"] = []
-    raw_lasers_data = [x[:21] for x in chunks(status_bytes[7 : -3 * 7], 28)]
+    raw_lasers_data = [x[:21] for x in chunks(status_bytes[7: -3 * 7], 28)]
     for raw_laser_data in raw_lasers_data:
         raw_values = struct.unpack("<BhhhhhhhhhBB", raw_laser_data)
         multipliers = [1, 0.01, 0.01, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 1, 1]
