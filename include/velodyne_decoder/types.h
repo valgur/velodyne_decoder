@@ -21,6 +21,8 @@ constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
 constexpr int PACKET_SIZE       = 1206;
 constexpr int BLOCKS_PER_PACKET = 12;
 
+constexpr int POSITION_PACKET_SIZE = 512;
+
 // These are used to detect which bank of 32 lasers is contained in this block
 enum class LaserBankId : uint16_t {
   BANK_0 = 0xeeff, // lasers [0..31], aka upper bank for HDL-64E

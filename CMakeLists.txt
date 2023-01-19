@@ -48,6 +48,7 @@ add_library(${PROJECT_NAME} STATIC
   src/calibration.cpp
   src/calib_db.cpp
   src/packet_decoder.cpp
+  src/position_packet.cpp
   src/scan_decoder.cpp
   src/stream_decoder.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${YAML_CPP_LIBRARIES})

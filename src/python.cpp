@@ -10,6 +10,7 @@
 #include <pybind11/stl_bind.h>
 
 #include "velodyne_decoder/config.h"
+#include "velodyne_decoder/position_packet.h"
 #include "velodyne_decoder/scan_decoder.h"
 #include "velodyne_decoder/stream_decoder.h"
 #include "velodyne_decoder/types.h"
@@ -50,20 +51,6 @@ PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
 PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   m.doc() = "";
-
-  py::enum_<ModelId>(m, "Model")
-      .value("HDL64E_S1", ModelId::HDL64E_S1, "HDL-64E S1")
-      .value("HDL64E_S2", ModelId::HDL64E_S2, "HDL-64E S2 and S2.1")
-      .value("HDL64E_S3", ModelId::HDL64E_S3, "HDL-64E S3")
-      .value("HDL32E", ModelId::HDL32E, "HDL-32E")
-      .value("VLP32A", ModelId::VLP32A, "VLP-32A")
-      .value("VLP32B", ModelId::VLP32B, "VLP-32B")
-      .value("VLP32C", ModelId::VLP32C, "VLP-32C")
-      .value("VLP16", ModelId::VLP16, "VLP-16")
-      .value("PuckLite", ModelId::PuckLite, "Puck Lite (aka VLP-16)")
-      .value("PuckHiRes", ModelId::PuckHiRes, "Puck Hi-Res (aka VLP-16 Hi-Res)")
-      .value("VLS128", ModelId::VLS128, "VLS-128 (aka Alpha Prime)")
-      .value("AlphaPrime", ModelId::AlphaPrime, "Alpha Prime (aka VLS-128)");
 
   py::class_<Config>(m, "Config")
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
@@ -175,7 +162,86 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
         return CalibDB().getAllDefaultCalibrations();
       });
 
-  m.attr("PACKET_SIZE") = PACKET_SIZE;
+  auto PositionPacket_ =
+      py::class_<PositionPacket>(m, "PositionPacket")
+          .def(py::init<const std::array<uint8_t, POSITION_PACKET_SIZE> &>(), py::arg("raw_data"))
+          .def("parse_nmea", &PositionPacket::parseNmea)
+          .def_readonly("temp_board_top", &PositionPacket::temp_board_top,
+                        "Temperature of top board, 0 to 150 °C")
+          .def_readonly("temp_board_bottom", &PositionPacket::temp_board_bottom,
+                        "Temperature of bottom board, 0 to 150 °C")
+          .def_readonly("temp_during_adc_calibration", &PositionPacket::temp_during_adc_calibration,
+                        "Temperature when ADC calibration last ran, 0 to 150 °C")
+          .def_readonly("temp_change_since_adc_calibration",
+                        &PositionPacket::temp_change_since_adc_calibration,
+                        "Change in temperature since last ADC calibration, -150 to 150 °C")
+          .def_readonly("seconds_since_adc_calibration",
+                        &PositionPacket::seconds_since_adc_calibration,
+                        "Elapsed seconds since last ADC calibration")
+          .def_readonly("adc_calibration_reason", &PositionPacket::adc_calibration_reason,
+                        "Reason for the last ADC calibration")
+          .def_readonly("adc_calib_in_progress", &PositionPacket::adc_calib_in_progress,
+                        "ADC calibration in progress")
+          .def_readonly("adc_delta_temp_limit_exceeded",
+                        &PositionPacket::adc_delta_temp_limit_exceeded,
+                        "ADC calibration: delta temperature limit has been met")
+          .def_readonly("adc_period_exceeded", &PositionPacket::adc_period_exceeded,
+                        "ADC calibration: periodic time elapsed limit has been met")
+          .def_readonly("seconds_since_toh", &PositionPacket::seconds_since_toh,
+                        "Time since the top of the hour with µs resolution")
+          .def_readonly("pps_status", &PositionPacket::pps_status, "Pulse Per Second (PPS) status")
+          .def_readonly("thermal_shutdown", &PositionPacket::thermal_shutdown,
+                        "Thermal status, true if thermal shutdown")
+          .def_readonly("temp_at_shutdown", &PositionPacket::temp_at_shutdown,
+                        "Temperature of unit when thermal shutdown occurred")
+          .def_readonly("temp_at_powerup", &PositionPacket::temp_at_powerup,
+                        "Temperature of unit (bottom board) at power up")
+          .def_readonly("nmea_sentence", &PositionPacket::nmea_sentence,
+                        "GPRMC or GPGGA NMEA sentence");
+
+  py::enum_<PositionPacket::AdcCalibReason>(PositionPacket_, "AdcCalibrationReason",
+                                            "Reason for the last ADC calibration")
+      .value("NO_CALIBRATION", PositionPacket::AdcCalibReason::NO_CALIBRATION, "No calibration")
+      .value("POWER_ON", PositionPacket::AdcCalibReason::POWER_ON, "Power-on calibration performed")
+      .value("MANUAL", PositionPacket::AdcCalibReason::MANUAL, "Manual calibration performed")
+      .value("DELTA_TEMPERATURE", PositionPacket::AdcCalibReason::DELTA_TEMPERATURE,
+             "Delta temperature calibration performed")
+      .value("PERIODIC", PositionPacket::AdcCalibReason::PERIODIC,
+             "Periodic calibration performed");
+
+  py::enum_<PositionPacket::PpsStatus>(PositionPacket_, "PpsStatus",
+                                       "Pulse Per Second (PPS) status")
+      .value("ABSENT", PositionPacket::PpsStatus::ABSENT, "No PPS detected")
+      .value("SYNCHRONIZING", PositionPacket::PpsStatus::SYNCHRONIZING, "Synchronizing to PPS")
+      .value("LOCKED", PositionPacket::PpsStatus::LOCKED, "PPS Locked")
+      .value("ERROR", PositionPacket::PpsStatus::ERROR, "Error");
+
+  py::class_<NmeaInfo>(PositionPacket_, "NmeaInfo")
+      .def_readonly("longitude", &NmeaInfo::longitude, "Longitude in degrees")
+      .def_readonly("latitude", &NmeaInfo::latitude, "Latitude in degrees")
+      .def_readonly("altitude", &NmeaInfo::altitude,
+                    "Altitude above WGS84 ellipsoid in meters (always 0 for GPRMC)")
+      .def_readonly("utc_year", &NmeaInfo::utc_year, "UTC year (always 0 for GPGGA)")
+      .def_readonly("utc_month", &NmeaInfo::utc_month, "UTC month (always 0 for GPGGA)")
+      .def_readonly("utc_day", &NmeaInfo::utc_day, "UTC day (always 0 for GPGGA)")
+      .def_readonly("utc_hours", &NmeaInfo::utc_hours, "UTC hours")
+      .def_readonly("utc_minutes", &NmeaInfo::utc_minutes, "UTC minutes")
+      .def_readonly("utc_seconds", &NmeaInfo::utc_seconds, "UTC seconds")
+      .def_readonly("fix_available", &NmeaInfo::fix_available, "Position fix available");
+
+  py::enum_<ModelId>(m, "Model")
+      .value("HDL64E_S1", ModelId::HDL64E_S1, "HDL-64E S1")
+      .value("HDL64E_S2", ModelId::HDL64E_S2, "HDL-64E S2 and S2.1")
+      .value("HDL64E_S3", ModelId::HDL64E_S3, "HDL-64E S3")
+      .value("HDL32E", ModelId::HDL32E, "HDL-32E")
+      .value("VLP32A", ModelId::VLP32A, "VLP-32A")
+      .value("VLP32B", ModelId::VLP32B, "VLP-32B")
+      .value("VLP32C", ModelId::VLP32C, "VLP-32C")
+      .value("VLP16", ModelId::VLP16, "VLP-16")
+      .value("PuckLite", ModelId::PuckLite, "Puck Lite (aka VLP-16)")
+      .value("PuckHiRes", ModelId::PuckHiRes, "Puck Hi-Res (aka VLP-16 Hi-Res)")
+      .value("VLS128", ModelId::VLS128, "VLS-128 (aka Alpha Prime)")
+      .value("AlphaPrime", ModelId::AlphaPrime, "Alpha Prime (aka VLS-128)");
 
   py::enum_<ReturnModeFlag>(
       m, "ReturnModeFlag",
@@ -186,6 +252,9 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .value("STRONGEST", ReturnModeFlag::STRONGEST_RETURN_FLAG,
              "The strongest reflection in a firing")
       .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing");
+
+  m.attr("PACKET_SIZE")          = PACKET_SIZE;
+  m.attr("POSITION_PACKET_SIZE") = POSITION_PACKET_SIZE;
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
