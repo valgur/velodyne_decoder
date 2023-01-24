@@ -55,12 +55,12 @@ struct PositionPacket {
   bool adc_delta_temp_limit_exceeded;    ///< ADC calibration: delta temperature limit has been met
   bool adc_period_exceeded; ///< ADC calibration: periodic time elapsed limit has been met
 
-  Time seconds_since_toh;   ///< Time since the top of the hour with µs resolution
-  PpsStatus pps_status;     ///< Pulse Per Second (PPS) status
   bool thermal_shutdown;    ///< Thermal status, true if thermal shutdown
   uint8_t temp_at_shutdown; ///< Temperature of unit when thermal shutdown occurred
   uint8_t temp_at_powerup;  ///< Temperature of unit (bottom board) at power up
 
+  uint32_t usec_since_toh;   ///< Number of microseconds elapsed since the top of the hour
+  PpsStatus pps_status;      ///< Pulse Per Second (PPS) status
   std::string nmea_sentence; ///< GPRMC or GPGGA NMEA sentence
 
   explicit PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &raw_data);

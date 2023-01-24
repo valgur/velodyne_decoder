@@ -188,15 +188,15 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                         "ADC calibration: delta temperature limit has been met")
           .def_readonly("adc_period_exceeded", &PositionPacket::adc_period_exceeded,
                         "ADC calibration: periodic time elapsed limit has been met")
-          .def_readonly("seconds_since_toh", &PositionPacket::seconds_since_toh,
-                        "Time since the top of the hour with µs resolution")
-          .def_readonly("pps_status", &PositionPacket::pps_status, "Pulse Per Second (PPS) status")
           .def_readonly("thermal_shutdown", &PositionPacket::thermal_shutdown,
                         "Thermal status, true if thermal shutdown")
           .def_readonly("temp_at_shutdown", &PositionPacket::temp_at_shutdown,
                         "Temperature of unit when thermal shutdown occurred")
           .def_readonly("temp_at_powerup", &PositionPacket::temp_at_powerup,
                         "Temperature of unit (bottom board) at power up")
+          .def_readonly("usec_since_toh", &PositionPacket::usec_since_toh,
+                        "Number of microseconds elapsed since the top of the hour")
+          .def_readonly("pps_status", &PositionPacket::pps_status, "Pulse Per Second (PPS) status")
           .def_readonly("nmea_sentence", &PositionPacket::nmea_sentence,
                         "GPRMC or GPGGA NMEA sentence")
           .def("parse_nmea", &PositionPacket::parseNmea,
@@ -248,11 +248,11 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                << ", adc_calib_in_progress=" << packet.adc_calib_in_progress                 //
                << ", adc_delta_temp_limit_exceeded=" << packet.adc_delta_temp_limit_exceeded //
                << ", adc_period_exceeded=" << packet.adc_period_exceeded                     //
-               << ", seconds_since_toh=" << packet.seconds_since_toh                         //
-               << ", pps_status=" << (int)packet.pps_status                                  //
                << ", thermal_shutdown=" << packet.thermal_shutdown                           //
                << ", temp_at_shutdown=" << (int)packet.temp_at_shutdown                      //
                << ", temp_at_powerup=" << (int)packet.temp_at_powerup                        //
+               << ", usec_since_toh=" << packet.usec_since_toh                               //
+               << ", pps_status=" << (int)packet.pps_status                                  //
                << ", nmea_sentence='" << nmea << "')";
             return ss.str();
           });

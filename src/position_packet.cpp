@@ -103,9 +103,8 @@ PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &
   adc_calib_in_progress         = data[0xC5] & 1u;
   adc_delta_temp_limit_exceeded = data[0xC5] & 2u;
   adc_period_exceeded           = data[0xC5] & 4u;
-  seconds_since_toh =
-      static_cast<double>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]) *
-      1e-6;
+  usec_since_toh =
+      static_cast<uint32_t>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]);
   pps_status       = static_cast<PpsStatus>(data[0xCA]);
   thermal_shutdown = data[0xCB] == 1;
   temp_at_shutdown = data[0xCC];
