@@ -72,6 +72,8 @@ private:
    */
   [[nodiscard]] static std::array<std::array<float, 32>, 12> buildTimings(ModelId model);
 
+  void correctVls128Timings(uint32_t stamp, bool dual_return);
+
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
   void unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
@@ -117,6 +119,11 @@ private:
   // Needed for dual-return mode VLS-128, where only a single column is stored per-packet.
   uint16_t prev_packet_azimuth_ = std::numeric_limits<uint16_t>::max();
   float prev_rotation_rate_     = 0;
+
+  // For VLS-128 timing corrections, which differ based on firmware version
+  std::optional<uint32_t> prev_packet_stamp_;
+  static constexpr double default_vls_128_channel_duration_ = 2.89 * 1e-6; // initial value
+  bool vls_128_channel_duration_corrected_                  = false;
 };
 
 } // namespace velodyne_decoder

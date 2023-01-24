@@ -217,9 +217,12 @@ std::array<std::array<float, 32>, 12> PacketDecoder::buildTimings(ModelId model)
   } else if (model == ModelId::AlphaPrime) {
     // Based on the implementation in VeloView's VelodynePlugin
     // https://gitlab.kitware.com/LidarView/velodyneplugin/-/blob/releasev5.1.0/Plugin/VelodyneLidar/VelodynePacketInterpreter/vtkVelodyneLegacyPacketInterpreter.cxx#L117-142
+    // Based on VeloView, the channel timings are:
+    // - 2.66 usec in firmware v5.1.7.1 (Rev3 of the manual)
+    // - 2.89 usec since firmware v5.2.3.0 (Rev4 of the manual).
+    // The difference is automatically accounted for correctVls128Timings().
     // Channel duration. Channels correspond to a group of 8 lasers firing.
-    // FIXME: 2.89 usec since firmware v5.2.3.0 (based on Rev4 of the manual)
-    const double single_firing = 2.66666 * 1e-6;
+    const double single_firing = default_vls_128_channel_duration_;
     // Sequence duration. Sequence is a set of laser group firings including recharging.
     const double full_firing_cycle = 20 * single_firing;
     // ToH adjustment. Top of the Hour is aligned with the fourth firing group in a firing sequence.
@@ -511,6 +514,8 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
                                   PointCloud &cloud) {
   bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
 
+  correctVls128Timings(raw.stamp, dual_return);
+
   // Calculate the average rotation rate for this packet
   float rotation_rate = 0;
   if (prev_packet_azimuth_ < 36000) {
@@ -589,6 +594,32 @@ void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stam
         unpackPointDual(cloud, laser_number, azimuth, full_time, last, strongest);
       }
     }
+  }
+}
+
+void PacketDecoder::correctVls128Timings(uint32_t stamp, bool dual_return) {
+  if (vls_128_channel_duration_corrected_)
+    return;
+  if (!prev_packet_stamp_.has_value()) {
+    prev_packet_stamp_ = stamp;
+    return;
+  }
+  uint32_t packet_duration = (stamp - prev_packet_stamp_.value()) * (dual_return ? 3 : 1);
+  prev_packet_stamp_       = stamp;
+  // Based on VeloView, the channel durations are:
+  // 2.66 usec in firmware v5.1.7.1 - 160 us packet duration
+  // 2.89 usec since firmware v5.2.3.0 (Rev4 of the manual) - 173.3 us packet duration
+  // The +/- 7 us margin is a bit of an overkill, since the packet time deltas were all exactly
+  // 160 us in a sample dataset with older firmware.
+  if (packet_duration > 153 && packet_duration < 180) {
+    double channel_duration = packet_duration < 167 ? (8. / 3.) * 1e-6 : 2.89 * 1e-6;
+    float multiplier        = (float)(channel_duration / default_vls_128_channel_duration_);
+    for (auto &block_timings : timing_offsets_) {
+      for (auto &timing : block_timings) {
+        timing *= multiplier;
+      }
+    }
+    vls_128_channel_duration_corrected_ = true;
   }
 }
 
