@@ -167,7 +167,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   auto PositionPacket_ =
       py::class_<PositionPacket>(m, "PositionPacket")
           .def(py::init<const std::array<uint8_t, POSITION_PACKET_SIZE> &>(), py::arg("raw_data"))
-          .def("parse_nmea", &PositionPacket::parseNmea)
           .def_readonly("temp_board_top", &PositionPacket::temp_board_top,
                         "Temperature of top board, 0 to 150 °C")
           .def_readonly("temp_board_bottom", &PositionPacket::temp_board_bottom,
@@ -200,6 +199,40 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                         "Temperature of unit (bottom board) at power up")
           .def_readonly("nmea_sentence", &PositionPacket::nmea_sentence,
                         "GPRMC or GPGGA NMEA sentence")
+          .def("parse_nmea", &PositionPacket::parseNmea,
+               "Parse the NMEA sentence in the packet, if it exists.")
+          .def_property_readonly(
+              "gps_position",
+              [](const PositionPacket &packet) -> py::object {
+                auto nmea_info = packet.parseNmea();
+                if (!nmea_info || !nmea_info->fix_available)
+                  return py::none();
+                return py::make_tuple(nmea_info->longitude, nmea_info->latitude,
+                                      nmea_info->altitude);
+              },
+              "GPS position (longitude, latitude, altitude) from the NMEA sentence. "
+              "None if no NMEA sentence or no fix available.")
+          .def_property_readonly(
+              "gps_time",
+              [](const PositionPacket &packet) -> py::object {
+                auto nmea_info = packet.parseNmea();
+                if (!nmea_info)
+                  return py::none();
+                float seconds, sec_frac = std::modf(nmea_info->utc_seconds, &seconds);
+                int microseconds = (int)(sec_frac * 1e6);
+                if (nmea_info->utc_year > 0) {
+                  auto datetime = py::module::import("datetime").attr("datetime");
+                  return datetime(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
+                                  nmea_info->utc_hours, nmea_info->utc_minutes, (int)seconds,
+                                  microseconds);
+                } else {
+                  auto time = py::module::import("datetime").attr("time");
+                  return time(nmea_info->utc_hours, nmea_info->utc_minutes, (int)seconds,
+                              microseconds);
+                }
+              },
+              "UTC time from the NMEA sentence. datetime.datetime if date is available, "
+              "datetime.time otherwise. None if no valid NMEA sentence in packet.")
           .def("__repr__", [](const PositionPacket &packet) {
             std::stringstream ss;
             std::string nmea = packet.nmea_sentence;
