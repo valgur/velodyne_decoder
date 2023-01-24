@@ -18,6 +18,7 @@
 #include "velodyne_decoder/types.h"
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 using namespace velodyne_decoder;
 
 /**
@@ -233,6 +234,35 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               },
               "UTC time from the NMEA sentence. datetime.datetime if date is available, "
               "datetime.time otherwise. None if no valid NMEA sentence in packet.")
+          .def_property_readonly(
+              "pps_time",
+              [](const PositionPacket &packet) -> py::object {
+                if (packet.pps_status != PositionPacket::PpsStatus::LOCKED)
+                  return py::none();
+                auto nmea_info = packet.parseNmea();
+                if (!nmea_info)
+                  return py::none();
+                auto py_datetime      = py::module::import("datetime").attr("datetime");
+                auto py_timedelta     = py::module::import("datetime").attr("timedelta");
+                uint32_t pps_toh_usec = packet.usec_since_toh;
+                int pps_min           = pps_toh_usec / 60'000'000;
+                int pps_sec           = pps_toh_usec / 1'000'000 - pps_min * 60;
+                int pps_usec          = pps_toh_usec % 1'000'000;
+                auto pps_time =
+                    nmea_info->utc_year > 0
+                        ? py_datetime(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
+                                      nmea_info->utc_hours, pps_min, pps_sec, pps_usec)
+                        : py_datetime(2020, 1, 1, nmea_info->utc_hours, pps_min, pps_sec, pps_usec);
+                // handle PPS and NMEA being slightly out of sync at the change of the hour
+                if (pps_min == 0 && nmea_info->utc_minutes == 59) {
+                  pps_time += py_timedelta("hours"_a = 1);
+                } else if (pps_min == 59 && nmea_info->utc_minutes == 0) {
+                  pps_time -= py_timedelta("hours"_a = 1);
+                }
+                return nmea_info->utc_year > 0 ? pps_time : pps_time.attr("time")();
+              },
+              "UTC time from the PPS signal + NMEA sentence. datetime.datetime if date is "
+              "available in NMEA, datetime.time otherwise. None if no valid PPS or NMEA.")
           .def("__repr__", [](const PositionPacket &packet) {
             std::stringstream ss;
             std::string nmea = packet.nmea_sentence;
