@@ -53,11 +53,14 @@ def read_pcap(
                 continue
             if end_time is not None and stamp > end_time:
                 continue
-            data = dpkt.ethernet.Ethernet(buf).data.data.data
-            if is_py2:
-                data = bytearray(data)
+            try:
+                data = dpkt.ethernet.Ethernet(buf).ip.udp.data
+            except (AttributeError, dpkt.dpkt.UnpackError):
+                continue
             if len(data) != PACKET_SIZE:
                 continue
+            if is_py2:
+                data = bytearray(data)
             result = decoder.decode(stamp, data, as_pcl_structs)
             if result is not None:
                 yield ResultTuple(*result)
