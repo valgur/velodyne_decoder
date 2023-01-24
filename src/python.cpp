@@ -1,6 +1,8 @@
 // Copyright (c) 2021, Martin Valgur
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -227,7 +229,18 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readonly("utc_hours", &NmeaInfo::utc_hours, "UTC hours")
       .def_readonly("utc_minutes", &NmeaInfo::utc_minutes, "UTC minutes")
       .def_readonly("utc_seconds", &NmeaInfo::utc_seconds, "UTC seconds")
-      .def_readonly("fix_available", &NmeaInfo::fix_available, "Position fix available");
+      .def_readonly("fix_available", &NmeaInfo::fix_available, "Position fix available")
+      .def("__repr__", [](const NmeaInfo &info) {
+        std::ostringstream os;
+        os << std::setprecision(9) << std::fixed;
+        os << "NmeaInfo(longitude=" << info.longitude << ", latitude=" << info.latitude
+           << ", altitude=" << info.altitude << ", utc_year=" << info.utc_year
+           << ", utc_month=" << (int)info.utc_month << ", utc_day=" << (int)info.utc_day
+           << ", utc_hours=" << (int)info.utc_hours << ", utc_minutes=" << (int)info.utc_minutes
+           << ", utc_seconds=" << std::setprecision(3) << info.utc_seconds
+           << ", fix_available=" << info.fix_available << ")";
+        return os.str();
+      });
 
   py::enum_<ModelId>(m, "Model")
       .value("HDL64E_S1", ModelId::HDL64E_S1, "HDL-64E S1")

@@ -22,7 +22,7 @@ bool validate_nmea_checksum(const std::string &nmea) {
 
 /// Parse NMEA sentence
 std::optional<NmeaInfo> parse_nmea(const std::string &nmea) {
-  if (strcmp(nmea.c_str(), "$GPGGA,") == 0) {
+  if (strncmp(nmea.c_str(), "$GPGGA,", 6) == 0) {
     if (!validate_nmea_checksum(nmea))
       return std::nullopt;
     NmeaInfo info = {};
@@ -55,7 +55,7 @@ std::optional<NmeaInfo> parse_nmea(const std::string &nmea) {
     // date info is not available in GPGGA, leaving DMY as 0
     return info;
 
-  } else if (strcmp(nmea.c_str(), "$GPRMC,") == 0) {
+  } else if (strncmp(nmea.c_str(), "$GPRMC,", 6) == 0) {
     if (!validate_nmea_checksum(nmea))
       return std::nullopt;
     NmeaInfo info = {};
