@@ -199,7 +199,30 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
           .def_readonly("temp_at_powerup", &PositionPacket::temp_at_powerup,
                         "Temperature of unit (bottom board) at power up")
           .def_readonly("nmea_sentence", &PositionPacket::nmea_sentence,
-                        "GPRMC or GPGGA NMEA sentence");
+                        "GPRMC or GPGGA NMEA sentence")
+          .def("__repr__", [](const PositionPacket &packet) {
+            std::stringstream ss;
+            std::string nmea = packet.nmea_sentence;
+            if (size_t pos = nmea.find("\r\n"); pos != std::string::npos)
+              nmea.replace(pos, 2, "\\r\\n");
+            ss << "PositionPacket(temp_board_top=" << (int)packet.temp_board_top
+               << ", temp_board_bottom=" << (int)packet.temp_board_bottom                     //
+               << ", temp_during_adc_calibration=" << (int)packet.temp_during_adc_calibration //
+               << ", temp_change_since_adc_calibration="
+               << packet.temp_change_since_adc_calibration                                   //
+               << ", seconds_since_adc_calibration=" << packet.seconds_since_adc_calibration //
+               << ", adc_calibration_reason=" << (int)packet.adc_calibration_reason          //
+               << ", adc_calib_in_progress=" << packet.adc_calib_in_progress                 //
+               << ", adc_delta_temp_limit_exceeded=" << packet.adc_delta_temp_limit_exceeded //
+               << ", adc_period_exceeded=" << packet.adc_period_exceeded                     //
+               << ", seconds_since_toh=" << packet.seconds_since_toh                         //
+               << ", pps_status=" << (int)packet.pps_status                                  //
+               << ", thermal_shutdown=" << packet.thermal_shutdown                           //
+               << ", temp_at_shutdown=" << (int)packet.temp_at_shutdown                      //
+               << ", temp_at_powerup=" << (int)packet.temp_at_powerup                        //
+               << ", nmea_sentence='" << nmea << "')";
+            return ss.str();
+          });
 
   py::enum_<PositionPacket::AdcCalibReason>(PositionPacket_, "AdcCalibrationReason",
                                             "Reason for the last ADC calibration")
@@ -233,12 +256,17 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def("__repr__", [](const NmeaInfo &info) {
         std::ostringstream os;
         os << std::setprecision(9) << std::fixed;
-        os << "NmeaInfo(longitude=" << info.longitude << ", latitude=" << info.latitude
-           << ", altitude=" << info.altitude << ", utc_year=" << info.utc_year
-           << ", utc_month=" << (int)info.utc_month << ", utc_day=" << (int)info.utc_day
-           << ", utc_hours=" << (int)info.utc_hours << ", utc_minutes=" << (int)info.utc_minutes
-           << ", utc_seconds=" << std::setprecision(3) << info.utc_seconds
-           << ", fix_available=" << info.fix_available << ")";
+        os << "NmeaInfo(longitude=" << info.longitude                      //
+           << ", latitude=" << info.latitude                               //
+           << ", altitude=" << info.altitude                               //
+           << ", utc_year=" << info.utc_year                               //
+           << ", utc_month=" << (int)info.utc_month                        //
+           << ", utc_day=" << (int)info.utc_day                            //
+           << ", utc_hours=" << (int)info.utc_hours                        //
+           << ", utc_minutes=" << (int)info.utc_minutes                    //
+           << ", utc_seconds=" << std::setprecision(3) << info.utc_seconds //
+           << ", fix_available=" << info.fix_available                     //
+           << ")";
         return os.str();
       });
 
