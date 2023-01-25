@@ -268,21 +268,33 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
             std::string nmea = packet.nmea_sentence;
             if (size_t pos = nmea.find("\r\n"); pos != std::string::npos)
               nmea.replace(pos, 2, "\\r\\n");
-            ss << "PositionPacket(temp_board_top=" << (int)packet.temp_board_top
-               << ", temp_board_bottom=" << (int)packet.temp_board_bottom                     //
-               << ", temp_during_adc_calibration=" << (int)packet.temp_during_adc_calibration //
-               << ", temp_change_since_adc_calibration="
-               << packet.temp_change_since_adc_calibration                                   //
-               << ", seconds_since_adc_calibration=" << packet.seconds_since_adc_calibration //
-               << ", adc_calibration_reason=" << (int)packet.adc_calibration_reason          //
-               << ", adc_calib_in_progress=" << packet.adc_calib_in_progress                 //
-               << ", adc_delta_temp_limit_exceeded=" << packet.adc_delta_temp_limit_exceeded //
-               << ", adc_period_exceeded=" << packet.adc_period_exceeded                     //
-               << ", thermal_shutdown=" << packet.thermal_shutdown                           //
-               << ", temp_at_shutdown=" << (int)packet.temp_at_shutdown                      //
-               << ", temp_at_powerup=" << (int)packet.temp_at_powerup                        //
-               << ", usec_since_toh=" << packet.usec_since_toh                               //
-               << ", pps_status=" << (int)packet.pps_status                                  //
+            ss << "PositionPacket(";
+            // Some fields are only set in newer firmware versions. Only print them if they are set.
+            if (packet.temp_board_top != 0 || packet.temp_board_bottom != 0 ||
+                packet.temp_during_adc_calibration != 0 ||
+                packet.temp_change_since_adc_calibration != 0 ||
+                packet.seconds_since_adc_calibration != 0 ||
+                (int)packet.adc_calibration_reason != 0 || packet.adc_calib_in_progress != 0 ||
+                packet.adc_delta_temp_limit_exceeded != 0 || packet.adc_period_exceeded != 0 ||
+                packet.thermal_shutdown != 0 || packet.temp_at_shutdown != 0 ||
+                packet.temp_at_powerup != 0) {
+              ss << "temp_board_top=" << (int)packet.temp_board_top                             //
+                 << ", temp_board_bottom=" << (int)packet.temp_board_bottom                     //
+                 << ", temp_during_adc_calibration=" << (int)packet.temp_during_adc_calibration //
+                 << ", temp_change_since_adc_calibration="
+                 << packet.temp_change_since_adc_calibration                                   //
+                 << ", seconds_since_adc_calibration=" << packet.seconds_since_adc_calibration //
+                 << ", adc_calibration_reason=" << (int)packet.adc_calibration_reason          //
+                 << ", adc_calib_in_progress=" << packet.adc_calib_in_progress                 //
+                 << ", adc_delta_temp_limit_exceeded=" << packet.adc_delta_temp_limit_exceeded //
+                 << ", adc_period_exceeded=" << packet.adc_period_exceeded                     //
+                 << ", thermal_shutdown=" << packet.thermal_shutdown                           //
+                 << ", temp_at_shutdown=" << (int)packet.temp_at_shutdown                      //
+                 << ", temp_at_powerup=" << (int)packet.temp_at_powerup                        //
+                 << ", ";
+            }
+            ss << "usec_since_toh=" << packet.usec_since_toh //
+               << ", pps_status=" << (int)packet.pps_status  //
                << ", nmea_sentence='" << nmea << "')";
             return ss.str();
           });
