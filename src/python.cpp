@@ -253,7 +253,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                         ? py_datetime(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
                                       nmea_info->utc_hours, pps_min, pps_sec, pps_usec)
                         : py_datetime(2020, 1, 1, nmea_info->utc_hours, pps_min, pps_sec, pps_usec);
-                // handle PPS and NMEA being slightly out of sync at the change of the hour
+                // handle PPS and NMEA being slightly out of sync at an hour rollover
                 if (pps_min == 0 && nmea_info->utc_minutes == 59) {
                   pps_time += py_timedelta("hours"_a = 1);
                 } else if (pps_min == 59 && nmea_info->utc_minutes == 0) {

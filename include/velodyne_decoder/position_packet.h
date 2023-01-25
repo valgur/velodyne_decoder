@@ -43,25 +43,25 @@ struct PositionPacket {
     ERROR         = 3, ///< Error
   };
 
-  uint8_t temp_board_top;              ///< Temperature of top board, 0 to 150 °C
-  uint8_t temp_board_bottom;           ///< Temperature of bottom board, 0 to 150 °C
+  // fields set by all firmware versions
+  uint32_t usec_since_toh;   ///< Number of microseconds elapsed since the top of the hour
+  PpsStatus pps_status;      ///< Pulse Per Second (PPS) status
+  std::string nmea_sentence; ///< GPRMC or GPGGA NMEA sentence
+
+  // fields set by newer firmware versions only (since mid-2018)
+  uint8_t temp_board_top;    ///< Temperature of top board, 0 to 150 °C
+  uint8_t temp_board_bottom; ///< Temperature of bottom board, 0 to 150 °C
+  bool thermal_shutdown;     ///< Thermal status, true if thermal shutdown
+  uint8_t temp_at_shutdown;  ///< Temperature of unit when thermal shutdown occurred
+  uint8_t temp_at_powerup;   ///< Temperature of unit (bottom board) at power up
   uint8_t temp_during_adc_calibration; ///< Temperature when ADC calibration last ran, 0 to 150 °C
   int16_t temp_change_since_adc_calibration; ///< Change in temperature since last ADC calibration,
                                              ///< -150 to 150°C
   uint32_t seconds_since_adc_calibration;    ///< Elapsed seconds since last ADC calibration
-
-  AdcCalibReason adc_calibration_reason; ///< Reason for the last ADC calibration
-  bool adc_calib_in_progress;            ///< ADC calibration in progress
-  bool adc_delta_temp_limit_exceeded;    ///< ADC calibration: delta temperature limit has been met
-  bool adc_period_exceeded; ///< ADC calibration: periodic time elapsed limit has been met
-
-  bool thermal_shutdown;    ///< Thermal status, true if thermal shutdown
-  uint8_t temp_at_shutdown; ///< Temperature of unit when thermal shutdown occurred
-  uint8_t temp_at_powerup;  ///< Temperature of unit (bottom board) at power up
-
-  uint32_t usec_since_toh;   ///< Number of microseconds elapsed since the top of the hour
-  PpsStatus pps_status;      ///< Pulse Per Second (PPS) status
-  std::string nmea_sentence; ///< GPRMC or GPGGA NMEA sentence
+  AdcCalibReason adc_calibration_reason;     ///< Reason for the last ADC calibration
+  bool adc_calib_in_progress;                ///< ADC calibration in progress
+  bool adc_delta_temp_limit_exceeded; ///< ADC calibration: delta temperature limit has been met
+  bool adc_period_exceeded;           ///< ADC calibration: periodic time elapsed limit has been met
 
   explicit PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &raw_data);
 

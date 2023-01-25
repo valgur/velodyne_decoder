@@ -93,6 +93,12 @@ std::optional<NmeaInfo> parse_nmea(const std::string &nmea) {
 } // namespace
 
 PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &data) {
+  // fields set by all firmware versions
+  usec_since_toh =
+      static_cast<uint32_t>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]);
+  pps_status = static_cast<PpsStatus>(data[0xCA]);
+  nmea_sentence.assign(&data[0xCE], std::find(&data[0xCE], &data[0xCE] + 128, '\0'));
+  // fields set by newer firmware versions only
   temp_board_top                    = data[0xBB];
   temp_board_bottom                 = data[0xBC];
   temp_during_adc_calibration       = data[0xBD];
@@ -103,13 +109,9 @@ PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &
   adc_calib_in_progress         = data[0xC5] & 1u;
   adc_delta_temp_limit_exceeded = data[0xC5] & 2u;
   adc_period_exceeded           = data[0xC5] & 4u;
-  usec_since_toh =
-      static_cast<uint32_t>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]);
-  pps_status       = static_cast<PpsStatus>(data[0xCA]);
-  thermal_shutdown = data[0xCB] == 1;
-  temp_at_shutdown = data[0xCC];
-  temp_at_powerup  = data[0xCD];
-  nmea_sentence.assign(&data[0xCE], std::find(&data[0xCE], &data[0xCE] + 128, '\0'));
+  thermal_shutdown              = data[0xCB] == 1;
+  temp_at_shutdown              = data[0xCC];
+  temp_at_powerup               = data[0xCD];
 }
 
 std::optional<NmeaInfo> PositionPacket::parseNmea() const { return parse_nmea(nmea_sentence); }
