@@ -36,6 +36,7 @@ YAML output example:
     min_intensity: 40
     max_intensity: 255
   status:
+    Model: S3
     Current Time: 2000-01-01 00:05:54
     GPS Status: 0
     Temperature: 20
@@ -50,16 +51,13 @@ YAML output example:
     Real Life Hour: 2685
     IP Source: 192.168.3.43
     IP Destination: 192.168.3.255
-    Multiple Return Status: 0
-    Power Level Status: 160
-    Warnings:
-      Lens Contaminated: true
-      Unit Too Hot Internally: false
-      Unit Too Cold Internally: false
-      Voltage Too Low: false
-      Voltage Too High: false
-      PPS Signal Present: false
-      GPS Time Present: false
+    Multiple Return Status: Strongest
+    Power Level Status: A0
+    Lens Contaminated: true
+    Unit Too Hot Internally: false
+    Unit Too Cold Internally: false
+    PPS Signal Present: false
+    GPS Time Present: false
 """
 from __future__ import print_function
 
@@ -152,10 +150,14 @@ def read_status_info(raw_packets):
                 continue
             values = values[start:] + values[:start]
             expected_checksum = struct.unpack("<H", values[-2:])[0]
-            calib_data = b"".join(x[1:21] for x in chunks(values[7 : -3 * 7], 28))
-            checksum = crc16(calib_data)
             # S3 uses a checksum, S2 sets only the expected length of data as the last bytes
-            if expected_checksum == checksum or expected_checksum == CALIB_DATA_SIZE:
+            is_s3 = "W" in cur_status
+            if is_s3:
+                calib_data = b"".join(x[1:21] for x in chunks(values[7 : -3 * 7], 28))
+                checksum = crc16(calib_data)
+            else:
+                checksum = CALIB_DATA_SIZE
+            if expected_checksum == checksum:
                 return decode_status_bytes(values, cur_status)
             else:
                 warnings.warn(
@@ -173,8 +175,10 @@ def read_status_info(raw_packets):
 
 
 def decode_status_bytes(status_bytes, cur_status):
+    is_s3 = "W" in cur_status
     tail = status_bytes[-4 * 7 :]
     data = {}
+    data["Model"] = "S3" if is_s3 else "S2"
     data["Current Time"] = datetime.datetime(
         2000 + cur_status["Y"],
         cur_status["N"],
@@ -199,40 +203,35 @@ def decode_status_bytes(status_bytes, cur_status):
     data["Real Life Hour"] = struct.unpack_from("<H", tail, 13)[0]
     data["IP Source"] = ".".join(map(str, struct.unpack_from("<BBBB", tail, 15)))
     data["IP Destination"] = ".".join(map(str, struct.unpack_from("<BBBB", tail, 19)))
-    data["Multiple Return Status"] = tail[24]
-    data["Power Level Status"] = tail[25]
-    if "W" in cur_status:
-        w = cur_status["W"]
-        d = {}
-        d["Lens Contaminated"] = bool(w & (1 << 0))
-        d["Unit Too Hot Internally"] = bool(w & (1 << 1))
-        d["Unit Too Cold Internally"] = bool(w & (1 << 2))
-        d["Voltage Too Low"] = bool(w & (1 << 3))
-        d["Voltage Too High"] = bool(w & (1 << 4))
-        d["PPS Signal Present"] = bool(w & (1 << 5))
-        d["GPS Time Present"] = bool(w & (1 << 6))
-        data["Warnings"] = d
+    data["Multiple Return Status"] = {0: "Strongest", 1: "Last", 2: "Both"}.get(tail[23], tail[23])
+    data["Power Level Status"] = hex(tail[25])[2:].upper()
+    w = cur_status["W"] if is_s3 else tail[24]
+    data["Lens Contaminated"] = bool(w & (1 << 0))
+    data["Unit Too Hot Internally"] = bool(w & (1 << 1))
+    data["Unit Too Cold Internally"] = bool(w & (1 << 2))
+    if not is_s3:
+        data["Voltage Too Low"] = bool(w & (1 << 3))
+        data["Voltage Too High"] = bool(w & (1 << 4))
+    data["PPS Signal Present"] = bool(w & (1 << 5))
+    data["GPS Time Present"] = bool(w & (1 << 6))
 
     data["Calibration"] = []
     raw_lasers_data = [x[:21] for x in chunks(status_bytes[7 : -3 * 7], 28)]
     for raw_laser_data in raw_lasers_data:
         raw_values = struct.unpack("<BhhhhhhhhhBB", raw_laser_data)
-        multipliers = [1, 0.01, 0.01, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 1, 1]
         c = {}
-        (
-            c["Laser ID"],
-            c["Vertical Correction"],
-            c["Rotational Correction"],
-            c["Far Distance Correction"],
-            c["Distance Correction X"],
-            c["Distance Correction Y"],
-            c["Vertical Offset Correction"],
-            c["Horizontal Offset Correction"],
-            c["Focal Distance"],
-            c["Focal Slope"],
-            c["Min Intensity"],
-            c["Max Intensity"],
-        ) = [x * mult for x, mult in zip(raw_values, multipliers)]
+        c["Laser ID"] = raw_values[0]
+        c["Vertical Correction"] = raw_values[1] * 0.01
+        c["Rotational Correction"] = raw_values[2] * 0.01
+        c["Far Distance Correction"] = raw_values[3] * 0.001
+        c["Distance Correction X"] = raw_values[4] * 0.001
+        c["Distance Correction Y"] = raw_values[5] * 0.001
+        c["Vertical Offset Correction"] = raw_values[6] * 0.001
+        c["Horizontal Offset Correction"] = raw_values[7] * 0.001
+        c["Focal Distance"] = raw_values[8] * 0.001
+        c["Focal Slope"] = raw_values[9] * 0.001
+        c["Min Intensity"] = raw_values[10]
+        c["Max Intensity"] = raw_values[11]
         data["Calibration"].append(c)
     return data
 
@@ -280,7 +279,6 @@ def cli(args=None):
     packets = iter_pcap_packets(args.pcap_file)
     metadata = read_status_info(packets)
     calib_dict = status_info_to_calib_dict(metadata)
-    print(yaml.dump(calib_dict, sort_keys=False))
     if calib_dict["status"]["Calibration Time"] is None:
         print("Warning: calibration info not found in the metadata", file=sys.stderr)
     if [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
