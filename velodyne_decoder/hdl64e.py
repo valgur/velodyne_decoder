@@ -61,10 +61,11 @@ YAML output example:
       PPS Signal Present: false
       GPS Time Present: false
 """
-
+import argparse
 import datetime
 import math
 import struct
+import sys
 import warnings
 
 import dpkt
@@ -100,7 +101,7 @@ def crc16(data):
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i: i + n]
+        yield lst[i : i + n]
 
 
 def iter_pcap_packets(pcap_path):
@@ -130,24 +131,26 @@ def read_status_info(raw_packets):
     cur_status = {}
     CALIB_DATA_SIZE = 1820
     values = bytearray(CALIB_DATA_SIZE)
-    count = 0
+    attempts = 0
+    byte_count = 0
     for packet_data in raw_packets:
         stamp, status_type, status_value = struct.unpack("<LBB", packet_data[-6:])
         if chr(status_type) in "HMSDNYGTVW":
             cur_status[chr(status_type)] = status_value
             if chr(status_type) != "W":
                 continue
-        values[count] = status_value
-        count += 1
-        if count == CALIB_DATA_SIZE:
+        values[byte_count] = status_value
+        byte_count += 1
+        if byte_count == CALIB_DATA_SIZE:
+            attempts += 1
             start = values.find(b"UNIT#")
             if start < 0:
                 warnings.warn("Did not find a 'UNIT#' start token in the status data")
-                count = 0
+                byte_count = 0
                 continue
             values = values[start:] + values[:start]
             expected_checksum = struct.unpack("<H", values[-2:])[0]
-            calib_data = b"".join(x[1:21] for x in chunks(values[7: -3 * 7], 28))
+            calib_data = b"".join(x[1:21] for x in chunks(values[7 : -3 * 7], 28))
             checksum = crc16(calib_data)
             # S3 uses a checksum, S2 sets only the expected length of data as the last bytes
             if expected_checksum == checksum or expected_checksum == CALIB_DATA_SIZE:
@@ -157,13 +160,18 @@ def read_status_info(raw_packets):
                     "Checksum validation of calibration data failed: "
                     "calculated {:X} != expected {:X}.".format(checksum, expected_checksum)
                 )
-                count = CALIB_DATA_SIZE - start if start > 0 else 0
+                byte_count = CALIB_DATA_SIZE - start if start > 0 else 0
                 continue
-    raise ValueError("Not enough status bytes in stream: {} < {}".format(count, CALIB_DATA_SIZE))
+    if attempts == 0:
+        raise ValueError(
+            "Not enough metadata bytes in stream: {} < {}".format(byte_count, CALIB_DATA_SIZE)
+        )
+    else:
+        raise ValueError("No valid metadata found in stream")
 
 
 def decode_status_bytes(status_bytes, cur_status):
-    tail = status_bytes[-4 * 7:]
+    tail = status_bytes[-4 * 7 :]
     data = {}
     data["Current Time"] = datetime.datetime(
         2000 + cur_status["Y"],
@@ -204,7 +212,7 @@ def decode_status_bytes(status_bytes, cur_status):
         data["Warnings"] = d
 
     data["Calibration"] = []
-    raw_lasers_data = [x[:21] for x in chunks(status_bytes[7: -3 * 7], 28)]
+    raw_lasers_data = [x[:21] for x in chunks(status_bytes[7 : -3 * 7], 28)]
     for raw_laser_data in raw_lasers_data:
         raw_values = struct.unpack("<BhhhhhhhhhBB", raw_laser_data)
         multipliers = [1, 0.01, 0.01, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 1, 1]
@@ -261,3 +269,18 @@ def read_calibration_from_pcap(pcap_file):
         raise ValueError("Invalid calibration data")
     yaml_str = yaml.dump(calib_dict, sort_keys=False)
     return Calibration.from_string(yaml_str)
+
+
+def cli(args=None):
+    parser = argparse.ArgumentParser(description="Extract HDL-64E calibration from a .pcap file")
+    parser.add_argument("pcap_file", help=".pcap file to read")
+    args = parser.parse_args(args)
+    packets = iter_pcap_packets(args.pcap_file)
+    metadata = read_status_info(packets)
+    calib_dict = status_info_to_calib_dict(metadata)
+    print(yaml.dump(calib_dict, sort_keys=False))
+    if calib_dict["status"]["Calibration Time"] is None:
+        print("Warning: calibration info not found in the metadata", file=sys.stderr)
+    if [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
+        print("Warning: invalid calibration data", file=sys.stderr)
+    print(yaml.dump(calib_dict, sort_keys=False))
