@@ -53,10 +53,14 @@ def read_pcap(
                 continue
             if end_time is not None and stamp > end_time:
                 continue
+            # Get the innermost layer of the packet
+            # typically Ethernet -> IP -> UDP -> raw Velodyne data
             try:
-                data = dpkt.ethernet.Ethernet(buf).ip.udp.data
-            except (AttributeError, dpkt.dpkt.UnpackError):
+                data = dpkt.ethernet.Ethernet(buf)
+            except dpkt.dpkt.UnpackError:
                 continue
+            while hasattr(data, "data"):
+                data = data.data
             if len(data) != PACKET_SIZE:
                 continue
             if is_py2:
