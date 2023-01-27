@@ -68,13 +68,15 @@ import struct
 import sys
 import warnings
 
-import dpkt
 import numpy as np
 import yaml
 from velodyne_decoder_pylib import Calibration, PACKET_SIZE
 
+import velodyne_decoder.util as _util
+
 __all__ = [
     "iter_pcap_packets",
+    "iter_bag_packets",
     "read_calibration_from_pcap",
     "status_info_to_calib_dict",
     "read_status_info",
@@ -105,26 +107,17 @@ def chunks(lst, n):
 
 
 def iter_pcap_packets(pcap_path):
-    with open(pcap_path, "rb") as f:
-        for stamp, buf in dpkt.pcap.Reader(f):
-            data = dpkt.ethernet.Ethernet(buf).data.data.data
-            if len(data) != PACKET_SIZE:
-                continue
+    """Yields raw Velodyne packets from a pcap file."""
+    for stamp, data in _util.iter_pcap(pcap_path):
+        if len(data) == PACKET_SIZE:
             yield data
 
 
-def parse_packet(data):
-    stamp, dual_return_mode, model_id = struct.unpack("<LBB", data[-6:])
-    block_dtype = np.dtype(
-        [
-            ("bank_id", "<u2"),
-            ("azimuth", "<u2"),
-            ("measurements", [("distance", "u2"), ("intensity", "u1")], 32),
-        ],
-        align=False,
-    )
-    blocks = np.frombuffer(data[:-6], dtype=block_dtype)
-    return blocks, stamp, model_id, dual_return_mode
+def iter_bag_packets(bag_path, topic=None):
+    """Yields raw Velodyne packets from a given topic in a bag file."""
+    for topic, scan_msg, ros_time in _util.iter_bag(bag_path, [topic]):
+        for packet in scan_msg.packets:
+            yield packet.data
 
 
 def read_status_info(raw_packets):

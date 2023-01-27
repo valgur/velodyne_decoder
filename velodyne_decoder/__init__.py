@@ -1,12 +1,11 @@
 import sys
 from collections import namedtuple
-from contextlib import contextmanager
 
-import dpkt
 from velodyne_decoder_pylib import *
 from velodyne_decoder_pylib import __version__ as _pylib_version
 
 from velodyne_decoder import hdl64e
+from velodyne_decoder import util as _util
 from velodyne_decoder.calibrations import get_bundled_calibration
 
 __version__ = _pylib_version
@@ -45,41 +44,19 @@ def read_pcap(
     if config is None:
         config = Config()
     decoder = StreamDecoder(config)
-    start_time, end_time = time_range
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
-    with _fopen(pcap_file, "rb") as f:
-        for stamp, buf in dpkt.pcap.Reader(f):
-            if start_time is not None and stamp < start_time:
-                continue
-            if end_time is not None and stamp > end_time:
-                continue
-            # Get the innermost layer of the packet
-            # typically Ethernet -> IP -> UDP -> raw Velodyne data
-            try:
-                data = dpkt.ethernet.Ethernet(buf)
-            except dpkt.dpkt.UnpackError:
-                continue
-            while hasattr(data, "data"):
-                data = data.data
-            if len(data) != PACKET_SIZE:
-                continue
-            if is_py2:
-                data = bytearray(data)
-            result = decoder.decode(stamp, data, as_pcl_structs)
-            if result is not None:
-                yield ResultTuple(*result)
-        # Decode any remaining packets
-        result = decoder.finish(as_pcl_structs)
+    for stamp, data in _util.iter_pcap(pcap_file, time_range):
+        if len(data) != PACKET_SIZE:
+            continue
+        if is_py2:
+            data = bytearray(data)
+        result = decoder.decode(stamp, data, as_pcl_structs)
         if result is not None:
             yield ResultTuple(*result)
-
-
-def _get_velodyne_scan_topics(bag):
-    topics = []
-    for topic, info in bag.get_type_and_topic_info()[1].items():
-        if info.msg_type == "velodyne_msgs/VelodyneScan":
-            topics.append(topic)
-    return topics
+    # Decode any remaining packets
+    result = decoder.finish(as_pcl_structs)
+    if result is not None:
+        yield ResultTuple(*result)
 
 
 def read_bag(
@@ -120,55 +97,19 @@ def read_bag(
     point_cloud : numpy.ndarray
     topic : str
     """
-    from rosbag import Bag
-    from rospy import Time
-
     if config is None:
         config = Config()
-
     decoder = ScanDecoder(config)
-
-    if isinstance(bag_file, Bag):
-        bag = bag_file
-    else:
-        bag = Bag(str(bag_file))
-
-    if topics is None:
-        topics = _get_velodyne_scan_topics(bag)
-
-    start_time, end_time = time_range
-    if start_time is not None and not isinstance(start_time, Time):
-        start_time = Time.from_sec(start_time)
-    if end_time is not None and not isinstance(end_time, Time):
-        end_time = Time.from_sec(end_time)
-
     Result = namedtuple("ResultTuple", ("stamp", "points", "topic"))
     ResultWithFrameId = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
-    try:
-        for topic, scan_msg, ros_time in bag.read_messages(
-            topics, start_time=start_time, end_time=end_time
-        ):
-            if is_py2:
-                for packet in scan_msg.packets:
-                    packet.data = bytearray(packet.data)
-            stamp = scan_msg.header.stamp if use_header_time else ros_time
-            points = decoder.decode_message(scan_msg, as_pcl_structs)
-            if return_frame_id:
-                yield ResultWithFrameId(stamp, points, topic, scan_msg.header.frame_id)
-            else:
-                yield Result(stamp, points, topic)
-    finally:
-        if not isinstance(bag_file, Bag):
-            bag.close()
-
-
-@contextmanager
-def _fopen(filein, *args, **kwargs):
-    if isinstance(filein, str):  # filename
-        with open(filein, *args, **kwargs) as f:
-            yield f
-    elif hasattr(filein, "open"):  # pathlib.Path
-        with filein.open(*args, **kwargs) as f:
-            yield f
-    else:  # file-like object
-        yield filein
+    msg_types = ["velodyne_msgs/VelodyneScan"]
+    for topic, scan_msg, ros_time in _util.iter_bag(bag_file, topics, msg_types, time_range):
+        if is_py2:
+            for packet in scan_msg.packets:
+                packet.data = bytearray(packet.data)
+        stamp = scan_msg.header.stamp if use_header_time else ros_time
+        points = decoder.decode_message(scan_msg, as_pcl_structs)
+        if return_frame_id:
+            yield ResultWithFrameId(stamp, points, topic, scan_msg.header.frame_id)
+        else:
+            yield Result(stamp, points, topic)
