@@ -253,15 +253,22 @@ def status_info_to_calib_dict(metadata):
     return calib
 
 
-def read_calibration_from_pcap(pcap_file):
+def _read_yaml_from_pcap(pcap_file):
     packets = iter_pcap_packets(pcap_file)
     metadata = read_status_info(packets)
     calib_dict = status_info_to_calib_dict(metadata)
+    err = None
     if calib_dict["status"]["Calibration Time"] is None:
-        raise ValueError("Calibration info not available in the metadata")
-    if [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
-        raise ValueError("Invalid calibration data")
-    yaml_str = yaml.dump(calib_dict, sort_keys=False)
+        err = "Calibration info not available in the metadata"
+    elif [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
+        err = "Invalid calibration data"
+    return err, yaml.dump(calib_dict, sort_keys=False)
+
+
+def read_calibration_from_pcap(pcap_file):
+    err, yaml_str = _read_yaml_from_pcap(pcap_file)
+    if err is not None:
+        raise ValueError(err)
     return Calibration.from_string(yaml_str)
 
 
@@ -269,11 +276,7 @@ def cli(args=None):
     parser = argparse.ArgumentParser(description="Extract HDL-64E calibration from a .pcap file")
     parser.add_argument("pcap_file", help=".pcap file to read")
     args = parser.parse_args(args)
-    packets = iter_pcap_packets(args.pcap_file)
-    metadata = read_status_info(packets)
-    calib_dict = status_info_to_calib_dict(metadata)
-    if calib_dict["status"]["Calibration Time"] is None:
-        print("Warning: calibration info not found in the metadata", file=sys.stderr)
-    if [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
-        print("Warning: invalid calibration data", file=sys.stderr)
-    print(yaml.dump(calib_dict, sort_keys=False))
+    err, yaml_str = _read_yaml_from_pcap(args.pcap_file)
+    print(yaml_str)
+    if err is not None:
+        print("Warning: {}".format(err), file=sys.stderr)
