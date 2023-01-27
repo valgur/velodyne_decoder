@@ -3,8 +3,8 @@ Tools to read calibration and status info from HDL-64E S2 and S3 packet streams.
 
 Usage example:
     pcap_file = "hdl64e_packets.pcap"
-    calib = vd.hdl64e.read_calibration_from_pcap(pcap_file)
-    config = vd.Config(model=vd.Model.HDL64E_S3, calibration=calib)
+    model, calib = vd.hdl64e.read_calibration_from_pcap(pcap_file)
+    config = vd.Config(model=model, calibration=calib)
 
 Saving the calibration to a file (also includes all other parsed metadata under the "status" key):
     packets = vd.hdl64e.iter_pcap_packets(pcap_file)
@@ -70,7 +70,7 @@ import warnings
 
 import numpy as np
 import yaml
-from velodyne_decoder_pylib import Calibration, PACKET_SIZE
+from velodyne_decoder_pylib import Calibration, PACKET_SIZE, Model
 
 import velodyne_decoder.util as _util
 
@@ -253,7 +253,7 @@ def status_info_to_calib_dict(metadata):
     return calib
 
 
-def _read_yaml_from_pcap(pcap_file):
+def _read_calib_dict_from_pcap(pcap_file):
     packets = iter_pcap_packets(pcap_file)
     metadata = read_status_info(packets)
     calib_dict = status_info_to_calib_dict(metadata)
@@ -262,21 +262,42 @@ def _read_yaml_from_pcap(pcap_file):
         err = "Calibration info not available in the metadata"
     elif [l["laser_id"] for l in calib_dict["lasers"]] != list(range(64)):
         err = "Invalid calibration data"
-    return err, yaml.dump(calib_dict, sort_keys=False)
+    return err, calib_dict
 
 
 def read_calibration_from_pcap(pcap_file):
-    err, yaml_str = _read_yaml_from_pcap(pcap_file)
+    packets = iter_pcap_packets(pcap_file)
+    # The last two bytes (return mode and model ID) are constant for newer models,
+    # but vary for HDL-64E.
+    factory_bytes = [data[-2:] for _, data in zip(range(5), packets)]
+    if len(factory_bytes) < 5 or all(b == factory_bytes[0] for b in factory_bytes):
+        return None, None
+    if hasattr(pcap_file, "seek"):
+        pcap_file.seek(0)
+    err, calib_dict = _read_calib_dict_from_pcap(pcap_file)
     if err is not None:
         raise ValueError(err)
-    return Calibration.from_string(yaml_str)
+    model = Model.HDL64E_S2 if calib_dict["status"]["Model"] == "S2" else Model.HDL64E_S3
+    return model, Calibration.from_string(yaml.dump(calib_dict))
+
+
+def detect_hdl64e(pcap_file):
+    packets = iter_pcap_packets(pcap_file)
+    # The last two bytes (return mode and model ID) are constant for newer models,
+    # but vary for HDL-64E.
+    factory_bytes = [data[-2:] for _, data in zip(range(5), packets)]
+    if len(factory_bytes) < 5 or all(b == factory_bytes[0] for b in factory_bytes):
+        return None, None
+    if hasattr(pcap_file, "seek"):
+        pcap_file.seek(0)
+    return read_calibration_from_pcap(pcap_file)
 
 
 def cli(args=None):
     parser = argparse.ArgumentParser(description="Extract HDL-64E calibration from a .pcap file")
     parser.add_argument("pcap_file", help=".pcap file to read")
     args = parser.parse_args(args)
-    err, yaml_str = _read_yaml_from_pcap(args.pcap_file)
-    print(yaml_str)
+    err, calib_dict = _read_calib_dict_from_pcap(args.pcap_file)
+    yaml.dump(calib_dict, sys.stdout, sort_keys=False)
     if err is not None:
         print("Warning: {}".format(err), file=sys.stderr)

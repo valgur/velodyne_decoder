@@ -43,6 +43,21 @@ def read_pcap(
     """
     if config is None:
         config = Config()
+
+    # Extract model and calibration for HDL-64E S2/S3 from the pcap file if not specified
+    if config.model is None or config.calibration is None:
+        try:
+            model, calib = hdl64e.detect_hdl64e(pcap_file)
+        except ValueError as e:
+            raise ValueError(
+                "Data is from a HDL-64E, but the exact model and calibration could not be determined: "
+                + str(e)
+            )
+        config.model = config.model or model
+        config.calibration = config.calibration or calib
+        if hasattr(pcap_file, "seek"):
+            pcap_file.seek(0)
+
     decoder = StreamDecoder(config)
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
     for stamp, data in _util.iter_pcap(pcap_file, time_range):
