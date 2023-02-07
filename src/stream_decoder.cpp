@@ -26,13 +26,13 @@ int getPacketAzimuth(const RawPacketData &data) {
 
 StreamDecoder::StreamDecoder(const Config &config) : config_(config), scan_decoder_(config) {
   if (config_.model.has_value() && config_.model == ModelId::HDL64E_S1) {
-    config_.gps_time = false;
+    config_.use_device_time = false;
   }
 }
 
 std::optional<std::pair<Time, PointCloud>> //
 StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
-  if (config_.gps_time) {
+  if (config_.use_device_time) {
     stamp = getPacketTimestamp(&(packet[PACKET_SIZE - 6]), stamp);
   }
 

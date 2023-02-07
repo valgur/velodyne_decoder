@@ -108,7 +108,7 @@ Other available options are:
 
 Options only applicable to PCAP decoding:
 
-* `gps_time` – use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
+* `use_device_time` – use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
 * `timestamp_first_packet` – whether the timestamps are set based on the first or last packet in the scan
 
 ## Authors
