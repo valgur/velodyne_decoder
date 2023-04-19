@@ -29,7 +29,7 @@ endif()
 
 find_package(yaml-cpp 0.7 REQUIRED)
 
-add_library(${PROJECT_NAME} STATIC
+add_library(${PROJECT_NAME}
   src/calibration.cpp
   src/calib_db.cpp
   src/packet_decoder.cpp

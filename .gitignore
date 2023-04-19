@@ -251,3 +251,5 @@ CATKIN_IGNORE
 ### JetBrains template
 .idea/
 cmake-build-*
+
+CMakeUserPresets.json
