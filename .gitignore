@@ -253,3 +253,6 @@ CATKIN_IGNORE
 cmake-build-*
 
 CMakeUserPresets.json
+
+/test/data/
+!/test/data/*.py

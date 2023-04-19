@@ -1,10 +1,9 @@
-import tempfile
 from pathlib import Path
 
 import pytest
 import requests
 
-data_dir = Path(tempfile.tempdir) / "velodyne_decoder_data"
+data_dir = Path(__file__).parent / "data"
 base_url = "https://github.com/valgur/velodyne_decoder/releases/download/v1.0.1/"
 
 
