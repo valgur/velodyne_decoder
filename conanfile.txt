@@ -1,0 +1,9 @@
+[requires]
+pybind11/2.10.1
+yaml-cpp/0.7.0
+
+[layout]
+cmake_layout
+
+[generators]
+CMakeDeps

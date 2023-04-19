@@ -1,3 +1,4 @@
+include(cmake/conan.cmake)
 cmake_minimum_required(VERSION 3.14)
 project(velodyne_decoder CXX)
 
@@ -26,23 +27,7 @@ else()
   )
 endif()
 
-# version ranges are only available in CMake 3.19+
-#find_package(yaml-cpp 0.6...<2 QUIET)
-find_package(yaml-cpp 0.6 QUIET)
-if(NOT yaml-cpp_FOUND)
-  include(FetchContent)
-  FetchContent_Declare(yaml-cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_SHALLOW ON
-    GIT_TAG yaml-cpp-0.7.0
-    )
-  FetchContent_MakeAvailable(yaml-cpp)
-  set(YAML_CPP_LIBRARIES yaml-cpp::yaml-cpp)
-endif()
-
-if(DEFINED VERSION_INFO)
-  add_compile_definitions(VERSION_INFO=${VERSION_INFO})
-endif()
+find_package(yaml-cpp 0.7 REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC
   src/calibration.cpp
@@ -51,23 +36,13 @@ add_library(${PROJECT_NAME} STATIC
   src/position_packet.cpp
   src/scan_decoder.cpp
   src/stream_decoder.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${YAML_CPP_LIBRARIES})
-target_include_directories(${PROJECT_NAME} PUBLIC include PRIVATE SYSTEM ${YAML_CPP_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE yaml-cpp)
+target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
 
 set(BUILD_PYTHON FALSE CACHE BOOL "Whether to build a Python module in addition to the library")
 if(BUILD_PYTHON OR SKBUILD)
-  find_package(pybind11 QUIET)
-  if(NOT pybind11_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(pybind11
-      GIT_REPOSITORY https://github.com/pybind/pybind11.git
-      GIT_TAG v2.9.2
-      GIT_SHALLOW ON
-      )
-    FetchContent_MakeAvailable(pybind11)
-  endif()
-
+  find_package(pybind11 2.6 REQUIRED)
   pybind11_add_module(${PROJECT_NAME}_pylib src/python.cpp)
   target_include_directories(${PROJECT_NAME}_pylib PRIVATE include)
   target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME})

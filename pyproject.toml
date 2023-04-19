@@ -45,10 +45,9 @@ requires = [
     "setuptools >= 61",
     "wheel",
     "scikit-build >= 0.16.7",
-    "cmake >= 3.18",
+    "cmake >= 3.24",
     "ninja",
-    # "conan >= 2",
-    # "nanobind >= 1.1.0",
+    "conan >= 2",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -59,7 +58,4 @@ skip = "pp*"
 test-requires = "pytest"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
-
-# nanobind does not support 32-bit architectures
-# static_assert(sizeof(nb_inst) == sizeof(PyObject) + sizeof(void *)); fails
-archs = "auto64"
+archs = "auto"
