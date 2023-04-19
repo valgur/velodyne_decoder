@@ -1,0 +1,7 @@
+# --extra-index-url https://rospypi.github.io/simple/
+pytest
+requests
+rosbag
+pathlib; python_version < '3'
+rospy < 1.15; python_version < '3'
+rosbag < 1.15; python_version < '3'

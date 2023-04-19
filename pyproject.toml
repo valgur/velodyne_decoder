@@ -25,12 +25,10 @@ dependencies = [
     "importlib_resources",
     "dpkt",
 ]
-optional-dependencies.dev = [
-    "pytest",
-    "requests",
-    "pathlib; python_version < '3'",
-    "rosbag",
-]
+dynamic = ["optional-dependencies"]
+
+[tool.setuptools.dynamic]
+optional-dependencies.tests = { file = ["requirements-dev.txt"] }
 
 [project.scripts]
 extract-hdl64e-calibration = "velodyne_decoder.hdl64e:cli"
@@ -42,7 +40,7 @@ package-data.velodyne_decoder = ["*.yml"]
 
 [build-system]
 requires = [
-    "setuptools >= 61",
+    "setuptools >= 42",
     "wheel",
     "scikit-build >= 0.16.7",
     "cmake >= 3.24",
@@ -55,7 +53,7 @@ build-backend = "setuptools.build_meta"
 build = "*"
 # Disable building of PyPy wheels on all platforms
 skip = "pp*"
-test-requires = "pytest"
+before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
 archs = "auto"

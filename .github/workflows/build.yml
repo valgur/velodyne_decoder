@@ -28,20 +28,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install cmake, wheel
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade build wheel cmake setuptools
-
       - name: Build and install
         run: pip install . -v
 
-      - name: Install Python 2 test dependencies
-        if: matrix.python-version == '2.7'
-        run: pip install "rospy<1.15" "rosbag<1.15" --extra-index-url https://rospypi.github.io/simple/
-
       - name: Install test dependencies
-        run: pip install .[tests] --extra-index-url https://rospypi.github.io/simple/
+        run: pip install -r requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/
 
       - name: Run tests
         run: pytest test --color=yes -v
