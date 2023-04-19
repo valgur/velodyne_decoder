@@ -36,6 +36,44 @@ function(detect_os OS)
     endif()
 endfunction()
 
+function(detect_arch ARCH)
+    # Maps the info from CMake variables to one of the appropriate architecture IDs supported by Conan.
+    # x86_64, x86
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+        set(${ARCH} "x86_64" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86|X86)$")
+        set(${ARCH} "x86" PARENT_SCOPE)
+    # armv8, armv7
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^((arm|aarch)64|armv8l)$")
+        set(${ARCH} "armv8" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM)$")
+        set(${ARCH} "armv7" PARENT_SCOPE)
+    # ppc32be, ppc32, ppc64le, ppc64
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)$")
+        set(${ARCH} "ppc32" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)be$")
+        set(${ARCH} "ppc32be" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc64|ppc64)$")
+        set(${ARCH} "ppc64" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc64|ppc64)le$")
+        set(${ARCH} "ppc64le" PARENT_SCOPE)
+    # sparc, sparcv9, s390, s390x, mips, mips64
+    elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "sparc64")
+        set(${ARCH} "sparcv9" PARENT_SCOPE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(sparc(v9)?|s390x?|mips(64)?)$")
+        set(${ARCH} "${CMAKE_SYSTEM_PROCESSOR}" PARENT_SCOPE)
+    # The fall-back kitchen sink test for values that are probably incorrect but might match.
+    # armv4, armv4i, armv5el, armv5hf, armv6, armv7k, armv7hf, armv8_32, armv8.3
+    # e2k-v2, e2k-v3, e2k-v4, e2k-v5, e2k-v6, e2k-v7
+    # xtensalx6, xtensalx106, xtensalx7
+    # avr, asm.js, wasm, sh4le
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm(v4|v4i|v5el|v5hf|v6|v7k|v7hf|v8_32|v8.3)|e2k-(v2|v3|v4|v5|v6|v7)|xtensalx(6|106|7)|avr|asm.js|wasm|sh4le)$")
+        set(${ARCH} "${CMAKE_SYSTEM_PROCESSOR}" PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "Unknown or unsupported CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+endfunction()
+
 
 function(detect_cxx_standard CXX_STANDARD)
     set(${CXX_STANDARD} ${CMAKE_CXX_STANDARD} PARENT_SCOPE)
@@ -84,6 +122,7 @@ function(detect_compiler COMPILER COMPILER_VERSION)
     set(${COMPILER_VERSION} ${_COMPILER_VERSION} PARENT_SCOPE)
 endfunction()
 
+
 function(detect_build_type BUILD_TYPE)
     if(NOT CMAKE_CONFIGURATION_TYPES)
         # Only set when we know we are in a single-configuration generator
@@ -91,6 +130,7 @@ function(detect_build_type BUILD_TYPE)
         set(${BUILD_TYPE} ${CMAKE_BUILD_TYPE} PARENT_SCOPE)
     endif()
 endfunction()
+
 
 function(detect_unix_libcxx LIBCXX)
     # Take into account any -stdlib in compile options
@@ -179,7 +219,9 @@ function(detect_vs_runtime RUNTIME)
     set(${RUNTIME} "dynamic" PARENT_SCOPE)
 endfunction()
 
+
 function(detect_host_profile output_file)
+    detect_arch(MYARCH)
     detect_os(MYOS)
     detect_compiler(MYCOMPILER MYCOMPILER_VERSION)
     detect_cxx_standard(MYCXX_STANDARD)
@@ -192,10 +234,13 @@ function(detect_host_profile output_file)
     endif()
 
     set(PROFILE "")
-    string(APPEND PROFILE "include(default)\n")
+    # string(APPEND PROFILE "include(default)\n")
     string(APPEND PROFILE "[settings]\n")
     if(MYOS)
         string(APPEND PROFILE os=${MYOS} "\n")
+    endif()
+    if(MYARCH)
+        string(APPEND PROFILE arch=${MYARCH} "\n")
     endif()
     if(MYCOMPILER)
         string(APPEND PROFILE compiler=${MYCOMPILER} "\n")
@@ -284,7 +329,7 @@ endfunction()
 macro(conan_provide_dependency package_name)
     if(NOT CONAN_INSTALL_SUCCESS)
         message(STATUS "CMake-conan: first find_package() found. Installing dependencies with Conan")
-        conan_profile_detect_default()
+        # conan_profile_detect_default()
         detect_host_profile(${CMAKE_BINARY_DIR}/conan_profile)
         set(common_args -pr:h ${CMAKE_BINARY_DIR}/conan_profile
                                -pr:b ${CMAKE_BINARY_DIR}/conan_profile
