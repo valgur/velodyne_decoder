@@ -9,5 +9,6 @@ def get_bundled_calibration(calib_file):
 
     E.g. get_bundled_calibration("HDL-64E_S3-VeloView.yml").
     """
-    with importlib_resources.path(__package__, calib_file) as calib_path:
+    path = importlib_resources.files(__package__) / calib_file
+    with importlib_resources.as_file(path) as calib_path:
         return Calibration.read(str(calib_path))
