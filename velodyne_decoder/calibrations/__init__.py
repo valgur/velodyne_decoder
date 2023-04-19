@@ -1,7 +1,7 @@
 # Except for HDL-64E, these are for reference only. The equivalent data is now stored in src/calib_db.cpp instead.
 
 import importlib_resources
-from velodyne_decoder_pylib import Calibration
+from velodyne_decoder.velodyne_decoder_pylib import Calibration
 
 
 def get_bundled_calibration(calib_file):

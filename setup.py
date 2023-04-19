@@ -1,6 +1,7 @@
 import sys
 
 try:
+    from setuptools import find_packages
     from skbuild import setup
 except ImportError:
     print(
@@ -11,4 +12,7 @@ except ImportError:
     )
     raise
 
-setup()
+setup(
+    packages=find_packages(),
+    cmake_install_dir="velodyne_decoder",
+)

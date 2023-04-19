@@ -70,7 +70,7 @@ import warnings
 
 import numpy as np
 import yaml
-from velodyne_decoder_pylib import Calibration, PACKET_SIZE, Model
+from velodyne_decoder.velodyne_decoder_pylib import Calibration, PACKET_SIZE, Model
 
 import velodyne_decoder.util as _util
 

@@ -1,8 +1,8 @@
 import sys
 from collections import namedtuple
 
-from velodyne_decoder_pylib import *
-from velodyne_decoder_pylib import __version__ as _pylib_version
+from velodyne_decoder.velodyne_decoder_pylib import *
+from velodyne_decoder.velodyne_decoder_pylib import __version__ as _pylib_version
 
 from velodyne_decoder import hdl64e
 from velodyne_decoder import util as _util

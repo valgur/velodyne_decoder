@@ -3,7 +3,7 @@ name = "velodyne-decoder"
 version = "3.0.0"
 description = "Decoder for raw Velodyne packet data"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">= 3.6"
 authors = [{name = "Martin Valgur", email = "martin.valgur@gmail.com"}]
 urls."Homepage" = "https://github.com/valgur/velodyne_decoder"
 urls."Bug Reports" = "https://github.com/valgur/velodyne_decoder/issues"
@@ -36,7 +36,6 @@ optional-dependencies.dev = [
 extract-hdl64e-calibration = "velodyne_decoder.hdl64e:cli"
 
 [tool.setuptools]
-packages.find.where = ["."]
 include-package-data = true
 zip-safe = false
 package-data.velodyne_decoder = ["*.yml"]

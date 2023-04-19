@@ -72,13 +72,18 @@ if(BUILD_PYTHON OR SKBUILD)
   target_include_directories(${PROJECT_NAME}_pylib PRIVATE include)
   target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME})
   target_compile_definitions(${PROJECT_NAME}_pylib PRIVATE VERSION_INFO=${VERSION_INFO})
+
+  # Install directive for scikit-build
+  install(TARGETS ${PROJECT_NAME}_pylib LIBRARY DESTINATION .)
 endif()
 
 ## Install
-include(GNUInstallDirs)
-install(TARGETS ${PROJECT_NAME}
-        EXPORT ${PROJECT_NAME}_Targets
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
+if(NOT SKBUILD)
+  include(GNUInstallDirs)
+  install(TARGETS ${PROJECT_NAME}
+          EXPORT ${PROJECT_NAME}_Targets
+          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
+endif()
