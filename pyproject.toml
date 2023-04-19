@@ -1,0 +1,66 @@
+[project]
+name = "velodyne-decoder"
+version = "3.0.0"
+description = "Decoder for raw Velodyne packet data"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name = "Martin Valgur", email = "martin.valgur@gmail.com"}]
+urls."Homepage" = "https://github.com/valgur/velodyne_decoder"
+urls."Bug Reports" = "https://github.com/valgur/velodyne_decoder/issues"
+urls."Source" = "https://github.com/valgur/velodyne_decoder"
+keywords = [
+    "Velodyne",
+    "pointcloud",
+    "PCL",
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "importlib_resources",
+    "dpkt",
+]
+optional-dependencies.dev = [
+    "pytest",
+    "requests",
+    "pathlib; python_version < '3'",
+    "rosbag",
+]
+
+[project.scripts]
+extract-hdl64e-calibration = "velodyne_decoder.hdl64e:cli"
+
+[tool.setuptools]
+packages.find.where = ["."]
+include-package-data = true
+zip-safe = false
+package-data.velodyne_decoder = ["*.yml"]
+
+[build-system]
+requires = [
+    "setuptools >= 61",
+    "wheel",
+    "scikit-build >= 0.16.7",
+    "cmake >= 3.18",
+    "ninja",
+    # "conan >= 2",
+    # "nanobind >= 1.1.0",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build = "*"
+# Disable building of PyPy wheels on all platforms
+skip = "pp*"
+test-requires = "pytest"
+test-command = "pytest {project}/test --color=yes -v"
+build-verbosity = 1
+
+# nanobind does not support 32-bit architectures
+# static_assert(sizeof(nb_inst) == sizeof(PyObject) + sizeof(void *)); fails
+archs = "auto64"

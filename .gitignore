@@ -24,6 +24,7 @@ var/
 wheels/
 share/python-wheels/
 *.egg-info/
+_skbuild/
 .installed.cfg
 *.egg
 MANIFEST
