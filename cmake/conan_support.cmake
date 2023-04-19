@@ -92,12 +92,116 @@ function(detect_build_type BUILD_TYPE)
     endif()
 endfunction()
 
+function(detect_unix_libcxx LIBCXX)
+    # Take into account any -stdlib in compile options
+    get_directory_property(compile_options DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMPILE_OPTIONS)
+    string(GENEX_STRIP "${compile_options}" compile_options)
+
+    # Take into account any _GLIBCXX_USE_CXX11_ABI in compile definitions
+    get_directory_property(defines DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMPILE_DEFINITIONS)
+    string(GENEX_STRIP "${defines}" defines)
+
+    foreach(define ${defines})
+        if(define MATCHES "_GLIBCXX_USE_CXX11_ABI")
+            if(define MATCHES "^-D")
+                set(compile_options ${compile_options} "${define}")
+            else()
+                set(compile_options ${compile_options} "-D${define}")
+            endif()
+        endif()
+    endforeach()
+
+    # add additional compiler options ala cmRulePlaceholderExpander::ExpandRuleVariable
+    set(EXPAND_CXX_COMPILER ${CMAKE_CXX_COMPILER})
+    if(CMAKE_CXX_COMPILER_ARG1)
+        # CMake splits CXX="foo bar baz" into CMAKE_CXX_COMPILER="foo", CMAKE_CXX_COMPILER_ARG1="bar baz"
+        # without this, ccache, winegcc, or other wrappers might lose all their arguments
+        separate_arguments(SPLIT_CXX_COMPILER_ARG1 NATIVE_COMMAND ${CMAKE_CXX_COMPILER_ARG1})
+        list(APPEND EXPAND_CXX_COMPILER ${SPLIT_CXX_COMPILER_ARG1})
+    endif()
+
+    if(CMAKE_CXX_COMPILE_OPTIONS_TARGET AND CMAKE_CXX_COMPILER_TARGET)
+        # without --target= we may be calling the wrong underlying GCC
+        list(APPEND EXPAND_CXX_COMPILER "${CMAKE_CXX_COMPILE_OPTIONS_TARGET}${CMAKE_CXX_COMPILER_TARGET}")
+    endif()
+
+    if(CMAKE_CXX_COMPILE_OPTIONS_EXTERNAL_TOOLCHAIN AND CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN)
+        list(APPEND EXPAND_CXX_COMPILER "${CMAKE_CXX_COMPILE_OPTIONS_EXTERNAL_TOOLCHAIN}${CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN}")
+    endif()
+
+    if(CMAKE_CXX_COMPILE_OPTIONS_SYSROOT)
+        # without --sysroot= we may find the wrong #include <string>
+        if(CMAKE_SYSROOT_COMPILE)
+            list(APPEND EXPAND_CXX_COMPILER "${CMAKE_CXX_COMPILE_OPTIONS_SYSROOT}${CMAKE_SYSROOT_COMPILE}")
+        elseif(CMAKE_SYSROOT)
+            list(APPEND EXPAND_CXX_COMPILER "${CMAKE_CXX_COMPILE_OPTIONS_SYSROOT}${CMAKE_SYSROOT}")
+        endif()
+    endif()
+
+    separate_arguments(SPLIT_CXX_FLAGS NATIVE_COMMAND ${CMAKE_CXX_FLAGS})
+
+    if(CMAKE_OSX_SYSROOT)
+        set(xcode_sysroot_option "--sysroot=${CMAKE_OSX_SYSROOT}")
+    endif()
+
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E echo "#include <string>"
+      COMMAND ${EXPAND_CXX_COMPILER} ${SPLIT_CXX_FLAGS} -x c++ ${xcode_sysroot_option} ${compile_options} -E -dM -
+      OUTPUT_VARIABLE string_defines
+    )
+
+    if(string_defines MATCHES "#define __GLIBCXX__")
+        set(${LIBCXX} libstdc++11 PARENT_SCOPE)
+    else()
+        set(${LIBCXX} libc++ PARENT_SCOPE)
+    endif()
+endfunction()
+
+
+function(detect_vs_runtime RUNTIME)
+    conan_parse_arguments(${ARGV})
+    if(ARGUMENTS_BUILD_TYPE)
+        set(build_type "${ARGUMENTS_BUILD_TYPE}")
+    elseif(CMAKE_BUILD_TYPE)
+        set(build_type "${CMAKE_BUILD_TYPE}")
+    else()
+        message(FATAL_ERROR "Please specify in command line CMAKE_BUILD_TYPE (-DCMAKE_BUILD_TYPE=Release)")
+    endif()
+
+    if(build_type)
+        string(TOUPPER "${build_type}" build_type)
+    endif()
+    set(variables CMAKE_CXX_FLAGS_${build_type} CMAKE_C_FLAGS_${build_type} CMAKE_CXX_FLAGS CMAKE_C_FLAGS)
+    foreach(variable ${variables})
+        if(NOT "${${variable}}" STREQUAL "")
+            string(REPLACE " " ";" flags "${${variable}}")
+            foreach (flag ${flags})
+                if("${flag}" STREQUAL "/MD" OR "${flag}" STREQUAL "/MDd" OR "${flag}" STREQUAL "/MT" OR "${flag}" STREQUAL "/MTd")
+                    string(SUBSTRING "${flag}" 1 -1 runtime)
+                    set(${RUNTIME} "${runtime}" PARENT_SCOPE)
+                    return()
+                endif()
+            endforeach()
+        endif()
+    endforeach()
+    if("${build_type}" STREQUAL "DEBUG")
+        set(${RUNTIME} "MDd" PARENT_SCOPE)
+    else()
+        set(${RUNTIME} "MD" PARENT_SCOPE)
+    endif()
+endfunction()
 
 function(detect_host_profile output_file)
     detect_os(MYOS)
     detect_compiler(MYCOMPILER MYCOMPILER_VERSION)
     detect_cxx_standard(MYCXX_STANDARD)
     detect_build_type(MYBUILD_TYPE)
+
+    if(MYCOMPILER EQUAL "msvc")
+        detect_vs_runtime(MYRUNTIME)
+    else()
+        detect_unix_libcxx(MYLIBCXX)
+    endif()
 
     set(PROFILE "")
     string(APPEND PROFILE "include(default)\n")
@@ -114,6 +218,12 @@ function(detect_host_profile output_file)
     if(MYCXX_STANDARD)
         string(APPEND PROFILE compiler.cppstd=${MYCXX_STANDARD} "\n")
     endif()
+    if(MYLIBCXX)
+        string(APPEND PROFILE compiler.libcxx=${MYLIBCXX} "\n")
+    endif()
+    if(MYRUNTIME)
+        string(APPEND PROFILE compiler.runtime=${MYRUNTIME} "\n")
+    endif()
     if(MYBUILD_TYPE)
         string(APPEND PROFILE "build_type=${MYBUILD_TYPE}\n")
     endif()
@@ -125,6 +235,7 @@ function(detect_host_profile output_file)
     endif()
 
     string(APPEND PROFILE "[conf]\n")
+    string(APPEND PROFILE "tools.build:compiler_executables={'c':'${CMAKE_C_COMPILER}','cpp':'${CMAKE_CXX_COMPILER}'}\n")
     string(APPEND PROFILE "tools.cmake.cmaketoolchain:generator=${CMAKE_GENERATOR}\n")
 
     message(STATUS "Conan-cmake: Creating profile ${_FN}")
