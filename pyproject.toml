@@ -55,4 +55,4 @@ skip = "pp*"
 before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
-archs = "auto"
+archs = "auto64"
