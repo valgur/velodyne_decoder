@@ -3,6 +3,12 @@ from pathlib import Path
 import pytest
 import requests
 
+# logging with rospy from rosbag hangs in Docker otherwise due to
+# https://github.com/ros/ros_comm/blob/842f0f02/tools/rosgraph/src/rosgraph/roslogging.py#L64-L71
+# going into an infinite loop for some reason.
+import logging
+logging.getLogger('rosout').setLevel(logging.CRITICAL)
+
 data_dir = Path(__file__).parent / "data"
 base_url = "https://github.com/valgur/velodyne_decoder/releases/download/v1.0.1/"
 
