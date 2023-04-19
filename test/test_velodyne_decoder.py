@@ -8,7 +8,7 @@ pcl_struct_dtype = {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
                     'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
                     'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32}
 
-calib_data_dir = Path(__file__).parent.parent / "velodyne_decoder/calibrations"
+calib_data_dir = Path(__file__).parent.parent / "src/velodyne_decoder/calibrations"
 
 
 def test_config_constructor():

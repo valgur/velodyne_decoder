@@ -13,6 +13,7 @@ except ImportError:
     raise
 
 setup(
-    packages=find_packages(),
-    cmake_install_dir="velodyne_decoder",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    cmake_install_dir="src/velodyne_decoder",
 )

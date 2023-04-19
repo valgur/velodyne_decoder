@@ -34,9 +34,8 @@ optional-dependencies.tests = { file = ["requirements-dev.txt"] }
 extract-hdl64e-calibration = "velodyne_decoder.hdl64e:cli"
 
 [tool.setuptools]
-include-package-data = true
 zip-safe = false
-package-data.velodyne_decoder = ["*.yml"]
+include-package-data = true
 
 [build-system]
 requires = [
