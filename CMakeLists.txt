@@ -46,7 +46,10 @@ if(BUILD_PYTHON OR SKBUILD)
   pybind11_add_module(${PROJECT_NAME}_pylib src/python.cpp)
   target_include_directories(${PROJECT_NAME}_pylib PRIVATE include)
   target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME})
-  target_compile_definitions(${PROJECT_NAME}_pylib PRIVATE VERSION_INFO=${VERSION_INFO})
+
+  if (EXISTS VERSION_INFO)
+    target_compile_definitions(${PROJECT_NAME}_pylib PRIVATE VERSION_INFO=${VERSION_INFO})
+  endif()
 
   # Install directive for scikit-build
   install(TARGETS ${PROJECT_NAME}_pylib LIBRARY DESTINATION .)
