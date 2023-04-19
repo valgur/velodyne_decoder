@@ -3,7 +3,7 @@ name = "velodyne-decoder"
 version = "3.0.0"
 description = "Decoder for raw Velodyne packet data"
 readme = "README.md"
-requires-python = ">= 3.6"
+requires-python = ">= 3.7"
 authors = [{name = "Martin Valgur", email = "martin.valgur@gmail.com"}]
 urls."Homepage" = "https://github.com/valgur/velodyne_decoder"
 urls."Bug Reports" = "https://github.com/valgur/velodyne_decoder/issues"

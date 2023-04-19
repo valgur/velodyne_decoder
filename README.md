@@ -32,7 +32,7 @@ The layout of the structs matches the layout of `PointXYZIRT` point cloud points
 
 ## Installation
 
-Wheels are available from PyPI for Linux, MacOS and Windows. Python versions 2.7 and 3.6+ are supported.
+Wheels are available from PyPI for Linux, MacOS and Windows. Python versions 3.7+ are supported.
 
 ```bash
 pip install velodyne-decoder
