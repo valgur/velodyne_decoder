@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -12,6 +13,8 @@
 #include "velodyne_decoder/types.h"
 
 namespace velodyne_decoder {
+
+using time_point = std::chrono::system_clock::time_point;
 
 struct NmeaInfo {
   double longitude    = 0;     ///< Longitude in degrees
@@ -49,11 +52,11 @@ struct PositionPacket {
   std::string nmea_sentence; ///< GPRMC or GPGGA NMEA sentence
 
   // fields set by newer firmware versions only (since mid-2018)
-  uint8_t temp_board_top;    ///< Temperature of top board, 0 to 150 °C
-  uint8_t temp_board_bottom; ///< Temperature of bottom board, 0 to 150 °C
-  bool thermal_shutdown;     ///< Thermal status, true if thermal shutdown
-  uint8_t temp_at_shutdown;  ///< Temperature of unit when thermal shutdown occurred
-  uint8_t temp_at_powerup;   ///< Temperature of unit (bottom board) at power up
+  uint8_t temp_board_top;              ///< Temperature of top board, 0 to 150 °C
+  uint8_t temp_board_bottom;           ///< Temperature of bottom board, 0 to 150 °C
+  bool thermal_shutdown;               ///< Thermal status, true if thermal shutdown
+  uint8_t temp_at_shutdown;            ///< Temperature of unit when thermal shutdown occurred
+  uint8_t temp_at_powerup;             ///< Temperature of unit (bottom board) at power up
   uint8_t temp_during_adc_calibration; ///< Temperature when ADC calibration last ran, 0 to 150 °C
   int16_t temp_change_since_adc_calibration; ///< Change in temperature since last ADC calibration,
                                              ///< -150 to 150°C
@@ -66,6 +69,12 @@ struct PositionPacket {
   explicit PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &raw_data);
 
   [[nodiscard]] std::optional<NmeaInfo> parseNmea() const;
+
+  /// Timestamp from the NMEA sentence
+  [[nodiscard]] std::optional<time_point> nmeaTime() const;
+
+  /// Timestamp from the PPS signal combined with the NMEA timestamp
+  [[nodiscard]] std::optional<time_point> ppsTime() const;
 };
 
 } // namespace velodyne_decoder

@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <optional>
 #include <string>
 
@@ -115,5 +118,57 @@ PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &
 }
 
 std::optional<NmeaInfo> PositionPacket::parseNmea() const { return parse_nmea(nmea_sentence); }
+
+time_point utc_timestamp(int year, int month, int day, int hours, int minutes, int seconds,
+                         uint64_t microseconds) {
+  std::tm tm    = {};
+  tm.tm_year    = year - 1900;
+  tm.tm_mon     = month - 1;
+  tm.tm_mday    = day;
+  tm.tm_hour    = hours;
+  tm.tm_min     = minutes;
+  tm.tm_sec     = seconds;
+  auto utc_time = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+  return utc_time + std::chrono::microseconds(microseconds);
+}
+
+std::optional<time_point> PositionPacket::nmeaTime() const {
+  auto nmea_info = parseNmea();
+  if (!nmea_info)
+    return {};
+  float seconds, sec_frac = std::modf(nmea_info->utc_seconds, &seconds);
+  int microsec = (int)(sec_frac * 1e6);
+  if (nmea_info->utc_year == 0)
+    return utc_timestamp(1970, 1, 1, //
+                         nmea_info->utc_hours, nmea_info->utc_minutes, seconds, microsec);
+  return utc_timestamp(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
+                       nmea_info->utc_hours, nmea_info->utc_minutes, seconds, microsec);
+}
+
+std::optional<time_point> PositionPacket::ppsTime() const {
+  if (pps_status != PositionPacket::PpsStatus::LOCKED)
+    return {};
+  auto nmea_info = parseNmea();
+  if (!nmea_info || nmea_info->utc_year == 0)
+    return {};
+
+  uint32_t pps_toh_usec = usec_since_toh;
+  int pps_min           = pps_toh_usec / 60'000'000;
+  int pps_sec           = pps_toh_usec / 1'000'000 - pps_min * 60;
+  int pps_usec          = pps_toh_usec % 1'000'000;
+  auto pps_time         = nmea_info->utc_year > 0
+                              ? utc_timestamp(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
+                                              nmea_info->utc_hours, pps_min, pps_sec, pps_usec)
+                              : utc_timestamp(1970, 1, 1, nmea_info->utc_hours, pps_min, pps_sec, pps_usec);
+
+  // handle PPS and NMEA being slightly out of sync at an hour rollover
+  if (pps_min == 0 && nmea_info->utc_minutes == 59) {
+    pps_time += std::chrono::hours(1);
+  } else if (pps_min == 59 && nmea_info->utc_minutes == 0) {
+    pps_time -= std::chrono::hours(1);
+  }
+
+  return pps_time;
+}
 
 } // namespace velodyne_decoder

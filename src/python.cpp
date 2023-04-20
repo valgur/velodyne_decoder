@@ -214,7 +214,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               "GPS position (longitude, latitude, altitude) from the NMEA sentence. "
               "None if no NMEA sentence or no fix available.")
           .def_property_readonly(
-              "gps_time",
+              "nmea_time",
               [](const PositionPacket &packet) -> py::object {
                 auto nmea_info = packet.parseNmea();
                 if (!nmea_info)
