@@ -5,12 +5,12 @@ from .velodyne_decoder_pylib import (
     StreamDecoder,
     Calibration,
     VelodynePacket,
-    PositionPacket,
+    TelemetryPacket,
     PacketVector,
     Model,
     ReturnModeFlag,
     PACKET_SIZE,
-    POSITION_PACKET_SIZE,
+    TELEMETRY_PACKET_SIZE,
     __version__ as _pylib_version,
 )
 

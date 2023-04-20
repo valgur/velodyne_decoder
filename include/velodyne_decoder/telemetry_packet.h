@@ -29,7 +29,7 @@ struct NmeaInfo {
   bool fix_available  = false; ///< Position fix available
 };
 
-struct PositionPacket {
+struct TelemetryPacket {
   /// Reason for the last ADC calibration
   enum class AdcCalibReason : uint8_t {
     NO_CALIBRATION    = 0, ///< No calibration
@@ -66,7 +66,7 @@ struct PositionPacket {
   bool adc_delta_temp_limit_exceeded; ///< ADC calibration: delta temperature limit has been met
   bool adc_period_exceeded;           ///< ADC calibration: periodic time elapsed limit has been met
 
-  explicit PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &raw_data);
+  explicit TelemetryPacket(const std::array<uint8_t, TELEMETRY_PACKET_SIZE> &raw_data);
 
   [[nodiscard]] std::optional<NmeaInfo> parseNmea() const;
 

@@ -1,4 +1,4 @@
-#include "velodyne_decoder/position_packet.h"
+#include "velodyne_decoder/telemetry_packet.h"
 
 #include <algorithm>
 #include <array>
@@ -95,7 +95,7 @@ std::optional<NmeaInfo> parse_nmea(const std::string &nmea) {
 
 } // namespace
 
-PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &data) {
+TelemetryPacket::TelemetryPacket(const std::array<uint8_t, TELEMETRY_PACKET_SIZE> &data) {
   // fields set by all firmware versions
   usec_since_toh =
       static_cast<uint32_t>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]);
@@ -117,7 +117,7 @@ PositionPacket::PositionPacket(const std::array<uint8_t, POSITION_PACKET_SIZE> &
   temp_at_powerup               = data[0xCD];
 }
 
-std::optional<NmeaInfo> PositionPacket::parseNmea() const { return parse_nmea(nmea_sentence); }
+std::optional<NmeaInfo> TelemetryPacket::parseNmea() const { return parse_nmea(nmea_sentence); }
 
 time_point utc_timestamp(int year, int month, int day, int hours, int minutes, int seconds,
                          uint64_t microseconds) {
@@ -132,7 +132,7 @@ time_point utc_timestamp(int year, int month, int day, int hours, int minutes, i
   return utc_time + std::chrono::microseconds(microseconds);
 }
 
-std::optional<time_point> PositionPacket::nmeaTime() const {
+std::optional<time_point> TelemetryPacket::nmeaTime() const {
   auto nmea_info = parseNmea();
   if (!nmea_info)
     return {};
@@ -145,8 +145,8 @@ std::optional<time_point> PositionPacket::nmeaTime() const {
                        nmea_info->utc_hours, nmea_info->utc_minutes, seconds, microsec);
 }
 
-std::optional<time_point> PositionPacket::ppsTime() const {
-  if (pps_status != PositionPacket::PpsStatus::LOCKED)
+std::optional<time_point> TelemetryPacket::ppsTime() const {
+  if (pps_status != TelemetryPacket::PpsStatus::LOCKED)
     return {};
   auto nmea_info = parseNmea();
   if (!nmea_info || nmea_info->utc_year == 0)

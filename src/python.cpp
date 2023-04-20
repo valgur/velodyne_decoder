@@ -12,9 +12,9 @@
 #include <pybind11/stl_bind.h>
 
 #include "velodyne_decoder/config.h"
-#include "velodyne_decoder/position_packet.h"
 #include "velodyne_decoder/scan_decoder.h"
 #include "velodyne_decoder/stream_decoder.h"
+#include "velodyne_decoder/telemetry_packet.h"
 #include "velodyne_decoder/types.h"
 
 namespace py = pybind11;
@@ -165,46 +165,47 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
         return CalibDB().getAllDefaultCalibrations();
       });
 
-  auto PositionPacket_ =
-      py::class_<PositionPacket>(m, "PositionPacket")
-          .def(py::init<const std::array<uint8_t, POSITION_PACKET_SIZE> &>(), py::arg("raw_data"))
-          .def_readonly("temp_board_top", &PositionPacket::temp_board_top,
+  auto TelemetryPacket_ =
+      py::class_<TelemetryPacket>(m, "TelemetryPacket")
+          .def(py::init<const std::array<uint8_t, TELEMETRY_PACKET_SIZE> &>(), py::arg("raw_data"))
+          .def_readonly("temp_board_top", &TelemetryPacket::temp_board_top,
                         "Temperature of top board, 0 to 150 °C")
-          .def_readonly("temp_board_bottom", &PositionPacket::temp_board_bottom,
+          .def_readonly("temp_board_bottom", &TelemetryPacket::temp_board_bottom,
                         "Temperature of bottom board, 0 to 150 °C")
-          .def_readonly("temp_during_adc_calibration", &PositionPacket::temp_during_adc_calibration,
+          .def_readonly("temp_during_adc_calibration",
+                        &TelemetryPacket::temp_during_adc_calibration,
                         "Temperature when ADC calibration last ran, 0 to 150 °C")
           .def_readonly("temp_change_since_adc_calibration",
-                        &PositionPacket::temp_change_since_adc_calibration,
+                        &TelemetryPacket::temp_change_since_adc_calibration,
                         "Change in temperature since last ADC calibration, -150 to 150 °C")
           .def_readonly("seconds_since_adc_calibration",
-                        &PositionPacket::seconds_since_adc_calibration,
+                        &TelemetryPacket::seconds_since_adc_calibration,
                         "Elapsed seconds since last ADC calibration")
-          .def_readonly("adc_calibration_reason", &PositionPacket::adc_calibration_reason,
+          .def_readonly("adc_calibration_reason", &TelemetryPacket::adc_calibration_reason,
                         "Reason for the last ADC calibration")
-          .def_readonly("adc_calib_in_progress", &PositionPacket::adc_calib_in_progress,
+          .def_readonly("adc_calib_in_progress", &TelemetryPacket::adc_calib_in_progress,
                         "ADC calibration in progress")
           .def_readonly("adc_delta_temp_limit_exceeded",
-                        &PositionPacket::adc_delta_temp_limit_exceeded,
+                        &TelemetryPacket::adc_delta_temp_limit_exceeded,
                         "ADC calibration: delta temperature limit has been met")
-          .def_readonly("adc_period_exceeded", &PositionPacket::adc_period_exceeded,
+          .def_readonly("adc_period_exceeded", &TelemetryPacket::adc_period_exceeded,
                         "ADC calibration: periodic time elapsed limit has been met")
-          .def_readonly("thermal_shutdown", &PositionPacket::thermal_shutdown,
+          .def_readonly("thermal_shutdown", &TelemetryPacket::thermal_shutdown,
                         "Thermal status, true if thermal shutdown")
-          .def_readonly("temp_at_shutdown", &PositionPacket::temp_at_shutdown,
+          .def_readonly("temp_at_shutdown", &TelemetryPacket::temp_at_shutdown,
                         "Temperature of unit when thermal shutdown occurred")
-          .def_readonly("temp_at_powerup", &PositionPacket::temp_at_powerup,
+          .def_readonly("temp_at_powerup", &TelemetryPacket::temp_at_powerup,
                         "Temperature of unit (bottom board) at power up")
-          .def_readonly("usec_since_toh", &PositionPacket::usec_since_toh,
+          .def_readonly("usec_since_toh", &TelemetryPacket::usec_since_toh,
                         "Number of microseconds elapsed since the top of the hour")
-          .def_readonly("pps_status", &PositionPacket::pps_status, "Pulse Per Second (PPS) status")
-          .def_readonly("nmea_sentence", &PositionPacket::nmea_sentence,
+          .def_readonly("pps_status", &TelemetryPacket::pps_status, "Pulse Per Second (PPS) status")
+          .def_readonly("nmea_sentence", &TelemetryPacket::nmea_sentence,
                         "GPRMC or GPGGA NMEA sentence")
-          .def("parse_nmea", &PositionPacket::parseNmea,
+          .def("parse_nmea", &TelemetryPacket::parseNmea,
                "Parse the NMEA sentence in the packet, if it exists.")
           .def_property_readonly(
               "gps_position",
-              [](const PositionPacket &packet) -> py::object {
+              [](const TelemetryPacket &packet) -> py::object {
                 auto nmea_info = packet.parseNmea();
                 if (!nmea_info || !nmea_info->fix_available)
                   return py::none();
@@ -215,7 +216,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               "None if no NMEA sentence or no fix available.")
           .def_property_readonly(
               "nmea_time",
-              [](const PositionPacket &packet) -> py::object {
+              [](const TelemetryPacket &packet) -> py::object {
                 auto nmea_info = packet.parseNmea();
                 if (!nmea_info)
                   return py::none();
@@ -236,8 +237,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               "datetime.time otherwise. None if no valid NMEA sentence in packet.")
           .def_property_readonly(
               "pps_time",
-              [](const PositionPacket &packet) -> py::object {
-                if (packet.pps_status != PositionPacket::PpsStatus::LOCKED)
+              [](const TelemetryPacket &packet) -> py::object {
+                if (packet.pps_status != TelemetryPacket::PpsStatus::LOCKED)
                   return py::none();
                 auto nmea_info = packet.parseNmea();
                 if (!nmea_info)
@@ -263,12 +264,12 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               },
               "UTC time from the PPS signal + NMEA sentence. datetime.datetime if date is "
               "available in NMEA, datetime.time otherwise. None if no valid PPS or NMEA.")
-          .def("__repr__", [](const PositionPacket &packet) {
+          .def("__repr__", [](const TelemetryPacket &packet) {
             std::stringstream ss;
             std::string nmea = packet.nmea_sentence;
             if (size_t pos = nmea.find("\r\n"); pos != std::string::npos)
               nmea.replace(pos, 2, "\\r\\n");
-            ss << "PositionPacket(";
+            ss << "TelemetryPacket(";
             // Some fields are only set in newer firmware versions. Only print them if they are set.
             if (packet.temp_board_top != 0 || packet.temp_board_bottom != 0 ||
                 packet.temp_during_adc_calibration != 0 ||
@@ -299,24 +300,25 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
             return ss.str();
           });
 
-  py::enum_<PositionPacket::AdcCalibReason>(PositionPacket_, "AdcCalibrationReason",
-                                            "Reason for the last ADC calibration")
-      .value("NO_CALIBRATION", PositionPacket::AdcCalibReason::NO_CALIBRATION, "No calibration")
-      .value("POWER_ON", PositionPacket::AdcCalibReason::POWER_ON, "Power-on calibration performed")
-      .value("MANUAL", PositionPacket::AdcCalibReason::MANUAL, "Manual calibration performed")
-      .value("DELTA_TEMPERATURE", PositionPacket::AdcCalibReason::DELTA_TEMPERATURE,
+  py::enum_<TelemetryPacket::AdcCalibReason>(TelemetryPacket_, "AdcCalibrationReason",
+                                             "Reason for the last ADC calibration")
+      .value("NO_CALIBRATION", TelemetryPacket::AdcCalibReason::NO_CALIBRATION, "No calibration")
+      .value("POWER_ON", TelemetryPacket::AdcCalibReason::POWER_ON,
+             "Power-on calibration performed")
+      .value("MANUAL", TelemetryPacket::AdcCalibReason::MANUAL, "Manual calibration performed")
+      .value("DELTA_TEMPERATURE", TelemetryPacket::AdcCalibReason::DELTA_TEMPERATURE,
              "Delta temperature calibration performed")
-      .value("PERIODIC", PositionPacket::AdcCalibReason::PERIODIC,
+      .value("PERIODIC", TelemetryPacket::AdcCalibReason::PERIODIC,
              "Periodic calibration performed");
 
-  py::enum_<PositionPacket::PpsStatus>(PositionPacket_, "PpsStatus",
-                                       "Pulse Per Second (PPS) status")
-      .value("ABSENT", PositionPacket::PpsStatus::ABSENT, "No PPS detected")
-      .value("SYNCHRONIZING", PositionPacket::PpsStatus::SYNCHRONIZING, "Synchronizing to PPS")
-      .value("LOCKED", PositionPacket::PpsStatus::LOCKED, "PPS Locked")
-      .value("ERROR", PositionPacket::PpsStatus::ERROR, "Error");
+  py::enum_<TelemetryPacket::PpsStatus>(TelemetryPacket_, "PpsStatus",
+                                        "Pulse Per Second (PPS) status")
+      .value("ABSENT", TelemetryPacket::PpsStatus::ABSENT, "No PPS detected")
+      .value("SYNCHRONIZING", TelemetryPacket::PpsStatus::SYNCHRONIZING, "Synchronizing to PPS")
+      .value("LOCKED", TelemetryPacket::PpsStatus::LOCKED, "PPS Locked")
+      .value("ERROR", TelemetryPacket::PpsStatus::ERROR, "Error");
 
-  py::class_<NmeaInfo>(PositionPacket_, "NmeaInfo")
+  py::class_<NmeaInfo>(TelemetryPacket_, "NmeaInfo")
       .def_readonly("longitude", &NmeaInfo::longitude, "Longitude in degrees")
       .def_readonly("latitude", &NmeaInfo::latitude, "Latitude in degrees")
       .def_readonly("altitude", &NmeaInfo::altitude,
@@ -369,8 +371,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
              "The strongest reflection in a firing")
       .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing");
 
-  m.attr("PACKET_SIZE")          = PACKET_SIZE;
-  m.attr("POSITION_PACKET_SIZE") = POSITION_PACKET_SIZE;
+  m.attr("PACKET_SIZE")           = PACKET_SIZE;
+  m.attr("TELEMETRY_PACKET_SIZE") = TELEMETRY_PACKET_SIZE;
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)

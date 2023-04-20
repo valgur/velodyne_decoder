@@ -33,9 +33,9 @@ add_library(${PROJECT_NAME}
   src/calibration.cpp
   src/calib_db.cpp
   src/packet_decoder.cpp
-  src/position_packet.cpp
   src/scan_decoder.cpp
-  src/stream_decoder.cpp)
+  src/stream_decoder.cpp
+  src/telemetry_packet.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE yaml-cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
