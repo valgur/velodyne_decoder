@@ -13,7 +13,7 @@ on:
       - '.gitignore'
       - 'assets/**'
 jobs:
-  build:
+  python:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -36,3 +36,22 @@ jobs:
 
       - name: Run tests
         run: pytest test --color=yes -vs
+
+  conan:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Conan
+        id: conan
+        uses: turtlebrowser/get-conan@main
+
+      - name: Create default profile
+        run: conan profile detect
+
+      - name: Build Conan package
+        run: conan create . --build missing
