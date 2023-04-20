@@ -32,14 +32,14 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          # Build only for platforms that have binaries for NumPy
+          # Build only for 64-bit platforms that have binaries for NumPy
           - [Linux, ubuntu-latest, x86_64]
           # - [Linux, ubuntu-latest, i686]
           - [Linux, ubuntu-latest, aarch64]
           # - [Linux, ubuntu-latest, ppc64le]
           # - [Linux, ubuntu-latest, s390x]
           - [Windows, windows-latest, AMD64]
-          - [Windows, windows-latest, x86]
+          # - [Windows, windows-latest, x86]
           # - [Windows, windows-latest, ARM64]
           - [MacOS, macos-latest, x86_64]
           - [MacOS, macos-latest, arm64]
