@@ -4,46 +4,112 @@
 #pragma once
 
 #include "velodyne_decoder/config.h"
+#include "velodyne_decoder/time_conversion.h"
 #include "velodyne_decoder/types.h"
 
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <vector>
 
 namespace velodyne_decoder {
+
+inline Time get_time(const VelodynePacket &packet) { return packet.stamp; }
+
+template <typename RawPacketDataT> inline int getPacketAzimuth(const RawPacketDataT &data) {
+  // get the azimuth of the last block
+  uint16_t azimuth = 0;
+  memcpy(&azimuth, &data[(BLOCKS_PER_PACKET - 1) * SIZE_BLOCK + 2], sizeof(azimuth));
+  return (int)azimuth;
+}
+
 template <typename PacketT = VelodynePacket> class ScanBatcher {
 public:
-  explicit ScanBatcher(const Config &config);
+  inline explicit ScanBatcher(const Config &config)
+      : timestamp_first_packet_(config.timestamp_first_packet),
+        use_device_time_(config.use_device_time &&
+                         !(config.model.has_value() && config.model == ModelId::HDL64E_S1)),
+        cut_angle_(!config.cut_angle || config.cut_angle < 0
+                       ? -1
+                       : (int)(std::lround(*config.cut_angle * 100)) % 36000) {
+    if (cut_angle_ >= 0) {
+      initial_azimuth_ = cut_angle_;
+    }
+  }
 
   /** @brief Pushes a packet into the batcher.
    * @return true if the scan is complete, false otherwise.
    */
-  bool push(Time stamp, const RawPacketData &packet);
+  inline bool push(const PacketT &packet) {
+    Time stamp = get_time(packet);
+    if (use_device_time_) {
+      stamp = getPacketTimestamp(&(packet.data[PACKET_SIZE - 6]), stamp);
+    }
 
-  /** @brief Pushes a packet into the batcher.
-   * @return true if the scan is complete, false otherwise.
-   */
-  bool push(const PacketT &packet) { return push(packet.stamp, packet.data); }
+    if (scan_complete_) {
+      reset();
+    }
 
-  [[nodiscard]] bool empty() const { return scan_packets_->empty(); }
-  [[nodiscard]] size_t size() const { return scan_packets_->size(); }
+    int azimuth = getPacketAzimuth(packet.data);
+    if (initial_azimuth_ < 0) {
+      initial_azimuth_ = azimuth;
+    }
+
+    double duration = empty() ? 0.0 : stamp - get_time(scan_packets_->front());
+    if (duration > duration_threshold_) {
+      kept_last_packet_ = packet;
+      scan_complete_    = true;
+      return true;
+    }
+
+    scan_packets_->push_back(packet);
+
+    const int MAX_ANGLE = 36000;
+    int new_coverage    = (azimuth - initial_azimuth_ + MAX_ANGLE) % MAX_ANGLE;
+    scan_complete_      = coverage_ > MAX_ANGLE / 2 && coverage_ > new_coverage;
+    coverage_           = new_coverage;
+    return scan_complete_;
+  }
+
+  [[nodiscard]] inline bool empty() const { return scan_packets_->empty(); }
+  [[nodiscard]] inline size_t size() const { return scan_packets_->size(); }
 
   /** @brief True if the current scan is complete.
    */
-  [[nodiscard]] bool scanComplete() const { return scan_complete_; }
+  [[nodiscard]] inline bool scanComplete() const { return scan_complete_; }
 
   /** @brief The timestamp of the current scan. Zero if the scan is empty.
    */
-  [[nodiscard]] Time scanTimestamp() const;
+  [[nodiscard]] inline Time scanTimestamp() const {
+    if (empty())
+      return {};
+    return timestamp_first_packet_ ? get_time(scan_packets_->front())
+                                   : get_time(scan_packets_->back());
+  }
 
   /** @brief The contents of the current scan.
    */
-  [[nodiscard]] const std::shared_ptr<std::vector<PacketT>> &scanPackets() const {
+  [[nodiscard]] inline const std::shared_ptr<std::vector<PacketT>> &scanPackets() const {
     return scan_packets_;
   }
 
-  void reset(std::shared_ptr<std::vector<PacketT>> &&scan_packets =
-                 std::make_shared<std::vector<PacketT>>());
+  inline void reset(std::shared_ptr<std::vector<PacketT>> scan_packets) {
+    if (cut_angle_ < 0) {
+      initial_azimuth_ = empty() ? -1 : getPacketAzimuth(scan_packets_->back().data);
+    } else {
+      initial_azimuth_ = cut_angle_;
+    }
+    scan_packets->clear();
+    scan_packets_  = std::move(scan_packets);
+    scan_complete_ = false;
+    coverage_      = 0;
+    if (kept_last_packet_) {
+      push(std::move(*kept_last_packet_));
+      kept_last_packet_ = std::nullopt;
+    }
+  }
+
+  inline void reset() { reset(std::make_shared<std::vector<PacketT>>()); }
 
 private:
   std::shared_ptr<std::vector<PacketT>> scan_packets_ = std::make_shared<std::vector<PacketT>>();

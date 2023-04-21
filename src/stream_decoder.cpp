@@ -12,15 +12,15 @@ StreamDecoder::StreamDecoder(const Config &config) : scan_batcher_(config), scan
 
 std::optional<std::pair<Time, PointCloud>> //
 StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
-  bool scan_complete = scan_batcher_.push(stamp, packet);
-  if (scan_complete)
-    return decodeCollectedPackets();
-  return std::nullopt;
+  return decode({stamp, packet});
 }
 
 std::optional<std::pair<Time, PointCloud>> //
 StreamDecoder::decode(const VelodynePacket &packet) {
-  return decode(packet.stamp, packet.data);
+  bool scan_complete = scan_batcher_.push(packet);
+  if (scan_complete)
+    return decodeCollectedPackets();
+  return std::nullopt;
 }
 
 std::pair<Time, PointCloud> StreamDecoder::decodeCollectedPackets() {
