@@ -16,20 +16,26 @@ namespace velodyne_decoder {
 
 struct Config {
   // PacketDecoder params
+
   float min_range = 0.1; ///< minimum range to publish (m)
   float max_range = 200; ///< maximum range to publish (m)
   float min_angle = 0;   ///< minimum angle to publish (deg)
   float max_angle = 360; ///< maximum angle to publish (deg)
 
-  std::optional<ModelId>
-      model; ///< model ID, optional for most models (exceptions: HDL-64E, VLP-32A, VLP-32B)
-  std::optional<Calibration> calibration; ///< calibration info, optional
+  /// model ID, optional for most models (exceptions: HDL-64E, VLP-32A, VLP-32B)
+  std::optional<ModelId> model;
+  /// calibration info, optional
+  std::optional<Calibration> calibration;
 
-  // ScanDecoder params
-  bool timestamp_first_packet = false; ///< whether we are timestamping based on
-                                       ///< the first or last packet in the scan
-  bool use_device_time = false;        ///< true: use the packet's time field,
-                                       ///< false: use the time of arrival
+  // ScanBatcher params
+
+  /// Azimuth at which to start a new scan (deg).
+  /// If unset, the scan is split whenever it covers >= 360 deg at an arbitrary azimuth.
+  std::optional<float> cut_angle = std::nullopt;
+  /// whether we are timestamping based on the first or last packet in the scan
+  bool timestamp_first_packet = false;
+  /// true: use the packet's time field, false: use the time of arrival
+  bool use_device_time = false;
 
   static const std::vector<ModelId> SUPPORTED_MODELS;
 };

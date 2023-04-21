@@ -1,14 +1,15 @@
-// Copyright (c) 2021, Martin Valgur
+// Copyright (c) 2023, Martin Valgur
 // SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
-#include <array>
-#include <optional>
-
 #include "velodyne_decoder/config.h"
+#include "velodyne_decoder/scan_batcher.h"
 #include "velodyne_decoder/scan_decoder.h"
 #include "velodyne_decoder/types.h"
+
+#include <optional>
+#include <utility>
 
 namespace velodyne_decoder {
 
@@ -28,11 +29,8 @@ private:
   std::pair<Time, PointCloud> decodeCollectedPackets();
 
 private:
-  Config config_;
+  ScanBatcher<> scan_batcher_;
   ScanDecoder scan_decoder_;
-  std::vector<VelodynePacket> scan_packets_;
-  int initial_azimuth_ = -1;
-  int prev_coverage_   = 0;
 };
 
 } // namespace velodyne_decoder

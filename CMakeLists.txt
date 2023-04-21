@@ -33,6 +33,7 @@ add_library(${PROJECT_NAME}
   src/calibration.cpp
   src/calib_db.cpp
   src/packet_decoder.cpp
+  src/scan_batcher.cpp
   src/scan_decoder.cpp
   src/stream_decoder.cpp
   src/telemetry_packet.cpp

@@ -58,7 +58,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   py::class_<Config>(m, "Config")
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
                        float min_range, float max_range, float min_angle, float max_angle,
-                       bool timestamp_first_packet, bool use_device_time) {
+                       std::optional<float> cut_angle, bool timestamp_first_packet,
+                       bool use_device_time) {
              auto cfg                    = std::make_unique<Config>();
              cfg->model                  = model;
              cfg->calibration            = calibration;
@@ -68,6 +69,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
              cfg->max_angle              = max_angle;
              cfg->timestamp_first_packet = timestamp_first_packet;
              cfg->use_device_time        = use_device_time;
+             cfg->cut_angle              = cut_angle;
              return cfg;
            }),
            py::kw_only(),                                  //
@@ -77,6 +79,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
            py::arg("max_range")              = 200,        //
            py::arg("min_angle")              = 0,          //
            py::arg("max_angle")              = 360,        //
+           py::arg("cut_angle")              = py::none(), //
            py::arg("timestamp_first_packet") = false,      //
            py::arg("use_device_time")        = false       //
            )
@@ -87,7 +90,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("min_angle", &Config::min_angle)
       .def_readwrite("max_angle", &Config::max_angle)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
-      .def_readwrite("use_device_time", &Config::use_device_time);
+      .def_readwrite("use_device_time", &Config::use_device_time)
+      .def_readwrite("cut_angle", &Config::cut_angle);
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
