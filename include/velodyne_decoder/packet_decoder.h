@@ -58,6 +58,8 @@ public:
 
   void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
+  void unpack(Time stamp, const raw_packet_t &pkt_data, PointCloud &cloud, Time scan_start_time);
+
 private:
   void initModel(ModelId model_id);
   void initModel(PacketModelId packet_model_id);

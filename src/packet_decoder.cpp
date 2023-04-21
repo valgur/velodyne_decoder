@@ -272,7 +272,11 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
  */
 void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
+  unpack(pkt.stamp, raw_packet, cloud, scan_start_time);
+}
 
+void PacketDecoder::unpack(Time stamp, const raw_packet_t &raw_packet, PointCloud &cloud,
+                           Time scan_start_time) {
   if (model_id_.has_value()) {
     verifyPacketModelId(raw_packet.model_id, *model_id_);
   } else {
@@ -280,7 +284,7 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
   }
 
   // timestamp of the first point in the packet relative to the start of the scan
-  float rel_packet_stamp = (float)(pkt.stamp - scan_start_time);
+  float rel_packet_stamp = (float)(stamp - scan_start_time);
 
   switch (*model_id_) {
   case ModelId::VLP16:
