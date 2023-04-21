@@ -30,26 +30,42 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "velodyne_decoder/time_conversion.h"
 
+#include <cmath>
 #include <cstdint>
 
 namespace velodyne_decoder {
 
-using Time = double;
+Time resolveHourAmbiguity(const Time packet_time, const Time arrival_time) {
+  const int HALFHOUR_TO_SEC = 1800;
+  Time retval               = packet_time;
+  uint32_t packet_sec       = (uint32_t)std::floor(packet_time);
+  uint32_t arrival_sec      = (uint32_t)std::floor(arrival_time);
+  if (arrival_sec > packet_sec) {
+    if (arrival_sec - packet_sec > HALFHOUR_TO_SEC) {
+      retval += 2 * HALFHOUR_TO_SEC;
+    }
+  } else if (packet_sec - arrival_sec > HALFHOUR_TO_SEC) {
+    retval -= 2 * HALFHOUR_TO_SEC;
+  }
+  return retval;
+}
 
-/** @brief Function used to check that hour assigned to timestamp in conversion is
- * correct. Velodyne only returns time since the top of the hour, so if the computer clock
- * and the velodyne clock (gps-synchronized) are a little off, there is a chance the wrong
- * hour may be associated with the timestamp
- *
- * @param packet_time timestamp recovered from velodyne
- * @param arrival_time time coming from computer's clock
- * @return timestamp from velodyne, possibly shifted by 1 hour if the function arguments
- * disagree by more than a half-hour.
- */
-Time resolveHourAmbiguity(Time packet_time, Time arrival_time);
-
-Time getPacketTimestamp(const uint8_t *data, Time arrival_time);
+Time getPacketTimestamp(const uint8_t *const data, const Time arrival_time) {
+  // time for each packet is a 4 byte uint
+  // It is the number of microseconds from the top of the hour
+  uint32_t usecs        = (((uint32_t)data[3]) << 24u | //
+                    ((uint32_t)data[2]) << 16u | //
+                    ((uint32_t)data[1]) << 8u |  //
+                    ((uint32_t)data[0]));
+  const int HOUR_TO_SEC = 3600;
+  uint32_t cur_hour     = (uint32_t)std::floor(arrival_time) / HOUR_TO_SEC;
+  Time packet_time      = (cur_hour * HOUR_TO_SEC) + (usecs * 1e-6);
+  if (arrival_time > 0) {
+    packet_time = resolveHourAmbiguity(packet_time, arrival_time);
+  }
+  return packet_time;
+}
 
 } // namespace velodyne_decoder
