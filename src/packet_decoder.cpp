@@ -1,11 +1,8 @@
-/*
- *  Copyright (C) 2007 Austin Robot Technology, Patrick Beeson
- *  Copyright (C) 2009, 2010, 2012 Austin Robot Technology, Jack O'Quin
- *  Copyright (C) 2019, Kaarta Inc, Shawn Hanna
- *  Copyright (C) 2021, Martin Valgur
- *
- *  License: Modified BSD Software License Agreement
- */
+// Copyright (c) 2007, Austin Robot Technology, Patrick Beeson
+// Copyright (c) 2009, 2010, 2012, Austin Robot Technology, Jack O'Quin
+// Copyright (c) 2019, Kaarta Inc, Shawn Hanna
+// Copyright (c) 2021-2023, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/packet_decoder.h"
 

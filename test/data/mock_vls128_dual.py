@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2023, Martin Valgur
+# SPDX-License-Identifier: BSD-3-Clause
 """
 Convert a single-return VLS-128 pcap file into a mock dual-return VLS-128 pcap file.
 All returns are both strongest and last.

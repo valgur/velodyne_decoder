@@ -1,4 +1,5 @@
-// Copyright (C) 2007-2021 Yaxin Liu, Patrick Beeson, Jack O'Quin, Joshua Whitley, Martin Valgur
+// Copyright (c) 2007-2019, Yaxin Liu, Patrick Beeson, Jack O'Quin, Joshua Whitley
+// Copyright (c) 2021-2023, Martin Valgur
 // SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once

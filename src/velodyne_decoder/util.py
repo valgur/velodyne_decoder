@@ -1,3 +1,6 @@
+# Copyright (c) 2021-2023, Martin Valgur
+# SPDX-License-Identifier: BSD-3-Clause
+
 import struct
 from contextlib import contextmanager
 

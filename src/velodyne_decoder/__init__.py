@@ -1,3 +1,6 @@
+# Copyright (c) 2021-2023, Martin Valgur
+# SPDX-License-Identifier: BSD-3-Clause
+
 # noinspection PyUnresolvedReferences
 from .velodyne_decoder_pylib import (
     Config,

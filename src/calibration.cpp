@@ -1,12 +1,6 @@
-/**
- * \file  calibration.cc
- *
- * \author  Piyush Khandelwal (piyushk@cs.utexas.edu)
- * Copyright (C) 2012, Austin Robot Technology,
- *                     The University of Texas at Austin
- *
- * License: Modified BSD License
- */
+// Copyright (c) 2012, Austin Robot Technology, Piyush Khandelwal
+// Copyright (c) 2021-2023, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/calibration.h"
 

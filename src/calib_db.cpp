@@ -1,3 +1,6 @@
+// Copyright (c) 2023, Martin Valgur
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include <cmath>
 #include <map>
 #include <stdexcept>

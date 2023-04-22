@@ -1,3 +1,6 @@
+# Copyright (c) 2021-2023, Martin Valgur
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Tools to read calibration and status info from HDL-64E S2 and S3 packet streams.
 
@@ -59,6 +62,7 @@ YAML output example:
     PPS Signal Present: false
     GPS Time Present: false
 """
+
 from __future__ import print_function
 
 import argparse
@@ -70,9 +74,8 @@ import warnings
 
 import numpy as np
 import yaml
-from .velodyne_decoder_pylib import Calibration, PACKET_SIZE, Model
 
-import velodyne_decoder.util as _util
+import velodyne_decoder as vd
 
 __all__ = [
     "iter_pcap_packets",
@@ -108,14 +111,14 @@ def chunks(lst, n):
 
 def iter_pcap_packets(pcap_path):
     """Yields raw Velodyne packets from a pcap file."""
-    for stamp, data in _util.iter_pcap(pcap_path):
-        if len(data) == PACKET_SIZE:
+    for stamp, data in vd.util.iter_pcap(pcap_path):
+        if len(data) == vd.PACKET_SIZE:
             yield data
 
 
 def iter_bag_packets(bag_path, topic=None):
     """Yields raw Velodyne packets from a given topic in a bag file."""
-    for topic, scan_msg, ros_time in _util.iter_bag(bag_path, [topic]):
+    for topic, scan_msg, ros_time in vd.util.iter_bag(bag_path, [topic]):
         for packet in scan_msg.packets:
             yield packet.data
 
@@ -277,8 +280,8 @@ def read_calibration_from_pcap(pcap_file):
     err, calib_dict = _read_calib_dict_from_pcap(pcap_file)
     if err is not None:
         raise ValueError(err)
-    model = Model.HDL64E_S2 if calib_dict["status"]["Model"] == "S2" else Model.HDL64E_S3
-    return model, Calibration.from_string(yaml.dump(calib_dict))
+    model = vd.Model.HDL64E_S2 if calib_dict["status"]["Model"] == "S2" else vd.Model.HDL64E_S3
+    return model, vd.Calibration.from_string(yaml.dump(calib_dict))
 
 
 def detect_hdl64e(pcap_file):
