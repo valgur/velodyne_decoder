@@ -136,6 +136,9 @@ Time NmeaInfo::utcTime() const {
   tm.tm_hour = utc_hours;
   tm.tm_min  = utc_minutes;
   tm.tm_sec  = 0;
+#ifdef _MSC_VER // timegm is not available on Windows, use _mkgmtime instead
+#  define timegm _mkgmtime
+#endif
   return (double)timegm(&tm) + utc_seconds;
 }
 
