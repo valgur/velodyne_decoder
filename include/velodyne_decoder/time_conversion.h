@@ -61,10 +61,10 @@ Time resolveHourAmbiguity(Time packet_time, Time reference_time);
  * @brief Merges the the top of the hour timestamp from the Velodyne lidar with a
  * reference timestamp, i.e. time from the computer's clock or a GPS receiver.
  *
- * @param toh_usec number of microseconds from the top of the hour
+ * @param usec_since_toh number of microseconds from the top of the hour
  * @param reference_time reference time as a timestamp in seconds since the Unix epoch
  * @return timestamp in seconds since the Unix epoch
  */
-Time getPacketTimestamp(uint32_t toh_usec, Time reference_time);
+Time getPacketTimestamp(uint32_t usec_since_toh, Time reference_time);
 
 } // namespace velodyne_decoder

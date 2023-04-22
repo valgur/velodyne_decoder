@@ -50,6 +50,19 @@ py::array convert(PointCloud &cloud, bool as_pcl_structs) {
   }
 }
 
+py::object to_datetime(Time time) {
+  static auto fromtimestamp = py::module::import("datetime").attr("datetime").attr("fromtimestamp");
+  return fromtimestamp(time);
+}
+
+py::object convert_gps_time(std::optional<Time> time) {
+  if (!time)
+    return py::none();
+  if (*time < 1e5) // a full datetime is unavailable, only time of day
+    return to_datetime(*time).attr("time")();
+  return to_datetime(*time);
+}
+
 PYBIND11_MAKE_OPAQUE(std::vector<VelodynePacket>);
 
 PYBIND11_MODULE(velodyne_decoder_pylib, m) {
@@ -220,52 +233,12 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               "None if no NMEA sentence or no fix available.")
           .def_property_readonly(
               "nmea_time",
-              [](const TelemetryPacket &packet) -> py::object {
-                auto nmea_info = packet.parseNmea();
-                if (!nmea_info)
-                  return py::none();
-                float seconds, sec_frac = std::modf(nmea_info->utc_seconds, &seconds);
-                int microseconds = (int)(sec_frac * 1e6);
-                if (nmea_info->utc_year > 0) {
-                  auto datetime = py::module::import("datetime").attr("datetime");
-                  return datetime(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
-                                  nmea_info->utc_hours, nmea_info->utc_minutes, (int)seconds,
-                                  microseconds);
-                } else {
-                  auto time = py::module::import("datetime").attr("time");
-                  return time(nmea_info->utc_hours, nmea_info->utc_minutes, (int)seconds,
-                              microseconds);
-                }
-              },
+              [](const TelemetryPacket &packet) { return convert_gps_time(packet.nmeaTime()); },
               "UTC time from the NMEA sentence. datetime.datetime if date is available, "
               "datetime.time otherwise. None if no valid NMEA sentence in packet.")
           .def_property_readonly(
               "pps_time",
-              [](const TelemetryPacket &packet) -> py::object {
-                if (packet.pps_status != TelemetryPacket::PpsStatus::LOCKED)
-                  return py::none();
-                auto nmea_info = packet.parseNmea();
-                if (!nmea_info)
-                  return py::none();
-                auto py_datetime      = py::module::import("datetime").attr("datetime");
-                auto py_timedelta     = py::module::import("datetime").attr("timedelta");
-                uint32_t pps_toh_usec = packet.usec_since_toh;
-                int pps_min           = pps_toh_usec / 60'000'000;
-                int pps_sec           = pps_toh_usec / 1'000'000 - pps_min * 60;
-                int pps_usec          = pps_toh_usec % 1'000'000;
-                auto pps_time =
-                    nmea_info->utc_year > 0
-                        ? py_datetime(nmea_info->utc_year, nmea_info->utc_month, nmea_info->utc_day,
-                                      nmea_info->utc_hours, pps_min, pps_sec, pps_usec)
-                        : py_datetime(2020, 1, 1, nmea_info->utc_hours, pps_min, pps_sec, pps_usec);
-                // handle PPS and NMEA being slightly out of sync at an hour rollover
-                if (pps_min == 0 && nmea_info->utc_minutes == 59) {
-                  pps_time += py_timedelta("hours"_a = 1);
-                } else if (pps_min == 59 && nmea_info->utc_minutes == 0) {
-                  pps_time -= py_timedelta("hours"_a = 1);
-                }
-                return nmea_info->utc_year > 0 ? pps_time : pps_time.attr("time")();
-              },
+              [](const TelemetryPacket &packet) { return convert_gps_time(packet.ppsTime()); },
               "UTC time from the PPS signal + NMEA sentence. datetime.datetime if date is "
               "available in NMEA, datetime.time otherwise. None if no valid PPS or NMEA.")
           .def("__repr__", [](const TelemetryPacket &packet) {

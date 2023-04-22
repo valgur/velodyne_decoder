@@ -4,7 +4,6 @@
 #pragma once
 
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -13,8 +12,6 @@
 #include "velodyne_decoder/types.h"
 
 namespace velodyne_decoder {
-
-using time_point = std::chrono::system_clock::time_point;
 
 struct NmeaInfo {
   double longitude    = 0;     ///< Longitude in degrees
@@ -27,6 +24,9 @@ struct NmeaInfo {
   uint8_t utc_minutes = 0;     ///< UTC minutes
   float utc_seconds   = 0;     ///< UTC seconds
   bool fix_available  = false; ///< Position fix available
+
+  /// UTC timestamp as Unix time, or seconds since midnight if date is missing
+  [[nodiscard]] Time utcTime() const;
 };
 
 struct TelemetryPacket {
@@ -71,10 +71,10 @@ struct TelemetryPacket {
   [[nodiscard]] std::optional<NmeaInfo> parseNmea() const;
 
   /// Timestamp from the NMEA sentence
-  [[nodiscard]] std::optional<time_point> nmeaTime() const;
+  [[nodiscard]] std::optional<Time> nmeaTime() const;
 
   /// Timestamp from the PPS signal combined with the NMEA timestamp
-  [[nodiscard]] std::optional<time_point> ppsTime() const;
+  [[nodiscard]] std::optional<Time> ppsTime() const;
 };
 
 } // namespace velodyne_decoder

@@ -47,10 +47,10 @@ Time resolveHourAmbiguity(const Time packet_time, const Time reference_time) {
   return packet_time;
 }
 
-Time getPacketTimestamp(const uint32_t toh_usec, const Time reference_time) {
+Time getPacketTimestamp(const uint32_t usec_since_toh, const Time reference_time) {
   const int HOUR_TO_SEC = 3600;
   uint32_t cur_hour     = (uint32_t)std::floor(reference_time) / HOUR_TO_SEC;
-  Time packet_time      = cur_hour * HOUR_TO_SEC + toh_usec * 1e-6;
+  Time packet_time      = cur_hour * HOUR_TO_SEC + usec_since_toh * 1e-6;
   if (reference_time > 0)
     return resolveHourAmbiguity(packet_time, reference_time);
   return packet_time;

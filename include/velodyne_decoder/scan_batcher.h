@@ -43,8 +43,8 @@ public:
   inline bool push(const PacketT &packet) {
     Time stamp = get_time(packet);
     if (use_device_time_) {
-      uint32_t toh_usec = parseUint32(&packet.data[PACKET_SIZE - 6]);
-      stamp             = getPacketTimestamp(toh_usec, stamp);
+      uint32_t usec_since_toh = parseUint32(&packet.data[PACKET_SIZE - 6]);
+      stamp                   = getPacketTimestamp(usec_since_toh, stamp);
     }
 
     if (scan_complete_) {
