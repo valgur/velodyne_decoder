@@ -133,7 +133,7 @@ Time NmeaInfo::utcTime() const {
   tm.tm_hour = utc_hours;
   tm.tm_min  = utc_minutes;
   tm.tm_sec  = 0;
-  return (double)std::mktime(&tm) + utc_seconds;
+  return (double)timegm(&tm) + utc_seconds;
 }
 
 std::optional<Time> TelemetryPacket::nmeaTime() const {
