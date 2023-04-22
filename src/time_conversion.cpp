@@ -37,34 +37,22 @@
 
 namespace velodyne_decoder {
 
-Time resolveHourAmbiguity(const Time packet_time, const Time arrival_time) {
-  const int HALFHOUR_TO_SEC = 1800;
-  Time retval               = packet_time;
-  uint32_t packet_sec       = (uint32_t)std::floor(packet_time);
-  uint32_t arrival_sec      = (uint32_t)std::floor(arrival_time);
-  if (arrival_sec > packet_sec) {
-    if (arrival_sec - packet_sec > HALFHOUR_TO_SEC) {
-      retval += 2 * HALFHOUR_TO_SEC;
-    }
-  } else if (packet_sec - arrival_sec > HALFHOUR_TO_SEC) {
-    retval -= 2 * HALFHOUR_TO_SEC;
-  }
-  return retval;
+Time resolveHourAmbiguity(const Time packet_time, const Time reference_time) {
+  const double HOUR      = 3600;
+  const double HALF_HOUR = 1800;
+  if (packet_time > reference_time + HALF_HOUR)
+    return packet_time - HOUR;
+  if (packet_time < reference_time - HALF_HOUR)
+    return packet_time + HOUR;
+  return packet_time;
 }
 
-Time getPacketTimestamp(const uint8_t *const data, const Time arrival_time) {
-  // time for each packet is a 4 byte uint
-  // It is the number of microseconds from the top of the hour
-  uint32_t usecs        = (((uint32_t)data[3]) << 24u | //
-                    ((uint32_t)data[2]) << 16u | //
-                    ((uint32_t)data[1]) << 8u |  //
-                    ((uint32_t)data[0]));
+Time getPacketTimestamp(const uint32_t toh_usec, const Time reference_time) {
   const int HOUR_TO_SEC = 3600;
-  uint32_t cur_hour     = (uint32_t)std::floor(arrival_time) / HOUR_TO_SEC;
-  Time packet_time      = (cur_hour * HOUR_TO_SEC) + (usecs * 1e-6);
-  if (arrival_time > 0) {
-    packet_time = resolveHourAmbiguity(packet_time, arrival_time);
-  }
+  uint32_t cur_hour     = (uint32_t)std::floor(reference_time) / HOUR_TO_SEC;
+  Time packet_time      = cur_hour * HOUR_TO_SEC + toh_usec * 1e-6;
+  if (reference_time > 0)
+    return resolveHourAmbiguity(packet_time, reference_time);
   return packet_time;
 }
 
