@@ -98,7 +98,7 @@ std::optional<NmeaInfo> parse_nmea(const std::string &nmea) {
 
 } // namespace
 
-TelemetryPacket::TelemetryPacket(const std::array<uint8_t, TELEMETRY_PACKET_SIZE> &data) {
+TelemetryPacket::TelemetryPacket(gsl::span<const uint8_t, TELEMETRY_PACKET_SIZE> data) {
   // fields set by all firmware versions
   usec_since_toh =
       static_cast<uint32_t>(data[0xC9] << 24u | data[0xC8] << 16u | data[0xC7] << 8u | data[0xC6]);

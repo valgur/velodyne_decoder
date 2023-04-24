@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <cstring>
+#include <gsl/span>
 #include <optional>
 #include <string>
 
@@ -66,7 +66,7 @@ struct TelemetryPacket {
   bool adc_delta_temp_limit_exceeded; ///< ADC calibration: delta temperature limit has been met
   bool adc_period_exceeded;           ///< ADC calibration: periodic time elapsed limit has been met
 
-  explicit TelemetryPacket(const std::array<uint8_t, TELEMETRY_PACKET_SIZE> &raw_data);
+  explicit TelemetryPacket(gsl::span<const uint8_t, TELEMETRY_PACKET_SIZE> raw_data);
 
   [[nodiscard]] std::optional<NmeaInfo> parseNmea() const;
 

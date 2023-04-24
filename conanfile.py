@@ -32,6 +32,7 @@ class VelodyneDecoderConan(ConanFile):
 
     def requirements(self):
         self.requires("yaml-cpp/0.7.0", headers=True, libs=True)
+        self.requires("ms-gsl/4.0.0", transitive_headers=True, transitive_libs=True)
         if self.options.with_python:
             self.requires("pybind11/2.10.1", headers=True, libs=True)
 

@@ -13,16 +13,15 @@ namespace velodyne_decoder {
 /**
  * Raw Velodyne packet constants and structures.
  */
-constexpr int SIZE_BLOCK      = 100;
-constexpr int SCANS_PER_BLOCK = 32;
+constexpr size_t PACKET_SIZE           = 1206;
+constexpr size_t TELEMETRY_PACKET_SIZE = 512;
+
+constexpr int SIZE_BLOCK        = 100;
+constexpr int SCANS_PER_BLOCK   = 32;
+constexpr int BLOCKS_PER_PACKET = 12;
 
 constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
 constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
-
-constexpr int PACKET_SIZE       = 1206;
-constexpr int BLOCKS_PER_PACKET = 12;
-
-constexpr int TELEMETRY_PACKET_SIZE = 512;
 
 // These are used to detect which bank of 32 lasers is contained in this block
 enum class LaserBankId : uint16_t {

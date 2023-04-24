@@ -278,6 +278,12 @@ void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, Time sc
   unpack(pkt.stamp, raw_packet, cloud, scan_start_time);
 }
 
+void PacketDecoder::unpack(Time stamp, gsl::span<const uint8_t, PACKET_SIZE> pkt_data,
+                           PointCloud &cloud, Time scan_start_time) {
+  const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt_data.data());
+  unpack(stamp, raw_packet, cloud, scan_start_time);
+}
+
 void PacketDecoder::unpack(Time stamp, const raw_packet_t &raw_packet, PointCloud &cloud,
                            Time scan_start_time) {
   if (model_id_.has_value()) {

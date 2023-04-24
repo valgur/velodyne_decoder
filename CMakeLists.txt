@@ -28,6 +28,7 @@ else()
 endif()
 
 find_package(yaml-cpp 0.7 REQUIRED)
+find_package(Microsoft.GSL REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/calibration.cpp
@@ -39,7 +40,10 @@ add_library(${PROJECT_NAME}
   src/telemetry_packet.cpp
   src/time_conversion.cpp
 )
-target_link_libraries(${PROJECT_NAME} PRIVATE yaml-cpp)
+target_link_libraries(${PROJECT_NAME}
+  PRIVATE yaml-cpp
+  PUBLIC Microsoft.GSL::GSL
+)
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
 

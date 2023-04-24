@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <gsl/span>
 #include <string>
 #include <vector>
 
@@ -26,7 +27,8 @@ public:
 
   void unpack(const VelodynePacket &pkt, PointCloud &cloud, Time scan_start_time);
 
-  void unpack(Time stamp, const raw_packet_t &pkt_data, PointCloud &cloud, Time scan_start_time);
+  void unpack(Time stamp, gsl::span<const uint8_t, PACKET_SIZE> pkt_data, PointCloud &cloud,
+              Time scan_start_time);
 
   /// Detected or configured model ID of the sensor
   [[nodiscard]] std::optional<ModelId> modelId() const;
@@ -35,6 +37,8 @@ public:
   [[nodiscard]] std::optional<DualReturnMode> returnMode() const;
 
 private:
+  void unpack(Time stamp, const raw_packet_t &pkt_data, PointCloud &cloud, Time scan_start_time);
+
   void initModel(ModelId model_id);
   void initModel(PacketModelId packet_model_id);
   void initCalibration(const Calibration &calibration);
