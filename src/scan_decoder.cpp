@@ -19,4 +19,10 @@ inline PointCloud ScanDecoder::decode(const VelodyneScan &scan) {
   return decode(scan.stamp, scan.packets);
 }
 
+std::optional<ModelId> ScanDecoder::modelId() const { return packet_decoder_.modelId(); }
+
+std::optional<DualReturnMode> ScanDecoder::returnMode() const {
+  return packet_decoder_.returnMode();
+}
+
 } // namespace velodyne_decoder

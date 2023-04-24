@@ -18,6 +18,13 @@ public:
   PointCloud decode(const VelodyneScan &scan);
   PointCloud decode(Time scan_stamp, const std::vector<VelodynePacket> &scan_packets);
 
+  /// Detected or configured model ID of the sensor
+  [[nodiscard]] std::optional<ModelId> modelId() const;
+
+  /// The return mode of the sensor based on the last received packet
+  [[nodiscard]] std::optional<DualReturnMode> returnMode() const;
+
+private:
   velodyne_decoder::PacketDecoder packet_decoder_;
   velodyne_decoder::PointCloud cloud_;
 };

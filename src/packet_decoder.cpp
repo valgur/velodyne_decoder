@@ -40,6 +40,10 @@ PacketDecoder::PacketDecoder(const Config &config)
   setupSinCosCache();
 }
 
+std::optional<ModelId> PacketDecoder::modelId() const { return model_id_; }
+
+std::optional<DualReturnMode> PacketDecoder::returnMode() const { return return_mode_; }
+
 void PacketDecoder::initModel(PacketModelId packet_model_id) {
   switch (packet_model_id) {
   case PacketModelId::HDL32E:

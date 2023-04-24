@@ -145,7 +145,11 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
             return convert(cloud, as_pcl_structs);
           },
           py::arg("scan_msg"), py::arg("as_pcl_structs") = false, //
-          py::return_value_policy::move);
+          py::return_value_policy::move)
+      .def_property_readonly("model_id", &ScanDecoder::modelId,
+                             "Detected or configured model ID of the sensor")
+      .def_property_readonly("return_mode", &ScanDecoder::returnMode,
+                             "The return mode of the sensor based on the last received packet");
 
   py::class_<StreamDecoder>(m, "StreamDecoder")
       .def(py::init<const Config &>(), py::arg("config"))
@@ -351,6 +355,13 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing")
       .value("BOTH", ReturnModeFlag::BOTH_RETURN_FLAG,
              "Point is both the last and the strongest reflection in a firing");
+
+  py::enum_<DualReturnMode>(
+      m, "DualReturnMode",
+      "Possible values of the the 'return_mode' attribute for the PacketDecoder.")
+      .value("STRONGEST", DualReturnMode::STRONGEST_RETURN)
+      .value("LAST", DualReturnMode::LAST_RETURN)
+      .value("DUAL", DualReturnMode::DUAL_RETURN);
 
   m.attr("PACKET_SIZE")           = PACKET_SIZE;
   m.attr("TELEMETRY_PACKET_SIZE") = TELEMETRY_PACKET_SIZE;

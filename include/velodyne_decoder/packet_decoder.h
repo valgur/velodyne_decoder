@@ -28,6 +28,12 @@ public:
 
   void unpack(Time stamp, const raw_packet_t &pkt_data, PointCloud &cloud, Time scan_start_time);
 
+  /// Detected or configured model ID of the sensor
+  [[nodiscard]] std::optional<ModelId> modelId() const;
+
+  /// The return mode of the sensor based on the last received packet
+  [[nodiscard]] std::optional<DualReturnMode> returnMode() const;
+
 private:
   void initModel(ModelId model_id);
   void initModel(PacketModelId packet_model_id);
