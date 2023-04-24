@@ -1,4 +1,4 @@
-// Copyright (c) 2007, 2009, 2010, 2012, 2019, Yaxin Liu, Patrick Beeson, Jack O'Quin, Joshua Whitley
+// Copyright (c) 2007-2019, Yaxin Liu, Patrick Beeson, Jack O'Quin, Joshua Whitley
 // Copyright (c) 2021-2023, Martin Valgur
 // SPDX-License-Identifier: BSD-3-Clause
 
@@ -46,9 +46,9 @@ private:
 
   static void verifyPacketModelId(PacketModelId packet_model_id, ModelId model_id);
 
-  void unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
+  void unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
   void unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
-  void unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud) const;
+  void unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
   void unpack_vls128(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
 
   void unpackPointDual(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
@@ -66,10 +66,12 @@ private:
   bool calib_initialized_ = false;
 
   std::optional<ModelId> model_id_;
+  std::optional<DualReturnMode> return_mode_;
   float min_range_;
   float max_range_;
   uint16_t min_azimuth_;
   uint16_t max_azimuth_;
+  bool single_return_mode_info_;
 
   float sin_rot_table_[ROTATION_MAX_UNITS];
   float cos_rot_table_[ROTATION_MAX_UNITS];

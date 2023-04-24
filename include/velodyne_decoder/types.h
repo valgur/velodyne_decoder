@@ -65,8 +65,8 @@ enum class DualReturnMode : uint8_t {
 
 // Offset added to ring values depending on the type of point
 enum ReturnModeFlag : uint16_t {
-  SINGLE_RETURN_FLAG    = 0,    // point is from single-return mode
-  BOTH_RETURN_FLAG      = 0,    // point is both the last and strongest one
+  SINGLE_RETURN_FLAG = 0, // point is from single-return mode (if single_return_mode_info is false)
+  BOTH_RETURN_FLAG   = 0, // point is both the last and strongest one
   STRONGEST_RETURN_FLAG = 1024, // the strongest point in firing
   LAST_RETURN_FLAG      = 2048, // the last point in firing
 };

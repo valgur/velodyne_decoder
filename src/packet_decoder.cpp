@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/packet_decoder.h"
+#include "velodyne_decoder/types.h"
 
 #include <algorithm>
 #include <array>
@@ -20,7 +21,8 @@ uint32_t wrap(int azimuth) { return (uint16_t)((azimuth + 36000) % 36000); }
 uint32_t wrap(float azimuth) { return (uint16_t)(std::lround(azimuth + 36000) % 36000); }
 } // namespace
 
-PacketDecoder::PacketDecoder(const Config &config) {
+PacketDecoder::PacketDecoder(const Config &config)
+    : single_return_mode_info_(config.single_return_mode_info) {
   if (config.calibration.has_value()) {
     initCalibration(*config.calibration);
   }
@@ -306,8 +308,9 @@ void PacketDecoder::unpack(Time stamp, const raw_packet_t &raw_packet, PointClou
 /** @brief convert raw VLP-16, HDL-32E or VLP-32A/B/C packet to point cloud
  */
 void PacketDecoder::unpack_16_32_beam(const raw_packet_t &raw, float rel_packet_stamp,
-                                      PointCloud &cloud) const {
+                                      PointCloud &cloud) {
   // Note: for HDL-32E, this field is only set since firmware version 2.2.20.0, 2016-02-02.
+  return_mode_     = raw.return_mode;
   bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
 
   // Calculate the average rotation rate for this packet
@@ -380,6 +383,7 @@ void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_s
   // This is estimated from on the azimuth values of the blocks in sample data.
   // The block durations appear to vary between either 25 usec or 50 usec,
   // with the longer one occurring approximately every 3.5 blocks with no clear pattern.
+  return_mode_ = DualReturnMode::STRONGEST_RETURN;
 
   // Calculate azimuth deltas for each block.
   if (prev_packet_azimuth_ > 36000) {
@@ -452,10 +456,11 @@ void PacketDecoder::unpack_hdl64e_s1(const raw_packet_t &raw, float rel_packet_s
 /** @brief convert raw HDL-64E S2/S3 packet to point cloud
  */
 void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stamp,
-                                  PointCloud &cloud) const {
+                                  PointCloud &cloud) {
   // HDL-64E does not have a separate packet field for dual return mode info.
   // Estimating this from azimuth values instead.
   bool dual_return = raw.blocks[0].rotation == raw.blocks[2].rotation;
+  return_mode_     = dual_return ? DualReturnMode::DUAL_RETURN : DualReturnMode::STRONGEST_RETURN;
 
   // Calculate the average rotation rate for this packet
   uint16_t azimuth_diff =
@@ -513,7 +518,8 @@ void PacketDecoder::unpack_hdl64e(const raw_packet_t &raw, float rel_packet_stam
  */
 void PacketDecoder::unpack_vls128(const raw_packet_t &raw, float rel_packet_stamp,
                                   PointCloud &cloud) {
-  bool dual_return = (raw.return_mode == DualReturnMode::DUAL_RETURN);
+  return_mode_     = raw.return_mode;
+  bool dual_return = raw.return_mode == DualReturnMode::DUAL_RETURN;
 
   correctVls128Timings(raw.stamp, dual_return);
 
@@ -659,6 +665,12 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimu
                         sin_rot_table_[azimuth] * sin_rot_correction;
   float sin_rot_angle = sin_rot_table_[azimuth] * cos_rot_correction - //
                         cos_rot_table_[azimuth] * sin_rot_correction;
+
+  // optionally include more detailed info about the return mode on single-return mode
+  if (single_return_mode_info_ && return_mode_flag == SINGLE_RETURN_FLAG) {
+    return_mode_flag =
+        return_mode_ == DualReturnMode::LAST_RETURN ? LAST_RETURN_FLAG : STRONGEST_RETURN_FLAG;
+  }
 
   if (!apply_advanced_calibration_) {
     if (!distanceInRange(distance))

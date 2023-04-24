@@ -16,19 +16,19 @@ namespace velodyne_decoder {
 
 struct Config {
   // PacketDecoder params
-
   float min_range = 0.1; ///< minimum range to publish (m)
   float max_range = 200; ///< maximum range to publish (m)
   float min_angle = 0;   ///< minimum angle to publish (deg)
   float max_angle = 360; ///< maximum angle to publish (deg)
-
   /// model ID, optional for most models (exceptions: HDL-64E, VLP-32A, VLP-32B)
   std::optional<ModelId> model;
   /// calibration info, optional
   std::optional<Calibration> calibration;
+  /// If true, set the return mode in the ring field for single-return mode as well
+  /// (i.e. whether strongest (default) or last return mode is being used).
+  bool single_return_mode_info = false;
 
   // ScanBatcher params
-
   /// Azimuth at which to start a new scan (deg).
   /// If unset, the scan is split whenever it covers >= 360 deg at an arbitrary azimuth.
   std::optional<float> cut_angle = std::nullopt;

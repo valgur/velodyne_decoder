@@ -70,34 +70,37 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::class_<Config>(m, "Config")
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
-                       float min_range, float max_range, float min_angle, float max_angle,
-                       std::optional<float> cut_angle, bool timestamp_first_packet,
-                       bool use_device_time) {
-             auto cfg                    = std::make_unique<Config>();
-             cfg->model                  = model;
-             cfg->calibration            = calibration;
-             cfg->min_range              = min_range;
-             cfg->max_range              = max_range;
-             cfg->min_angle              = min_angle;
-             cfg->max_angle              = max_angle;
-             cfg->timestamp_first_packet = timestamp_first_packet;
-             cfg->use_device_time        = use_device_time;
-             cfg->cut_angle              = cut_angle;
+                       bool single_return_mode_info, float min_range, float max_range,
+                       float min_angle, float max_angle, std::optional<float> cut_angle,
+                       bool timestamp_first_packet, bool use_device_time) {
+             auto cfg                     = std::make_unique<Config>();
+             cfg->model                   = model;
+             cfg->calibration             = calibration;
+             cfg->min_range               = min_range;
+             cfg->max_range               = max_range;
+             cfg->min_angle               = min_angle;
+             cfg->max_angle               = max_angle;
+             cfg->timestamp_first_packet  = timestamp_first_packet;
+             cfg->use_device_time         = use_device_time;
+             cfg->cut_angle               = cut_angle;
+             cfg->single_return_mode_info = single_return_mode_info;
              return cfg;
            }),
-           py::kw_only(),                                  //
-           py::arg("model")                  = py::none(), //
-           py::arg("calibration")            = py::none(), //
-           py::arg("min_range")              = 0.1,        //
-           py::arg("max_range")              = 200,        //
-           py::arg("min_angle")              = 0,          //
-           py::arg("max_angle")              = 360,        //
-           py::arg("cut_angle")              = py::none(), //
-           py::arg("timestamp_first_packet") = false,      //
-           py::arg("use_device_time")        = false       //
+           py::kw_only(),                                   //
+           py::arg("model")                   = py::none(), //
+           py::arg("calibration")             = py::none(), //
+           py::arg("single_return_mode_info") = false,      //
+           py::arg("min_range")               = 0.1,        //
+           py::arg("max_range")               = 200,        //
+           py::arg("min_angle")               = 0,          //
+           py::arg("max_angle")               = 360,        //
+           py::arg("cut_angle")               = py::none(), //
+           py::arg("timestamp_first_packet")  = false,      //
+           py::arg("use_device_time")         = false       //
            )
       .def_readwrite("model", &Config::model)
       .def_readwrite("calibration", &Config::calibration)
+      .def_readwrite("single_return_mode_info", &Config::single_return_mode_info)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
       .def_readwrite("min_angle", &Config::min_angle)
@@ -341,12 +344,13 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   py::enum_<ReturnModeFlag>(
       m, "ReturnModeFlag",
       "Flag added to the 'ring' field of a point depending on its return type.")
-      .value("SINGLE_RETURN", ReturnModeFlag::SINGLE_RETURN_FLAG, "Single-return mode")
-      .value("BOTH", ReturnModeFlag::BOTH_RETURN_FLAG,
-             "Point is both the last and the strongest reflection in a firing")
+      .value("SINGLE_RETURN", ReturnModeFlag::SINGLE_RETURN_FLAG,
+             "Single-return mode (if single_return_mode_info is False)")
       .value("STRONGEST", ReturnModeFlag::STRONGEST_RETURN_FLAG,
              "The strongest reflection in a firing")
-      .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing");
+      .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing")
+      .value("BOTH", ReturnModeFlag::BOTH_RETURN_FLAG,
+             "Point is both the last and the strongest reflection in a firing");
 
   m.attr("PACKET_SIZE")           = PACKET_SIZE;
   m.attr("TELEMETRY_PACKET_SIZE") = TELEMETRY_PACKET_SIZE;
