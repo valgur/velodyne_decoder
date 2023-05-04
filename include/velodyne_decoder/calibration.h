@@ -51,14 +51,8 @@ public:
 
 public:
   Calibration() = default;
-
-  explicit Calibration(const std::string &calibration_file) { read(calibration_file); }
-
-  Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m)
-      : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
-    num_lasers = (int)laser_corrections.size();
-    assignRingNumbers();
-  }
+  explicit Calibration(const std::string &calibration_file);
+  Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m);
 
   bool isAdvancedCalibration() const;
 

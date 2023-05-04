@@ -116,6 +116,15 @@ template <> struct convert<velodyne_decoder::Calibration> {
 
 namespace velodyne_decoder {
 
+Calibration::Calibration(const std::string &calibration_file)
+    : Calibration(read(calibration_file)) {}
+
+Calibration::Calibration(std::vector<LaserCorrection> laser_corrs, float distance_resolution_m)
+    : distance_resolution_m(distance_resolution_m), laser_corrections(std::move(laser_corrs)) {
+  num_lasers = (int)laser_corrections.size();
+  assignRingNumbers();
+}
+
 void Calibration::assignRingNumbers() {
   // argsort by the vertical angle of the laser to assign ring numbers to lasers
   std::vector<size_t> idx(num_lasers);
