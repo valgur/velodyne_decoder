@@ -662,7 +662,8 @@ void PacketDecoder::unpackPointDual(PointCloud &cloud, int laser_idx, uint16_t a
 void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
                                 const raw_measurement_t measurement,
                                 ReturnModeFlag return_mode_flag) const {
-  float distance = measurement.distance * calibration_.distance_resolution_m;
+  uint16_t raw_distance   = measurement.distance;
+  float measured_distance = raw_distance * calibration_.distance_resolution_m;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
   float sin_vert_angle     = sin_vert_correction_[laser_idx];
@@ -683,62 +684,60 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimu
   }
 
   if (!apply_advanced_calibration_) {
-    if (!distanceInRange(distance))
+    if (!distanceInRange(measured_distance))
       return;
 
-    float xy_distance = distance * cos_vert_angle;
+    float xy_distance = measured_distance * cos_vert_angle;
     // Use the standard ROS coordinate system (x - forward, y - left, z - up)
     float x = xy_distance * cos_rot_angle;
     float y = -xy_distance * sin_rot_angle;
-    float z = distance * sin_vert_angle;
+    float z = measured_distance * sin_vert_angle;
 
     uint16_t ring = ring_cache_[laser_idx] | return_mode_flag;
 
     cloud.emplace_back(x, y, z, (float)measurement.intensity, ring, time);
 
   } else {
-    const auto &corrections = calibration_.laser_corrections[laser_idx];
-    distance += corrections.dist_correction;
+    const auto &calib = calibration_.laser_corrections[laser_idx];
 
-    if (!distanceInRange(distance))
+    // Get initial corrected distance using the distance calibration at the far point.
+    float corrected_distance = measured_distance + calib.dist_correction;
+
+    if (!distanceInRange(corrected_distance))
       return;
 
-    float horiz_offset = corrections.horiz_offset_correction;
-    float vert_offset  = corrections.vert_offset_correction;
-
-    // Get 2points calibration values, Linear interpolation to get distance
-    // correction for X and Y, that means distance correction use
-    // different value at different distance
-    float distance_corr_x = 0;
-    float distance_corr_y = 0;
-    if (corrections.two_pt_correction_available) {
-      // Compute the distance in the xy plane (w/o accounting for rotation)
-      float xy_distance = distance * cos_vert_angle - vert_offset * sin_vert_angle;
-
-      float xx = std::abs(xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle);
-      float yy = std::abs(xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle);
-
-      distance_corr_x = (corrections.dist_correction - corrections.dist_correction_x) *
-                            (xx - 2.4f) / (25.04f - 2.4f) +
-                        corrections.dist_correction_x;
-      distance_corr_x -= corrections.dist_correction;
-      distance_corr_y = (corrections.dist_correction - corrections.dist_correction_y) *
-                            (yy - 1.93f) / (25.04f - 1.93f) +
-                        corrections.dist_correction_y;
-      distance_corr_y -= corrections.dist_correction;
+    // Apply two-point calibration.
+    // Linearly interpolates between the distance corrections at the near and far point.
+    constexpr float far_point_dist = 25.04f; // m
+    constexpr float near_point_x   = 2.40f;  // m
+    constexpr float near_point_y   = 1.93f;  // m
+    float distance_corr_x          = calib.dist_correction;
+    float distance_corr_y          = calib.dist_correction;
+    float distance_corr_z          = calib.dist_correction;
+    if (calib.two_pt_correction_available && measured_distance < far_point_dist) {
+      // We are following the formulas from the HDL-64E S3 manual,
+      // i.e. horizontal / vertical offset corrections are applied in the very last step only.
+      float xy_distance = corrected_distance * cos_vert_angle;
+      float xx          = std::abs(xy_distance * sin_rot_angle);
+      float yy          = std::abs(xy_distance * cos_rot_angle);
+      float x_coeff     = (xx - near_point_x) / (far_point_dist - near_point_x);
+      float y_coeff     = (yy - near_point_y) / (far_point_dist - near_point_y);
+      distance_corr_x   = x_coeff * calib.dist_correction + (1 - x_coeff) * calib.dist_correction_x;
+      distance_corr_y   = y_coeff * calib.dist_correction + (1 - y_coeff) * calib.dist_correction_y;
+      // z correction is the mean of the x and y correction instead of using the
+      // y correction as in the manual (which is assumed to be accidental).
+      distance_corr_z = (distance_corr_x + distance_corr_y) / 2;
     }
 
-    float distance_x  = distance + distance_corr_x;
-    float xy_distance = distance_x * cos_vert_angle - vert_offset * sin_vert_angle;
-    /// the expression with '-' is proved to be better than the one with '+'
-    float x = xy_distance * sin_rot_angle - horiz_offset * cos_rot_angle;
+    // Not sure why the offset is applied at an (azimuth + 90 deg) angle instead of
+    // being simply added to the distance, but this what the manual does.
+    float x_offset = calib.horiz_offset_correction * -cos_rot_angle;
+    float y_offset = calib.horiz_offset_correction * sin_rot_angle;
+    float z_offset = calib.vert_offset_correction;
 
-    float distance_y = distance + distance_corr_y;
-    xy_distance      = distance_y * cos_vert_angle - vert_offset * sin_vert_angle;
-    float y          = xy_distance * cos_rot_angle + horiz_offset * sin_rot_angle;
-
-    // Using distance_y is not symmetric, but the velodyne manual does this.
-    float z = distance_y * sin_vert_angle + vert_offset * cos_vert_angle;
+    float x = (measured_distance + distance_corr_x) * cos_vert_angle * sin_rot_angle + x_offset;
+    float y = (measured_distance + distance_corr_y) * cos_vert_angle * cos_rot_angle + y_offset;
+    float z = (measured_distance + distance_corr_z) * sin_vert_angle + z_offset;
 
     /** Use standard ROS coordinate system */
     float x_coord = y;
@@ -746,18 +745,13 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimu
     float z_coord = z;
 
     /** Intensity Calculation */
-    float min_intensity = corrections.min_intensity;
-    float max_intensity = corrections.max_intensity;
+    float intensity = measurement.intensity;
+    intensity += 256 * calib.focal_slope *
+                 std::abs(SQR(1 - calib.focal_distance / 131.f) - //
+                          SQR(1 - (float)raw_distance / 65535.f));
+    intensity = std::clamp(intensity, (float)calib.min_intensity, (float)calib.max_intensity);
 
-    float focal_offset  = SQR(1 - corrections.focal_distance / 13100.f);
-    float raw_intensity = measurement.intensity;
-    float raw_distance  = measurement.distance;
-    float intensity     = raw_intensity + 256 * corrections.focal_slope *
-                                          std::abs(focal_offset - SQR(1 - raw_distance / 65535.f));
-    intensity = (intensity < min_intensity) ? min_intensity : intensity;
-    intensity = (intensity > max_intensity) ? max_intensity : intensity;
-
-    uint16_t ring = corrections.laser_ring | return_mode_flag;
+    uint16_t ring = calib.laser_ring | return_mode_flag;
 
     cloud.emplace_back(x_coord, y_coord, z_coord, intensity, ring, time);
   }

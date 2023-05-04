@@ -217,15 +217,15 @@ def decode_status_bytes(status_bytes, cur_status):
         raw_values = struct.unpack("<BhhhhhhhhhBB", raw_laser_data)
         c = {}
         c["Laser ID"] = raw_values[0]
-        c["Vertical Correction"] = raw_values[1] * 0.01
-        c["Rotational Correction"] = raw_values[2] * 0.01
-        c["Far Distance Correction"] = raw_values[3] * 0.001
-        c["Distance Correction X"] = raw_values[4] * 0.001
-        c["Distance Correction Y"] = raw_values[5] * 0.001
-        c["Vertical Offset Correction"] = raw_values[6] * 0.001
-        c["Horizontal Offset Correction"] = raw_values[7] * 0.001
-        c["Focal Distance"] = raw_values[8] * 0.001
-        c["Focal Slope"] = raw_values[9] * 0.001
+        c["Vertical Correction"] = raw_values[1] * 0.01  # deg
+        c["Rotational Correction"] = raw_values[2] * 0.01  # deg
+        c["Far Distance Correction"] = raw_values[3] * 0.001  # m
+        c["Distance Correction X"] = raw_values[4] * 0.001  # m
+        c["Distance Correction Y"] = raw_values[5] * 0.001  # m
+        c["Vertical Offset Correction"] = raw_values[6] * 0.001  # m
+        c["Horizontal Offset Correction"] = raw_values[7] * 0.001  # m
+        c["Focal Distance"] = raw_values[8] * 0.001  # m
+        c["Focal Slope"] = raw_values[9] * 0.1
         c["Min Intensity"] = raw_values[10]
         c["Max Intensity"] = raw_values[11]
         data["Calibration"].append(c)
