@@ -11,7 +11,9 @@
 #include <string>
 
 namespace velodyne_decoder {
-inline double get_time(const velodyne_msgs::VelodynePacket &packet) { return packet.stamp.toSec(); }
+inline double getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
+  return packet.stamp.toSec();
+}
 } // namespace velodyne_decoder
 
 #include <velodyne_decoder/config.h>
