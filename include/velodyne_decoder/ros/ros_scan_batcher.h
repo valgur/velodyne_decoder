@@ -4,6 +4,7 @@
 #pragma once
 
 #include <ros/time.h>
+#include <velodyne_decoder/time_conversion.h>
 #include <velodyne_msgs/VelodynePacket.h>
 #include <velodyne_msgs/VelodyneScan.h>
 
@@ -11,8 +12,11 @@
 #include <string>
 
 namespace velodyne_decoder {
-inline double getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
-  return packet.stamp.toSec();
+inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
+  TimePair stamp;
+  stamp.host   = packet.stamp.toSec();
+  stamp.device = getPacketTimestamp(packet.data, stamp.host);
+  return stamp;
 }
 } // namespace velodyne_decoder
 
@@ -43,7 +47,7 @@ public:
   [[nodiscard]] inline bool scanComplete() const { return scan_batcher_.scanComplete(); }
 
   [[nodiscard]] inline const boost::shared_ptr<velodyne_msgs::VelodyneScan> &scanMsg() const {
-    scan_msg_->header.stamp = ros::Time(scan_batcher_.scanTimestamp());
+    scan_msg_->header.stamp = ros::Time(scan_batcher_.scanTimestamp().host);
     return scan_msg_;
   }
 

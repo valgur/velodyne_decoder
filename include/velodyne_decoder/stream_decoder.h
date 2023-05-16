@@ -17,16 +17,17 @@ class StreamDecoder {
 public:
   explicit StreamDecoder(const Config &config);
 
-  std::optional<std::pair<Time, PointCloud>> decode(Time stamp, const RawPacketData &packet);
-  std::optional<std::pair<Time, PointCloud>> decode(const VelodynePacket &packet);
+  std::optional<std::pair<TimePair, PointCloud>> decode(Time packet_stamp,
+                                                        const RawPacketData &packet);
+  std::optional<std::pair<TimePair, PointCloud>> decode(const VelodynePacket &packet);
 
   /**
    * @brief Decodes all remaining packets in the buffer and returns the last scan, if any.
    */
-  std::optional<std::pair<Time, PointCloud>> finish();
+  std::optional<std::pair<TimePair, PointCloud>> finish();
 
 private:
-  std::pair<Time, PointCloud> decodeCollectedPackets();
+  std::pair<TimePair, PointCloud> decodeCollectedPackets();
 
 private:
   ScanBatcher<> scan_batcher_;

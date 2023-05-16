@@ -11,7 +11,8 @@
 #include <vector>
 
 namespace velodyne_decoder {
-Time getPacketTime(const VelodynePacket &packet) { return packet.stamp; }
+
+TimePair getPacketTime(const VelodynePacket &packet) { return packet.stamp; }
 
 int getPacketAzimuth(gsl::span<const uint8_t> data) {
   // get the azimuth of the last block
@@ -23,8 +24,7 @@ int getPacketAzimuth(gsl::span<const uint8_t> data) {
 template <typename T>
 ScanBatcher<T>::ScanBatcher(const Config &config)
     : timestamp_first_packet_(config.timestamp_first_packet),
-      use_device_time_(config.use_device_time &&
-                       !(config.model.has_value() && config.model == ModelId::HDL64E_S1)),
+      is_device_time_valid_(!(config.model.has_value() && config.model == ModelId::HDL64E_S1)),
       cut_angle_(!config.cut_angle || config.cut_angle < 0
                      ? -1
                      : (int)(std::lround(*config.cut_angle * 100)) % 36000) {
@@ -34,10 +34,10 @@ ScanBatcher<T>::ScanBatcher(const Config &config)
 }
 
 template <typename T> bool ScanBatcher<T>::push(const T &packet) {
-  Time stamp = getPacketTime(packet);
-  if (use_device_time_) {
-    uint32_t usec_since_toh = parseUint32(&packet.data[PACKET_SIZE - 6]);
-    stamp                   = getPacketTimestamp(usec_since_toh, stamp);
+  TimePair stamp = getPacketTime(packet);
+  if (!is_device_time_valid_) {
+    // HDL-64E S1 does not contain device time info in its packets.
+    stamp.device = stamp.host;
   }
 
   if (scan_complete_) {
@@ -49,7 +49,7 @@ template <typename T> bool ScanBatcher<T>::push(const T &packet) {
     initial_azimuth_ = azimuth;
   }
 
-  double duration = empty() ? 0.0 : stamp - getPacketTime(scan_packets_->front());
+  double duration = empty() ? 0.0 : stamp.host - getPacketTime(scan_packets_->front()).host;
   if (duration > duration_threshold_) {
     kept_last_packet_ = packet;
     scan_complete_    = true;
@@ -71,7 +71,7 @@ template <typename T> size_t ScanBatcher<T>::size() const { return scan_packets_
 
 template <typename T> bool ScanBatcher<T>::scanComplete() const { return scan_complete_; }
 
-template <typename T> Time ScanBatcher<T>::scanTimestamp() const {
+template <typename T> TimePair ScanBatcher<T>::scanTimestamp() const {
   if (empty())
     return {};
   return timestamp_first_packet_ ? getPacketTime(scan_packets_->front())

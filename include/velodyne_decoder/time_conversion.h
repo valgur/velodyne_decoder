@@ -4,11 +4,12 @@
 
 #pragma once
 
+#include "velodyne_decoder/types.h"
+
 #include <cstdint>
+#include <gsl/span>
 
 namespace velodyne_decoder {
-
-using Time = double;
 
 constexpr uint32_t parseUint32(const uint8_t *data) {
   return (((uint32_t)data[3]) << 24u | //
@@ -38,5 +39,7 @@ Time resolveHourAmbiguity(Time packet_time, Time reference_time);
  * @return timestamp in seconds since the Unix epoch
  */
 Time getPacketTimestamp(uint32_t usec_since_toh, Time reference_time);
+
+Time getPacketTimestamp(gsl::span<const uint8_t, PACKET_SIZE> pkt_data, Time reference_time);
 
 } // namespace velodyne_decoder

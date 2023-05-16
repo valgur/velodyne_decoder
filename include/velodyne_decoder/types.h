@@ -5,6 +5,8 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -101,21 +103,29 @@ struct raw_packet_t {
 using Time          = double;
 using RawPacketData = std::array<uint8_t, PACKET_SIZE>;
 
+struct TimePair {
+  /// Time of arrival of the packet at the host machine.
+  Time host;
+  /// Timestamp of the packet as reported by the device.
+  /// Relies on the host time to convert relative top-of-hour timestamps to absolute timestamps.
+  Time device;
+};
+
 struct VelodynePacket {
-  Time stamp;
+  TimePair stamp;
   RawPacketData data;
 
   VelodynePacket() = default;
-  VelodynePacket(Time stamp, const RawPacketData &data) : stamp(stamp), data(data) {}
+  VelodynePacket(TimePair stamp, const RawPacketData &data);
+  VelodynePacket(Time host_stamp, const RawPacketData &data);
 };
 
 struct VelodyneScan {
-  Time stamp;
+  TimePair stamp;
   std::vector<VelodynePacket> packets;
 
   VelodyneScan() = default;
-  VelodyneScan(Time stamp, std::vector<VelodynePacket> packets)
-      : stamp(stamp), packets(std::move(packets)) {}
+  VelodyneScan(TimePair stamp, std::vector<VelodynePacket> packets);
 };
 
 struct alignas(16) PointXYZIRT {
@@ -129,8 +139,7 @@ struct alignas(16) PointXYZIRT {
   float time;
 
   PointXYZIRT() = default;
-  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time)
-      : x(x), y(y), z(z), intensity(intensity), ring(ring), time(time) {}
+  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time);
 };
 
 using PointCloud = std::vector<PointXYZIRT>;

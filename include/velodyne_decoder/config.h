@@ -34,8 +34,6 @@ struct Config {
   std::optional<float> cut_angle = std::nullopt;
   /// whether we are timestamping based on the first or last packet in the scan
   bool timestamp_first_packet = false;
-  /// true: use the packet's time field, false: use the time of arrival
-  bool use_device_time = false;
 
   static const std::vector<ModelId> SUPPORTED_MODELS;
 };

@@ -72,7 +72,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
                        bool single_return_mode_info, float min_range, float max_range,
                        float min_angle, float max_angle, std::optional<float> cut_angle,
-                       bool timestamp_first_packet, bool use_device_time) {
+                       bool timestamp_first_packet) {
              auto cfg                     = std::make_unique<Config>();
              cfg->model                   = model;
              cfg->calibration             = calibration;
@@ -81,7 +81,6 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
              cfg->min_angle               = min_angle;
              cfg->max_angle               = max_angle;
              cfg->timestamp_first_packet  = timestamp_first_packet;
-             cfg->use_device_time         = use_device_time;
              cfg->cut_angle               = cut_angle;
              cfg->single_return_mode_info = single_return_mode_info;
              return cfg;
@@ -95,8 +94,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
            py::arg("min_angle")               = 0,          //
            py::arg("max_angle")               = 360,        //
            py::arg("cut_angle")               = py::none(), //
-           py::arg("timestamp_first_packet")  = false,      //
-           py::arg("use_device_time")         = false       //
+           py::arg("timestamp_first_packet")  = false       //
            )
       .def_readwrite("model", &Config::model)
       .def_readwrite("calibration", &Config::calibration)
@@ -106,12 +104,22 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def_readwrite("min_angle", &Config::min_angle)
       .def_readwrite("max_angle", &Config::max_angle)
       .def_readwrite("timestamp_first_packet", &Config::timestamp_first_packet)
-      .def_readwrite("use_device_time", &Config::use_device_time)
       .def_readwrite("cut_angle", &Config::cut_angle);
+
+  py::class_<TimePair>(m, "TimePair")
+      .def(py::init<>())
+      .def(py::init<Time, Time>())
+      .def_readwrite("host", &TimePair::host)
+      .def_readwrite("device", &TimePair::device)
+      .def("__repr__", [](const TimePair &t) {
+        return "TimePair(host=" + std::to_string(t.host) + //
+               ", device=" + std::to_string(t.device) + ")";
+      });
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
       .def(py::init<Time, const RawPacketData &>())
+      .def(py::init<TimePair, const RawPacketData &>())
       .def_readwrite("stamp", &VelodynePacket::stamp)
       .def_readwrite("data", &VelodynePacket::data);
 
@@ -123,12 +131,21 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init<const Config &>(), py::arg("config"))
       .def(
           "decode",
-          [](ScanDecoder &decoder, Time stamp, const std::vector<VelodynePacket> &scan_packets,
+          [](ScanDecoder &decoder, TimePair stamp, const std::vector<VelodynePacket> &scan_packets,
              bool as_pcl_structs) {
             auto cloud = decoder.decode(stamp, scan_packets);
             return convert(cloud, as_pcl_structs);
           },
           py::arg("scan_stamp"), py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
+          py::return_value_policy::move)
+      .def(
+          "decode",
+          [](ScanDecoder &decoder, Time host_stamp, const std::vector<VelodynePacket> &scan_packets,
+             bool as_pcl_structs) {
+            auto cloud = decoder.decode(host_stamp, scan_packets);
+            return convert(cloud, as_pcl_structs);
+          },
+          py::arg("scan_host_stamp"), py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
           py::return_value_policy::move)
       .def(
           "decode_message",
@@ -140,8 +157,9 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               auto stamp  = packet_py.attr("stamp").attr("to_sec")().cast<double>();
               packets.emplace_back(stamp, packet);
             }
-            auto stamp = scan_msg.attr("header").attr("stamp").attr("to_sec")().cast<double>();
-            auto cloud = decoder.decode(stamp, packets);
+            Time msg_host_stamp =
+                scan_msg.attr("header").attr("stamp").attr("to_sec")().cast<double>();
+            auto cloud = decoder.decode(msg_host_stamp, packets);
             return convert(cloud, as_pcl_structs);
           },
           py::arg("scan_msg"), py::arg("as_pcl_structs") = false, //
@@ -156,7 +174,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(
           "decode",
           [](StreamDecoder &decoder, Time stamp, const RawPacketData &packet,
-             bool as_pcl_structs) -> std::optional<std::pair<Time, py::array>> {
+             bool as_pcl_structs) -> std::optional<std::pair<TimePair, py::array>> {
             auto result = decoder.decode(stamp, packet);
             if (result) {
               auto &[scan_stamp, cloud] = *result;
@@ -169,7 +187,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(
           "finish",
           [](StreamDecoder &decoder,
-             bool as_pcl_structs) -> std::optional<std::pair<Time, py::array>> {
+             bool as_pcl_structs) -> std::optional<std::pair<TimePair, py::array>> {
             auto result = decoder.finish();
             if (result) {
               auto &[scan_stamp, cloud] = *result;

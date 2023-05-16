@@ -39,6 +39,7 @@ add_library(${PROJECT_NAME}
   src/stream_decoder.cpp
   src/telemetry_packet.cpp
   src/time_conversion.cpp
+  src/types.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   PRIVATE yaml-cpp

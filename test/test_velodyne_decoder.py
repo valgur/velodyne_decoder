@@ -25,7 +25,7 @@ def test_pcap_as_contiguous_array(sample_pcap_path):
     pcds = list(vd.read_pcap(sample_pcap_path, as_pcl_structs=False))
     assert len(pcds) == 94
     stamp, pcd = pcds[0]
-    assert stamp == 1427759049.259595
+    assert stamp.host == 1427759049.259595
     assert pcd.shape == (27657, 6)
     assert pcd.dtype.name == "float32"
 
@@ -34,7 +34,7 @@ def test_pcap_as_struct_array(sample_pcap_path):
     pcds = list(vd.read_pcap(sample_pcap_path, as_pcl_structs=True))
     assert len(pcds) == 94
     stamp, pcd = pcds[0]
-    assert stamp == 1427759049.259595
+    assert stamp.host == 1427759049.259595
     assert pcd.shape == (27657,)
     assert pcd.dtype == pcl_struct_dtype
 
@@ -43,7 +43,8 @@ def test_pcap_time_range(sample_pcap_path):
     t0 = 1427759050
     pcds = list(vd.read_pcap(sample_pcap_path, as_pcl_structs=False, time_range=(t0, None)))
     stamp, pcd = pcds[0]
-    assert stamp >= t0
+    assert stamp.host >= t0
+    assert stamp.device >= t0
 
 
 def test_bag_as_contiguous_array(sample_bag_path):

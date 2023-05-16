@@ -28,4 +28,9 @@ Time getPacketTimestamp(const uint32_t usec_since_toh, const Time reference_time
   return packet_time;
 }
 
+Time getPacketTimestamp(gsl::span<const uint8_t, PACKET_SIZE> pkt_data, Time reference_time) {
+  uint32_t usec_since_toh = parseUint32(&pkt_data[PACKET_SIZE - 6]);
+  return getPacketTimestamp(usec_since_toh, reference_time);
+}
+
 } // namespace velodyne_decoder

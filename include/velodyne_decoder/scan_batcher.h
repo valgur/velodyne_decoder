@@ -32,7 +32,7 @@ public:
 
   /** @brief The timestamp of the current scan. Zero if the scan is empty.
    */
-  [[nodiscard]] inline Time scanTimestamp() const;
+  [[nodiscard]] inline TimePair scanTimestamp() const;
 
   /** @brief The contents of the current scan.
    */
@@ -51,14 +51,14 @@ private:
 
   // config
   const bool timestamp_first_packet_;
-  const bool use_device_time_;
+  const bool is_device_time_valid_;
   const int cut_angle_;
   const double duration_threshold_ = 0.3; // max scan duration at ~4 Hz
 };
 
 // Traits to access the default PacketT=VelodynePacket fields.
 // Intended to be overriden for custom packet types.
-inline Time getPacketTime(const VelodynePacket &packet);
+inline TimePair getPacketTime(const VelodynePacket &packet);
 inline int getPacketAzimuth(gsl::span<const uint8_t> data);
 
 extern template class ScanBatcher<VelodynePacket>;
