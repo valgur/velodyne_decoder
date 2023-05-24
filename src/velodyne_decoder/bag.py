@@ -14,7 +14,6 @@ def read_bag(
     config=None,
     topics=None,
     as_pcl_structs=False,
-    return_frame_id=False,
     time_range=(None, None),
 ):
     """Decodes and yields all point clouds stored in a ROS bag file.
@@ -46,15 +45,11 @@ def read_bag(
     if config is None:
         config = vd.Config()
     decoder = vd.ScanDecoder(config)
-    Result = namedtuple("ResultTuple", ("stamp", "points", "topic"))
-    ResultWithFrameId = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
+    Result = namedtuple("ResultTuple", ("stamp", "points", "topic", "frame_id"))
     msg_types = ["velodyne_msgs/VelodyneScan"]
     for topic, scan_msg, ros_time in vd.util.iter_bag(bag_file, topics, msg_types, time_range):
         if is_py2:
             for packet in scan_msg.packets:
                 packet.data = bytearray(packet.data)
         stamp, points = decoder.decode_message(scan_msg, as_pcl_structs)
-        if return_frame_id:
-            yield ResultWithFrameId(stamp, points, topic, scan_msg.header.frame_id)
-        else:
-            yield Result(stamp, points, topic)
+        yield Result(stamp, points, topic, scan_msg.header.frame_id)
