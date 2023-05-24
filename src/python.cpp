@@ -128,7 +128,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
   PYBIND11_NUMPY_DTYPE(PointXYZIRT, x, y, z, intensity, ring, time);
 
   py::class_<ScanDecoder>(m, "ScanDecoder")
-      .def(py::init<const Config &>(), py::arg("config"))
+      .def(py::init<const Config &>(), py::arg("config") = Config())
       .def(
           "decode",
           [](ScanDecoder &decoder, const std::vector<VelodynePacket> &scan_packets,
@@ -159,7 +159,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
                              "The return mode of the sensor based on the last received packet");
 
   py::class_<StreamDecoder>(m, "StreamDecoder")
-      .def(py::init<const Config &>(), py::arg("config"))
+      .def(py::init<const Config &>(), py::arg("config") = Config())
       .def(
           "decode",
           [](StreamDecoder &decoder, Time host_stamp, const RawPacketData &packet,
