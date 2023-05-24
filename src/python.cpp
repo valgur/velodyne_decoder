@@ -118,8 +118,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::class_<VelodynePacket>(m, "VelodynePacket")
       .def(py::init<>())
-      .def(py::init<Time, const RawPacketData &>())
-      .def(py::init<TimePair, const RawPacketData &>())
+      .def(py::init<Time, const RawPacketData &>(), py::arg("host_stamp"), py::arg("data"))
+      .def(py::init<TimePair, const RawPacketData &>(), py::arg("stamp"), py::arg("data"))
       .def_readwrite("stamp", &VelodynePacket::stamp)
       .def_readwrite("data", &VelodynePacket::data);
 
@@ -131,21 +131,12 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init<const Config &>(), py::arg("config"))
       .def(
           "decode",
-          [](ScanDecoder &decoder, TimePair stamp, const std::vector<VelodynePacket> &scan_packets,
+          [](ScanDecoder &decoder, const std::vector<VelodynePacket> &scan_packets,
              bool as_pcl_structs) {
-            auto cloud = decoder.decode(stamp, scan_packets);
+            auto cloud = decoder.decode(scan_packets);
             return convert(cloud, as_pcl_structs);
           },
-          py::arg("scan_stamp"), py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
-          py::return_value_policy::move)
-      .def(
-          "decode",
-          [](ScanDecoder &decoder, Time host_stamp, const std::vector<VelodynePacket> &scan_packets,
-             bool as_pcl_structs) {
-            auto cloud = decoder.decode(host_stamp, scan_packets);
-            return convert(cloud, as_pcl_structs);
-          },
-          py::arg("scan_host_stamp"), py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
+          py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
           py::return_value_policy::move)
       .def(
           "decode_message",
@@ -157,9 +148,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               auto stamp  = packet_py.attr("stamp").attr("to_sec")().cast<double>();
               packets.emplace_back(stamp, packet);
             }
-            Time msg_host_stamp =
-                scan_msg.attr("header").attr("stamp").attr("to_sec")().cast<double>();
-            auto cloud = decoder.decode(msg_host_stamp, packets);
+            auto cloud = decoder.decode(packets);
             return convert(cloud, as_pcl_structs);
           },
           py::arg("scan_msg"), py::arg("as_pcl_structs") = false, //
@@ -173,9 +162,9 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .def(py::init<const Config &>(), py::arg("config"))
       .def(
           "decode",
-          [](StreamDecoder &decoder, Time stamp, const RawPacketData &packet,
+          [](StreamDecoder &decoder, Time host_stamp, const RawPacketData &packet,
              bool as_pcl_structs) -> std::optional<std::pair<TimePair, py::array>> {
-            auto result = decoder.decode({stamp, packet});
+            auto result = decoder.decode({host_stamp, packet});
             if (result) {
               auto &[scan_stamp, cloud] = *result;
               return std::make_pair(scan_stamp, convert(cloud, as_pcl_structs));

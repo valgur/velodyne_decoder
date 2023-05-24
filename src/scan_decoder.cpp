@@ -2,36 +2,35 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/scan_decoder.h"
+#include "velodyne_decoder/types.h"
 
 namespace velodyne_decoder {
 
-ScanDecoder::ScanDecoder(const Config &config) : packet_decoder_(config) {}
+ScanDecoder::ScanDecoder(const Config &config)
+    : packet_decoder_(config), timestamp_first_packet_(config.timestamp_first_packet) {}
 
-PointCloud ScanDecoder::decode(TimePair scan_stamp,
-                               const std::vector<VelodynePacket> &scan_packets) {
+PointCloud ScanDecoder::decode(const std::vector<VelodynePacket> &scan_packets) {
+  std::vector<PacketView> packet_views;
+  packet_views.reserve(scan_packets.size());
+  for (PacketView packet : scan_packets)
+    packet_views.emplace_back(packet);
+  return decode(packet_views);
+}
+
+PointCloud ScanDecoder::decode(const std::vector<PacketView> &scan_packets) {
   cloud_.clear();
+  TimePair scan_stamp =
+      timestamp_first_packet_ ? scan_packets.front().stamp : scan_packets.back().stamp;
   for (const auto &packet : scan_packets) {
     packet_decoder_.unpack(packet, cloud_, scan_stamp);
   }
-  return cloud_;
+  PointCloud tmp_cloud;
+  tmp_cloud.reserve(cloud_.capacity());
+  cloud_.swap(tmp_cloud);
+  return tmp_cloud;
 }
 
-PointCloud ScanDecoder::decode(Time scan_host_stamp,
-                               const std::vector<VelodynePacket> &scan_packets) {
-  // The header stamp in a VelodyneScan message contains only the host time.
-  // Need to figure out whether it corresponds to the first or last packet and get the
-  // device time from it.
-  // TODO: apply timestamp_first_packet config option in ScanDecoder instead?
-  double front_delta = std::abs(scan_packets.front().stamp.host - scan_host_stamp);
-  double back_delta  = std::abs(scan_packets.back().stamp.host - scan_host_stamp);
-  TimePair scan_stamp =
-      front_delta < back_delta ? scan_packets.front().stamp : scan_packets.back().stamp;
-  return decode(scan_stamp, scan_packets);
-}
-
-inline PointCloud ScanDecoder::decode(const VelodyneScan &scan) {
-  return decode(scan.stamp, scan.packets);
-}
+PointCloud ScanDecoder::decode(const VelodyneScan &scan) { return decode(scan.packets); }
 
 std::optional<ModelId> ScanDecoder::modelId() const { return packet_decoder_.modelId(); }
 

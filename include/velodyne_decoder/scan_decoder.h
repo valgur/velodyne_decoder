@@ -15,9 +15,9 @@ class ScanDecoder {
 public:
   explicit ScanDecoder(const Config &config);
 
+  PointCloud decode(const std::vector<VelodynePacket> &scan_packets);
+  PointCloud decode(const std::vector<PacketView> &scan_packets);
   PointCloud decode(const VelodyneScan &scan);
-  PointCloud decode(Time scan_host_stamp, const std::vector<VelodynePacket> &scan_packets);
-  PointCloud decode(TimePair scan_stamp, const std::vector<VelodynePacket> &scan_packets);
 
   /// Detected or configured model ID of the sensor
   [[nodiscard]] std::optional<ModelId> modelId() const;
@@ -28,6 +28,8 @@ public:
 private:
   velodyne_decoder::PacketDecoder packet_decoder_;
   velodyne_decoder::PointCloud cloud_;
+
+  bool timestamp_first_packet_;
 };
 
 } // namespace velodyne_decoder

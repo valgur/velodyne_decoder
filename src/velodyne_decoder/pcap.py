@@ -56,12 +56,12 @@ def read_pcap(
 
     decoder = vd.StreamDecoder(config)
     ResultTuple = namedtuple("StampCloudTuple", ("stamp", "points"))
-    for stamp, data in vd.util.iter_pcap(pcap_file, time_range):
+    for host_stamp, data in vd.util.iter_pcap(pcap_file, time_range):
         if len(data) != vd.PACKET_SIZE:
             continue
         if is_py2:
             data = bytearray(data)
-        result = decoder.decode(stamp, data, as_pcl_structs)
+        result = decoder.decode(host_stamp, data, as_pcl_structs)
         if result is not None:
             yield ResultTuple(*result)
     # Decode any remaining packets
