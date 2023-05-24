@@ -30,10 +30,6 @@ public:
    */
   [[nodiscard]] inline bool scanComplete() const;
 
-  /** @brief The timestamp of the current scan. Zero if the scan is empty.
-   */
-  [[nodiscard]] inline TimePair scanTimestamp() const;
-
   /** @brief The contents of the current scan.
    */
   [[nodiscard]] inline const std::shared_ptr<std::vector<PacketT>> &scanPackets() const;
@@ -50,7 +46,6 @@ private:
   std::optional<PacketT> kept_last_packet_            = std::nullopt;
 
   // config
-  const bool timestamp_first_packet_;
   const bool is_device_time_valid_;
   const int cut_angle_;
   const double duration_threshold_ = 0.3; // max scan duration at ~4 Hz

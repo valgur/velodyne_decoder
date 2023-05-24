@@ -273,7 +273,7 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
 
 /** @brief convert raw packet to point cloud
  */
-void PacketDecoder::unpack(PacketView pkt, PointCloud &cloud, TimePair scan_start_time) {
+void PacketDecoder::unpack(PacketView pkt, TimePair scan_start_time, PointCloud &cloud) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
   unpack(pkt.stamp, raw_packet, cloud, scan_start_time);
 }

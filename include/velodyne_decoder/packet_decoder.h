@@ -25,7 +25,7 @@ class PacketDecoder {
 public:
   explicit PacketDecoder(const Config &config);
 
-  void unpack(PacketView pkt, PointCloud &cloud, TimePair scan_start_time);
+  void unpack(PacketView pkt, TimePair scan_start_time, PointCloud &cloud);
 
   /// Detected or configured model ID of the sensor
   [[nodiscard]] std::optional<ModelId> modelId() const;

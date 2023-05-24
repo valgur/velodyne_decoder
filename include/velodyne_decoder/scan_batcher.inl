@@ -23,8 +23,7 @@ int getPacketAzimuth(gsl::span<const uint8_t, PACKET_SIZE> data) {
 
 template <typename T>
 ScanBatcher<T>::ScanBatcher(const Config &config)
-    : timestamp_first_packet_(config.timestamp_first_packet),
-      is_device_time_valid_(!(config.model.has_value() && config.model == ModelId::HDL64E_S1)),
+    : is_device_time_valid_(!(config.model.has_value() && config.model == ModelId::HDL64E_S1)),
       cut_angle_(!config.cut_angle || config.cut_angle < 0
                      ? -1
                      : (int)(std::lround(*config.cut_angle * 100)) % 36000) {
@@ -70,13 +69,6 @@ template <typename T> bool ScanBatcher<T>::empty() const { return scan_packets_-
 template <typename T> size_t ScanBatcher<T>::size() const { return scan_packets_->size(); }
 
 template <typename T> bool ScanBatcher<T>::scanComplete() const { return scan_complete_; }
-
-template <typename T> TimePair ScanBatcher<T>::scanTimestamp() const {
-  if (empty())
-    return {};
-  return timestamp_first_packet_ ? getPacketTime(scan_packets_->front())
-                                 : getPacketTime(scan_packets_->back());
-}
 
 template <typename T> const std::shared_ptr<std::vector<T>> &ScanBatcher<T>::scanPackets() const {
   return scan_packets_;

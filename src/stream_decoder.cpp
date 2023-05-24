@@ -19,9 +19,7 @@ StreamDecoder::decode(const VelodynePacket &packet) {
 }
 
 std::pair<TimePair, PointCloud> StreamDecoder::decodeCollectedPackets() {
-  TimePair scan_stamp = scan_batcher_.scanTimestamp();
-  std::pair<TimePair, PointCloud> result{
-      scan_stamp, scan_decoder_.decode(*scan_batcher_.scanPackets())};
+  auto result = scan_decoder_.decode(*scan_batcher_.scanPackets());
   scan_batcher_.reset();
   return result;
 }

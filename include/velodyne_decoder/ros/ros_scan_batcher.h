@@ -13,10 +13,7 @@
 
 namespace velodyne_decoder {
 inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
-  TimePair stamp;
-  stamp.host   = packet.stamp.toSec();
-  stamp.device = getPacketTimestamp(packet.data, stamp.host);
-  return stamp;
+  return {packet.stamp.toSec(), packet.data};
 }
 } // namespace velodyne_decoder
 

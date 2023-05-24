@@ -20,12 +20,11 @@ VelodynePacket::VelodynePacket(Time host_stamp, gsl::span<const uint8_t, PACKET_
 
 PacketView::PacketView(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data)
     : stamp(stamp), data(data) {}
+
 PacketView::PacketView(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data)
     : stamp(host_stamp, data), data(data) {}
-PacketView::PacketView(const VelodynePacket &packet) : stamp(packet.stamp), data(packet.data) {}
 
-VelodyneScan::VelodyneScan(TimePair stamp, std::vector<VelodynePacket> packets)
-    : stamp(stamp), packets(std::move(packets)) {}
+PacketView::PacketView(const VelodynePacket &packet) : stamp(packet.stamp), data(packet.data) {}
 
 PointXYZIRT::PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time)
     : x(x), y(y), z(z), intensity(intensity), ring(ring), time(time) {}

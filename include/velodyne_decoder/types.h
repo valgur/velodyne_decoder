@@ -13,26 +13,56 @@
 
 namespace velodyne_decoder {
 
-/**
- * Raw Velodyne packet constants and structures.
- */
 constexpr size_t PACKET_SIZE           = 1206;
 constexpr size_t TELEMETRY_PACKET_SIZE = 512;
 
-constexpr int SIZE_BLOCK        = 100;
-constexpr int SCANS_PER_BLOCK   = 32;
-constexpr int BLOCKS_PER_PACKET = 12;
+using Time = double;
+struct TimePair {
+  /// Time of arrival of the packet at the host machine.
+  Time host;
+  /// Timestamp of the packet as reported by the device.
+  /// Relies on the host time to convert relative top-of-hour timestamps to absolute timestamps.
+  Time device;
 
-constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
-constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
-
-// These are used to detect which bank of 32 lasers is contained in this block
-enum class LaserBankId : uint16_t {
-  BANK_0 = 0xeeff, // lasers [0..31], aka upper bank for HDL-64E
-  BANK_1 = 0xddff, // lasers [32..63], aka lower bank for HDL-64E
-  BANK_2 = 0xccff, // lasers [64..95]
-  BANK_3 = 0xbbff, // lasers [96..127]
+  TimePair() = default;
+  TimePair(Time host, Time device);
+  TimePair(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
 };
+
+using RawPacketData = std::array<uint8_t, PACKET_SIZE>;
+
+struct VelodynePacket {
+  TimePair stamp;
+  RawPacketData data;
+
+  VelodynePacket() = default;
+  VelodynePacket(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  VelodynePacket(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+};
+
+struct PacketView {
+  TimePair stamp;
+  gsl::span<const uint8_t, PACKET_SIZE> data;
+
+  PacketView(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  PacketView(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  PacketView(const VelodynePacket &packet);
+};
+
+struct alignas(16) PointXYZIRT {
+  struct alignas(16) {
+    float x;
+    float y;
+    float z;
+  };
+  float intensity;
+  uint16_t ring;
+  float time;
+
+  PointXYZIRT() = default;
+  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time);
+};
+using PointCloud = std::vector<PointXYZIRT>;
 
 enum class ModelId : uint8_t {
   HDL64E_S1  = 1,
@@ -73,6 +103,23 @@ enum ReturnModeFlag : uint16_t {
   BOTH_RETURN_FLAG      = 1024 | 2048, // point is both the last and strongest one
 };
 
+/**
+ * Constants and structures specific to raw Velodyne packet structure.
+ */
+constexpr int SIZE_BLOCK              = 100;
+constexpr int SCANS_PER_BLOCK         = 32;
+constexpr int BLOCKS_PER_PACKET       = 12;
+constexpr float ROTATION_RESOLUTION   = 0.01f;  // [deg]
+constexpr uint16_t ROTATION_MAX_UNITS = 36000u; // [deg/100]
+
+// These are used to detect which bank of 32 lasers is contained in this block
+enum class LaserBankId : uint16_t {
+  BANK_0 = 0xeeff, // lasers [0..31], aka upper bank for HDL-64E
+  BANK_1 = 0xddff, // lasers [32..63], aka lower bank for HDL-64E
+  BANK_2 = 0xccff, // lasers [64..95]
+  BANK_3 = 0xbbff, // lasers [96..127]
+};
+
 #pragma pack(push, 1)
 struct raw_measurement_t {
   uint16_t distance;
@@ -100,63 +147,5 @@ struct raw_packet_t {
   // uint8_t status[4];
 };
 #pragma pack(pop)
-
-using Time = double;
-
-using RawPacketData       = std::array<uint8_t, PACKET_SIZE>;
-
-struct TimePair {
-  /// Time of arrival of the packet at the host machine.
-  Time host;
-  /// Timestamp of the packet as reported by the device.
-  /// Relies on the host time to convert relative top-of-hour timestamps to absolute timestamps.
-  Time device;
-
-  TimePair() = default;
-  TimePair(Time host, Time device);
-  TimePair(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
-};
-
-struct VelodynePacket {
-  TimePair stamp;
-  RawPacketData data;
-
-  VelodynePacket() = default;
-  VelodynePacket(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
-  VelodynePacket(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
-};
-
-struct PacketView {
-  TimePair stamp;
-  gsl::span<const uint8_t, PACKET_SIZE> data;
-
-  PacketView(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
-  PacketView(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
-  PacketView(const VelodynePacket &packet);
-};
-
-struct VelodyneScan {
-  TimePair stamp;
-  std::vector<VelodynePacket> packets;
-
-  VelodyneScan() = default;
-  VelodyneScan(TimePair stamp, std::vector<VelodynePacket> packets);
-};
-
-struct alignas(16) PointXYZIRT {
-  struct alignas(16) {
-    float x;
-    float y;
-    float z;
-  };
-  float intensity;
-  uint16_t ring;
-  float time;
-
-  PointXYZIRT() = default;
-  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time);
-};
-
-using PointCloud = std::vector<PointXYZIRT>;
 
 } // namespace velodyne_decoder

@@ -133,8 +133,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
           "decode",
           [](ScanDecoder &decoder, const std::vector<VelodynePacket> &scan_packets,
              bool as_pcl_structs) {
-            auto cloud = decoder.decode(scan_packets);
-            return convert(cloud, as_pcl_structs);
+            auto [stamp, cloud] = decoder.decode(scan_packets);
+            return std::pair{stamp, convert(cloud, as_pcl_structs)};
           },
           py::arg("scan_packets"), py::arg("as_pcl_structs") = false, //
           py::return_value_policy::move)
@@ -148,8 +148,8 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
               auto stamp  = packet_py.attr("stamp").attr("to_sec")().cast<double>();
               packets.emplace_back(stamp, packet);
             }
-            auto cloud = decoder.decode(packets);
-            return convert(cloud, as_pcl_structs);
+            auto [stamp, cloud] = decoder.decode(packets);
+            return std::pair{stamp, convert(cloud, as_pcl_structs)};
           },
           py::arg("scan_msg"), py::arg("as_pcl_structs") = false, //
           py::return_value_policy::move)
