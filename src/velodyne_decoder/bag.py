@@ -14,7 +14,6 @@ def read_bag(
     config=None,
     topics=None,
     as_pcl_structs=False,
-    use_header_time=True,
     return_frame_id=False,
     time_range=(None, None),
 ):
@@ -33,9 +32,6 @@ def read_bag(
         {'names': ['x', 'y', 'z', 'intensity', 'ring', 'time'],
          'formats': ['<f4', '<f4', '<f4', '<f4', '<u2', '<f4'],
          'offsets': [0, 4, 8, 16, 20, 24], 'itemsize': 32}
-    use_header_time : bool
-        If True, scan_msg.header.stamp will be used for the time stamps.
-        If False, the message arrival time will be used.
     return_frame_id : bool
         If True, includes the frame_id of the messages in the returned tuple. Defaults to False.
     time_range : float, float or rospy.Time, rospy.Time
@@ -57,8 +53,7 @@ def read_bag(
         if is_py2:
             for packet in scan_msg.packets:
                 packet.data = bytearray(packet.data)
-        stamp = scan_msg.header.stamp if use_header_time else ros_time
-        points = decoder.decode_message(scan_msg, as_pcl_structs)
+        stamp, points = decoder.decode_message(scan_msg, as_pcl_structs)
         if return_frame_id:
             yield ResultWithFrameId(stamp, points, topic, scan_msg.header.frame_id)
         else:
