@@ -13,7 +13,8 @@
 
 namespace velodyne_decoder {
 inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
-  return {packet.stamp.toSec(), packet.data};
+  return {packet.stamp.toSec(),
+          gsl::span<const uint8_t, velodyne_decoder::PACKET_SIZE>{packet.data}};
 }
 } // namespace velodyne_decoder
 
@@ -44,7 +45,7 @@ public:
   [[nodiscard]] inline bool scanComplete() const { return scan_batcher_.scanComplete(); }
 
   [[nodiscard]] inline const boost::shared_ptr<velodyne_msgs::VelodyneScan> &scanMsg() const {
-    scan_msg_->header.stamp = ros::Time(scan_batcher_.scanTimestamp().host);
+    scan_msg_->header.stamp = scan_msg_->packets.front().stamp;
     return scan_msg_;
   }
 
