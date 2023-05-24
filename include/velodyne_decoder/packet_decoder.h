@@ -25,10 +25,7 @@ class PacketDecoder {
 public:
   explicit PacketDecoder(const Config &config);
 
-  void unpack(const VelodynePacket &pkt, PointCloud &cloud, TimePair scan_start_time);
-
-  void unpack(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> pkt_data, PointCloud &cloud,
-              TimePair scan_start_time);
+  void unpack(PacketView pkt, PointCloud &cloud, TimePair scan_start_time);
 
   /// Detected or configured model ID of the sensor
   [[nodiscard]] std::optional<ModelId> modelId() const;

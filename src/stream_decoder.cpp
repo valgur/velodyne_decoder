@@ -11,11 +11,6 @@ namespace velodyne_decoder {
 StreamDecoder::StreamDecoder(const Config &config) : scan_batcher_(config), scan_decoder_(config) {}
 
 std::optional<std::pair<TimePair, PointCloud>> //
-StreamDecoder::decode(Time stamp, const RawPacketData &packet) {
-  return decode({stamp, packet});
-}
-
-std::optional<std::pair<TimePair, PointCloud>> //
 StreamDecoder::decode(const VelodynePacket &packet) {
   bool scan_complete = scan_batcher_.push(packet);
   if (scan_complete)

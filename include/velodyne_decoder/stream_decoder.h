@@ -17,8 +17,6 @@ class StreamDecoder {
 public:
   explicit StreamDecoder(const Config &config);
 
-  std::optional<std::pair<TimePair, PointCloud>> decode(Time packet_stamp,
-                                                        const RawPacketData &packet);
   std::optional<std::pair<TimePair, PointCloud>> decode(const VelodynePacket &packet);
 
   /**

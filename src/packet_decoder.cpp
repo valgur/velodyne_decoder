@@ -273,15 +273,9 @@ void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
 
 /** @brief convert raw packet to point cloud
  */
-void PacketDecoder::unpack(const VelodynePacket &pkt, PointCloud &cloud, TimePair scan_start_time) {
+void PacketDecoder::unpack(PacketView pkt, PointCloud &cloud, TimePair scan_start_time) {
   const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt.data.data());
   unpack(pkt.stamp, raw_packet, cloud, scan_start_time);
-}
-
-void PacketDecoder::unpack(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> pkt_data,
-                           PointCloud &cloud, TimePair scan_start_time) {
-  const raw_packet_t &raw_packet = *reinterpret_cast<const raw_packet_t *>(pkt_data.data());
-  unpack(stamp, raw_packet, cloud, scan_start_time);
 }
 
 void PacketDecoder::unpack(TimePair stamp, const raw_packet_t &raw_packet, PointCloud &cloud,

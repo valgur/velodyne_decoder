@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <gsl/span>
 #include <utility>
 #include <vector>
 
@@ -100,8 +101,9 @@ struct raw_packet_t {
 };
 #pragma pack(pop)
 
-using Time          = double;
-using RawPacketData = std::array<uint8_t, PACKET_SIZE>;
+using Time = double;
+
+using RawPacketData       = std::array<uint8_t, PACKET_SIZE>;
 
 struct TimePair {
   /// Time of arrival of the packet at the host machine.
@@ -109,6 +111,10 @@ struct TimePair {
   /// Timestamp of the packet as reported by the device.
   /// Relies on the host time to convert relative top-of-hour timestamps to absolute timestamps.
   Time device;
+
+  TimePair() = default;
+  TimePair(Time host, Time device);
+  TimePair(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
 };
 
 struct VelodynePacket {
@@ -116,8 +122,17 @@ struct VelodynePacket {
   RawPacketData data;
 
   VelodynePacket() = default;
-  VelodynePacket(TimePair stamp, const RawPacketData &data);
-  VelodynePacket(Time host_stamp, const RawPacketData &data);
+  VelodynePacket(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  VelodynePacket(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+};
+
+struct PacketView {
+  TimePair stamp;
+  gsl::span<const uint8_t, PACKET_SIZE> data;
+
+  PacketView(TimePair stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  PacketView(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> data);
+  PacketView(const VelodynePacket &packet);
 };
 
 struct VelodyneScan {

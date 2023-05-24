@@ -5,7 +5,6 @@
 #include "velodyne_decoder/time_conversion.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>

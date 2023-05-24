@@ -14,7 +14,7 @@ namespace velodyne_decoder {
 
 TimePair getPacketTime(const VelodynePacket &packet) { return packet.stamp; }
 
-int getPacketAzimuth(gsl::span<const uint8_t> data) {
+int getPacketAzimuth(gsl::span<const uint8_t, PACKET_SIZE> data) {
   // get the azimuth of the last block
   uint16_t azimuth = 0;
   memcpy(&azimuth, &data[(BLOCKS_PER_PACKET - 1) * SIZE_BLOCK + 2], sizeof(azimuth));

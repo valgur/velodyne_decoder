@@ -175,7 +175,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
           "decode",
           [](StreamDecoder &decoder, Time stamp, const RawPacketData &packet,
              bool as_pcl_structs) -> std::optional<std::pair<TimePair, py::array>> {
-            auto result = decoder.decode(stamp, packet);
+            auto result = decoder.decode({stamp, packet});
             if (result) {
               auto &[scan_stamp, cloud] = *result;
               return std::make_pair(scan_stamp, convert(cloud, as_pcl_structs));

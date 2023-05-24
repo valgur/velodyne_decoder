@@ -59,7 +59,7 @@ private:
 // Traits to access the default PacketT=VelodynePacket fields.
 // Intended to be overriden for custom packet types.
 inline TimePair getPacketTime(const VelodynePacket &packet);
-inline int getPacketAzimuth(gsl::span<const uint8_t> data);
+inline int getPacketAzimuth(gsl::span<const uint8_t, PACKET_SIZE> data);
 
 extern template class ScanBatcher<VelodynePacket>;
 
