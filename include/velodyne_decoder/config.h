@@ -17,7 +17,7 @@ namespace velodyne_decoder {
 struct Config {
   // PacketDecoder params
   float min_range = 0.1; ///< minimum range to publish (m)
-  float max_range = 200; ///< maximum range to publish (m)
+  float max_range = 250; ///< maximum range to publish (m)
   float min_angle = 0;   ///< minimum angle to publish (deg)
   float max_angle = 360; ///< maximum angle to publish (deg)
   /// model ID, optional for most models (exceptions: HDL-64E, VLP-32A, VLP-32B)
