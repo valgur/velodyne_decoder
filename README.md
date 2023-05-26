@@ -52,11 +52,10 @@ pip install git+https://github.com/valgur/velodyne_decoder.git
 ```python
 import velodyne_decoder as vd
 
-config = vd.Config(model='VLP-32C')
 bagfile = 'xyz.bag'
 lidar_topics = ['/velodyne_packets']
 cloud_arrays = []
-for stamp, points, topic in vd.read_bag(bagfile, config, lidar_topics):
+for stamp, points, topic in vd.read_bag(bagfile, topics=lidar_topics):
     cloud_arrays.append(points)
 ```
 
@@ -78,38 +77,30 @@ To return arrays of structs instead of the default contiguous arrays, set `as_pc
 ```python
 import velodyne_decoder as vd
 
-config = vd.Config(model='VLP-16')
 pcap_file = 'vlp16.pcap'
 cloud_arrays = []
-for stamp, points in vd.read_pcap(pcap_file, config):
+for stamp, points in vd.read_pcap(pcap_file):
     cloud_arrays.append(points)
 ```
-
-`config.model` must be set.
 
 To return arrays of structs instead of the default contiguous arrays, set `as_pcl_structs=True`.
 
 ### Configuration
 
-The main parameter `config.model` must always be set. For a list of supported model IDs see
+You can pass a `velodyne_decoder.Config` object to all decoder functions. The following options are available:
 
-```python
->>> list(velodyne_decoder.Model.__entries)
-['HDL64E_S1', 'HDL64E_S2', 'HDL64E_S3', 'HDL32E', 'VLP32A', 'VLP32B', 'VLP32C', 'VLP16', 'PuckLite', 'PuckHiRes', 'VLS128', 'AlphaPrime']
-```
-
-Other available options are:
-
-* `calibration_file` – the beam calibration details from Velodyne are used by default based on the model ID. If you
-  however wish to use a more specific calibration, you can specify one in
-  the [YAML format](https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py) used by the ROS driver.
 * `min_range` and `max_range` – only return points between these range values.
 * `min_angle` and `max_angle` – only return points between these azimuth angles.
+* `timestamp_first_packet` – whether the scan timestamps are set based on the first or last packet in the scan.
+* `single_return_mode_info` – if true, set the return mode in the ring field for single-return mode points as well.
+* `cut_angle` – when working with a raw packet stream, if unset (by default), the stream is split into a "scan" every time at least 360 degrees have been covered.
+  If set, the splitting always occurs at the specified azimuth angle instead. Note that the scan might cover less than 360 degrees in this case.
 
-Options only applicable to PCAP decoding:
-
-* `use_device_time` – use the timestamp from the packet's data if true, packet's arrival time otherwise (default).
-* `timestamp_first_packet` – whether the timestamps are set based on the first or last packet in the scan
+Only required for data from HDL-64E sensors:
+* `model` – the sensor model ID. See `list(velodyne_decoder.Model.__entries)` for the possible values.
+* `calibration_file` – beam calibration parameters in a YAML format.
+  You can either extract the calibration info from a PCAP file with packets using `extract-hdl64e-calibration <pcap_file>` or
+  convert a `db.xml` provided with the sensor using [gen_calibration.py](https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py) from the ROS driver.
 
 ## Authors
 
