@@ -97,7 +97,7 @@ You can pass a `velodyne_decoder.Config` object to all decoder functions. The fo
   If set, the splitting always occurs at the specified azimuth angle instead. Note that the scan might cover less than 360 degrees in this case.
 
 Only required for data from HDL-64E sensors:
-* `model` – the sensor model ID. See `list(velodyne_decoder.Model.__entries)` for the possible values.
+* `model` – the sensor model ID. See `velodyne_decoder.Model.__entries` for the possible values.
 * `calibration_file` – beam calibration parameters in a YAML format.
   You can either extract the calibration info from a PCAP file with packets using `extract-hdl64e-calibration <pcap_file>` or
   convert a `db.xml` provided with the sensor using [gen_calibration.py](https://wiki.ros.org/velodyne_pointcloud#gen_calibration.py) from the ROS driver.
