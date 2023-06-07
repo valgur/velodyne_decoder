@@ -49,20 +49,31 @@ struct PacketView {
   PacketView(const VelodynePacket &packet);
 };
 
-struct alignas(16) PointXYZIRT {
+enum class ReturnMode : uint8_t {
+  STRONGEST = 1,     // the strongest point in firing
+  LAST      = 2,     // the last point in firing
+  BOTH      = 1 | 2, // point is both the last and strongest one
+};
+ReturnMode operator|(ReturnMode lhs, ReturnMode rhs);
+ReturnMode operator&(ReturnMode lhs, ReturnMode rhs);
+
+struct alignas(16) VelodynePoint {
   struct alignas(16) {
     float x;
     float y;
     float z;
+    float intensity;
   };
-  float intensity;
-  uint16_t ring;
+  uint8_t ring;
   float time;
+  ReturnMode return_type;
 
-  PointXYZIRT() = default;
-  PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time);
+  VelodynePoint() = default;
+  VelodynePoint(float x, float y, float z, float intensity, uint8_t ring, float time,
+                ReturnMode return_type);
 };
-using PointCloud = std::vector<PointXYZIRT>;
+static_assert(sizeof(VelodynePoint) == 32, "VelodynePoint is not 32 bytes");
+using PointCloud = std::vector<VelodynePoint>;
 
 enum class ModelId : uint8_t {
   HDL64E_S1  = 1,
@@ -89,18 +100,10 @@ enum class PacketModelId : uint8_t {
   VLS128     = 0xa1, // decimal: 161
 };
 
-enum class DualReturnMode : uint8_t {
-  STRONGEST_RETURN = 0x37, // decimal: 55
-  LAST_RETURN      = 0x38, // decimal: 56
-  DUAL_RETURN      = 0x39, // decimal: 57
-};
-
-// Offset added to ring values depending on the type of point
-enum ReturnModeFlag : uint16_t {
-  SINGLE_RETURN_FLAG = 0, // point is from single-return mode (if single_return_mode_info is false)
-  STRONGEST_RETURN_FLAG = 1024,        // the strongest point in firing
-  LAST_RETURN_FLAG      = 2048,        // the last point in firing
-  BOTH_RETURN_FLAG      = 1024 | 2048, // point is both the last and strongest one
+enum class PacketReturnMode : uint8_t {
+  STRONGEST = 0x37, // decimal: 55
+  LAST      = 0x38, // decimal: 56
+  DUAL      = 0x39, // decimal: 57
 };
 
 /**
@@ -140,7 +143,7 @@ struct raw_block_t {
 struct raw_packet_t {
   std::array<raw_block_t, BLOCKS_PER_PACKET> blocks;
   uint32_t stamp;
-  DualReturnMode return_mode;
+  PacketReturnMode return_mode;
   PacketModelId model_id;
   // In HDL-64E, the last bytes have a different meaning, but we are ignoring these.
   // uint16_t revolution;

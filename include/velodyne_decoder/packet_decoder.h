@@ -31,7 +31,7 @@ public:
   [[nodiscard]] std::optional<ModelId> modelId() const;
 
   /// The return mode of the sensor based on the last received packet
-  [[nodiscard]] std::optional<DualReturnMode> returnMode() const;
+  [[nodiscard]] std::optional<ReturnMode> returnMode() const;
 
 private:
   void unpack(TimePair stamp, const raw_packet_t &pkt_data, PointCloud &cloud,
@@ -63,23 +63,36 @@ private:
                        raw_measurement_t last, raw_measurement_t strongest) const;
 
   void unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
-                   raw_measurement_t measurement, ReturnModeFlag return_mode_flag) const;
+                   raw_measurement_t measurement, ReturnMode return_mode) const;
 
   /** in-line test whether a point is in range */
   [[nodiscard]] bool distanceInRange(float range) const;
   [[nodiscard]] bool azimuthInRange(uint16_t azimuth) const;
+
+  void setReturnMode(PacketReturnMode packet_return_mode) {
+    switch (packet_return_mode) {
+    case PacketReturnMode::STRONGEST:
+      return_mode_ = ReturnMode::STRONGEST;
+      break;
+    case PacketReturnMode::LAST:
+      return_mode_ = ReturnMode::LAST;
+      break;
+    case PacketReturnMode::DUAL:
+      return_mode_ = ReturnMode::BOTH;
+      break;
+    }
+  }
 
 private:
   velodyne_decoder::Calibration calibration_;
   bool calib_initialized_ = false;
 
   std::optional<ModelId> model_id_;
-  std::optional<DualReturnMode> return_mode_;
+  std::optional<ReturnMode> return_mode_;
   float min_range_;
   float max_range_;
   uint16_t min_azimuth_;
   uint16_t max_azimuth_;
-  bool single_return_mode_info_;
 
   float sin_rot_table_[ROTATION_MAX_UNITS];
   float cos_rot_table_[ROTATION_MAX_UNITS];
@@ -91,7 +104,7 @@ private:
   std::vector<float> sin_rot_correction_;  ///< sine of rot_corrections
   std::vector<float> cos_vert_correction_; ///< cosine of vert_corrections
   std::vector<float> sin_vert_correction_; ///< sine of vert_corrections
-  std::vector<uint16_t> ring_cache_;       ///< cache for ring lookup
+  std::vector<uint8_t> ring_cache_;        ///< cache for ring lookup
   std::vector<float> vert_offset_cache_;   ///< cache for vertical offsets
 
   // timing offset lookup table

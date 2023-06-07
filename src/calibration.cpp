@@ -77,8 +77,8 @@ template <> struct convert<velodyne_decoder::LaserCorrection> {
       node[MAX_INTENSITY] = correction.max_intensity;
       node[MIN_INTENSITY] = correction.min_intensity;
     }
-    node[ROT_CORRECTION]  = correction.rot_correction;
-    node[VERT_CORRECTION] = correction.vert_correction;
+    node[ROT_CORRECTION]         = correction.rot_correction;
+    node[VERT_CORRECTION]        = correction.vert_correction;
     node[VERT_OFFSET_CORRECTION] = correction.vert_offset_correction;
     return node;
   }

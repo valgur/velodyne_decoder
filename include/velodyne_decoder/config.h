@@ -24,9 +24,6 @@ struct Config {
   std::optional<ModelId> model;
   /// calibration info, optional
   std::optional<Calibration> calibration;
-  /// If true, set the return mode in the ring field for single-return mode as well
-  /// (i.e. whether strongest (default) or last return mode is being used).
-  bool single_return_mode_info = false;
 
   // ScanBatcher params
   /// Azimuth at which to start a new scan (deg).

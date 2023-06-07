@@ -22,7 +22,7 @@ public:
   [[nodiscard]] std::optional<ModelId> modelId() const;
 
   /// The return mode of the sensor based on the last received packet
-  [[nodiscard]] std::optional<DualReturnMode> returnMode() const;
+  [[nodiscard]] std::optional<ReturnMode> returnMode() const;
 
 private:
   velodyne_decoder::PacketDecoder packet_decoder_;

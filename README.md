@@ -92,7 +92,6 @@ You can pass a `velodyne_decoder.Config` object to all decoder functions. The fo
 * `min_range` and `max_range` – only return points between these range values.
 * `min_angle` and `max_angle` – only return points between these azimuth angles.
 * `timestamp_first_packet` – whether the scan timestamps are set based on the first or last packet in the scan.
-* `single_return_mode_info` – if true, set the return mode in the ring field for single-return mode points as well.
 * `cut_angle` – when working with a raw packet stream, if unset (by default), the stream is split into a "scan" every time at least 360 degrees have been covered.
   If set, the splitting always occurs at the specified azimuth angle instead. Note that the scan might cover less than 360 degrees in this case.
 

@@ -26,6 +26,16 @@ PacketView::PacketView(Time host_stamp, gsl::span<const uint8_t, PACKET_SIZE> da
 
 PacketView::PacketView(const VelodynePacket &packet) : stamp(packet.stamp), data(packet.data) {}
 
-PointXYZIRT::PointXYZIRT(float x, float y, float z, float intensity, uint16_t ring, float time)
-    : x(x), y(y), z(z), intensity(intensity), ring(ring), time(time) {}
+VelodynePoint::VelodynePoint(float x, float y, float z, float intensity, uint8_t ring, float time,
+                             ReturnMode return_type)
+    : x(x), y(y), z(z), intensity(intensity), ring(ring), time(time), return_type(return_type) {}
+
+ReturnMode operator|(ReturnMode lhs, ReturnMode rhs) {
+  return static_cast<ReturnMode>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
+}
+
+ReturnMode operator&(ReturnMode lhs, ReturnMode rhs) {
+  return static_cast<ReturnMode>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
+}
+
 } // namespace velodyne_decoder

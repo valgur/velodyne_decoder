@@ -33,11 +33,11 @@ inline py::array_t<dtype> as_pyarray(Sequence &&seq) {
 }
 
 py::array as_contiguous(const PointCloud &cloud) {
-  const int ncols = 6;
+  const int ncols = 7;
   std::vector<std::array<float, ncols>> arr;
   arr.reserve(cloud.size());
   for (const auto &p : cloud) {
-    arr.push_back({p.x, p.y, p.z, p.intensity, (float)p.ring, p.time});
+    arr.push_back({p.x, p.y, p.z, p.intensity, (float)p.ring, p.time, (float)p.return_type});
   }
   return as_pyarray<decltype(arr), float>(std::move(arr));
 }
@@ -70,35 +70,31 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::class_<Config>(m, "Config")
       .def(py::init([](std::optional<ModelId> model, const std::optional<Calibration> &calibration,
-                       bool single_return_mode_info, float min_range, float max_range,
-                       float min_angle, float max_angle, std::optional<float> cut_angle,
-                       bool timestamp_first_packet) {
-             auto cfg                     = std::make_unique<Config>();
-             cfg->model                   = model;
-             cfg->calibration             = calibration;
-             cfg->min_range               = min_range;
-             cfg->max_range               = max_range;
-             cfg->min_angle               = min_angle;
-             cfg->max_angle               = max_angle;
-             cfg->timestamp_first_packet  = timestamp_first_packet;
-             cfg->cut_angle               = cut_angle;
-             cfg->single_return_mode_info = single_return_mode_info;
+                       float min_range, float max_range, float min_angle, float max_angle,
+                       std::optional<float> cut_angle, bool timestamp_first_packet) {
+             auto cfg                    = std::make_unique<Config>();
+             cfg->model                  = model;
+             cfg->calibration            = calibration;
+             cfg->min_range              = min_range;
+             cfg->max_range              = max_range;
+             cfg->min_angle              = min_angle;
+             cfg->max_angle              = max_angle;
+             cfg->timestamp_first_packet = timestamp_first_packet;
+             cfg->cut_angle              = cut_angle;
              return cfg;
            }),
-           py::kw_only(),                                   //
-           py::arg("model")                   = py::none(), //
-           py::arg("calibration")             = py::none(), //
-           py::arg("single_return_mode_info") = false,      //
-           py::arg("min_range")               = 0.1,        //
-           py::arg("max_range")               = 200,        //
-           py::arg("min_angle")               = 0,          //
-           py::arg("max_angle")               = 360,        //
-           py::arg("cut_angle")               = py::none(), //
-           py::arg("timestamp_first_packet")  = false       //
+           py::kw_only(),                                  //
+           py::arg("model")                  = py::none(), //
+           py::arg("calibration")            = py::none(), //
+           py::arg("min_range")              = 0.1,        //
+           py::arg("max_range")              = 200,        //
+           py::arg("min_angle")              = 0,          //
+           py::arg("max_angle")              = 360,        //
+           py::arg("cut_angle")              = py::none(), //
+           py::arg("timestamp_first_packet") = false       //
            )
       .def_readwrite("model", &Config::model)
       .def_readwrite("calibration", &Config::calibration)
-      .def_readwrite("single_return_mode_info", &Config::single_return_mode_info)
       .def_readwrite("min_range", &Config::min_range)
       .def_readwrite("max_range", &Config::max_range)
       .def_readwrite("min_angle", &Config::min_angle)
@@ -125,7 +121,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::bind_vector<std::vector<VelodynePacket>>(m, "PacketVector");
 
-  PYBIND11_NUMPY_DTYPE(PointXYZIRT, x, y, z, intensity, ring, time);
+  PYBIND11_NUMPY_DTYPE(VelodynePoint, x, y, z, intensity, return_type, ring, time);
 
   py::class_<ScanDecoder>(m, "ScanDecoder")
       .def(py::init<const Config &>(), py::arg("config") = Config())
@@ -352,23 +348,12 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
       .value("VLS128", ModelId::VLS128, "VLS-128 (aka Alpha Prime)")
       .value("AlphaPrime", ModelId::AlphaPrime, "Alpha Prime (aka VLS-128)");
 
-  py::enum_<ReturnModeFlag>(
-      m, "ReturnModeFlag",
-      "Flag added to the 'ring' field of a point depending on its return type.")
-      .value("SINGLE_RETURN", ReturnModeFlag::SINGLE_RETURN_FLAG,
-             "Single-return mode (if single_return_mode_info is False)")
-      .value("STRONGEST", ReturnModeFlag::STRONGEST_RETURN_FLAG,
-             "The strongest reflection in a firing")
-      .value("LAST", ReturnModeFlag::STRONGEST_RETURN_FLAG, "The last reflection in a firing")
-      .value("BOTH", ReturnModeFlag::BOTH_RETURN_FLAG,
+  py::enum_<ReturnMode>(m, "ReturnMode",
+                        "Flag added to the 'ring' field of a point depending on its return type.")
+      .value("STRONGEST", ReturnMode::STRONGEST, "The strongest reflection in a firing")
+      .value("LAST", ReturnMode::LAST, "The last reflection in a firing")
+      .value("BOTH", ReturnMode::BOTH,
              "Point is both the last and the strongest reflection in a firing");
-
-  py::enum_<DualReturnMode>(
-      m, "DualReturnMode",
-      "Possible values of the the 'return_mode' attribute for the PacketDecoder.")
-      .value("STRONGEST", DualReturnMode::STRONGEST_RETURN)
-      .value("LAST", DualReturnMode::LAST_RETURN)
-      .value("DUAL", DualReturnMode::DUAL_RETURN);
 
   m.attr("PACKET_SIZE")           = PACKET_SIZE;
   m.attr("TELEMETRY_PACKET_SIZE") = TELEMETRY_PACKET_SIZE;

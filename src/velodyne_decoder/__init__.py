@@ -11,7 +11,7 @@ from .velodyne_decoder_pylib import (
     TelemetryPacket,
     PacketVector,
     Model,
-    ReturnModeFlag,
+    ReturnMode,
     PACKET_SIZE,
     TELEMETRY_PACKET_SIZE,
     __version__ as _pylib_version,

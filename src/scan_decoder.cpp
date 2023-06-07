@@ -34,8 +34,6 @@ ScanDecoder::decode(const std::vector<VelodynePacket> &scan_packets) {
 
 std::optional<ModelId> ScanDecoder::modelId() const { return packet_decoder_.modelId(); }
 
-std::optional<DualReturnMode> ScanDecoder::returnMode() const {
-  return packet_decoder_.returnMode();
-}
+std::optional<ReturnMode> ScanDecoder::returnMode() const { return packet_decoder_.returnMode(); }
 
 } // namespace velodyne_decoder
