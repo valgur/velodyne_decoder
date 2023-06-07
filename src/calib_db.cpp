@@ -23,6 +23,29 @@ CalibDB::CalibDB() {
       {ModelId::VLP16, 0.002},      {ModelId::VLP32A, 0.004}, {ModelId::VLP32C, 0.004},
   };
 
+  // Distance from the sensor center to the focal point where all laser beams intersect.
+  std::map<ModelId, float> focal_distances = {
+      {ModelId::AlphaPrime, 58.63e-3}, {ModelId::HDL32E, 28.83e-3}, {ModelId::PuckHiRes, 41.91e-3},
+      {ModelId::VLP16, 41.91e-3},      {ModelId::VLP32A, 42.4e-3},  {ModelId::VLP32C, 42.4e-3},
+  };
+
+  std::map<ModelId, std::vector<float>> vertical_offsets;
+  // https://velodynelidar.com/wp-content/uploads/2019/09/86-0101-REV-B1-ENVELOPEVLP-16.pdf#page=3
+  // VLP-16 vertical offsets are documented, but re-deriving them from the focal distance and angles
+  // produces more accurate values.
+  // https://velodynelidar.com/wp-content/uploads/2019/09/86-0129-REV-A-ENVELOPEHI-RESVLP-16.pdf#page=3
+  vertical_offsets[ModelId::PuckHiRes] = {
+      7.4e-3, -0.9e-3, 6.5e-3, -1.8e-3, 5.5e-3, -2.7e-3, 4.6e-3, -3.7e-3,
+      3.7e-3, -4.6e-3, 2.7e-3, -5.5e-3, 1.8e-3, -6.5e-3, 0.9e-3, -7.4e-3,
+  };
+  // https://velodynelidar.com/wp-content/uploads/2019/09/86-0106-REV-BENVELOPEHDL-32E.pdf#page=2
+  vertical_offsets[ModelId::HDL32E] = {
+      17.17e-3, 4.76e-3,  16.27e-3, 4.07e-3,  15.4e-3,  3.38e-3,  14.54e-3, 2.7e-3,
+      13.71e-3, 2.02e-3,  12.89e-3, 1.35e-3,  12.09e-3, 0.67e-3,  11.31e-3, 0,
+      10.54e-3, -0.67e-3, 9.78e-3,  -1.35e-3, 9.04e-3,  -2.02e-3, 8.3e-3,   -2.7e-3,
+      7.58e-3,  -3.38e-3, 6.86e-3,  -4.07e-3, 6.15e-3,  -4.76e-3, 5.45e-3,  -5.45e-3,
+  };
+
   std::map<ModelId, std::vector<MinimalCalibData>> raw_calib_data;
   raw_calib_data[ModelId::AlphaPrime] = {
       {-6.354, -11.742}, {-4.548, -1.99}, {-2.732, 3.4},     {-0.911, -5.29},  {0.911, -0.78},
@@ -91,7 +114,18 @@ CalibDB::CalibDB() {
       auto &corr           = laser_corrections[i];
       corr.rot_correction  = (float)(data[i].rot_corr_deg * M_PI / 180.0);
       corr.vert_correction = (float)(data[i].vert_corr_deg * M_PI / 180.0);
-      corr.laser_idx       = i;
+      // The vertical offset correction is not provided for some of the models,
+      // but it can be approximated from the beam angle and focal distance.
+      // It will still be more accurate than not correcting for the offset at all.
+      corr.vert_offset_correction = focal_distances[model] * std::tan(-corr.vert_correction);
+      corr.laser_idx              = i;
+    }
+    // Apply pre-defined vertical offset corrections, if available.
+    if (vertical_offsets.find(model) != vertical_offsets.end()) {
+      const auto &offsets = vertical_offsets[model];
+      for (size_t i = 0; i < data.size(); i++) {
+        laser_corrections[i].vert_offset_correction = offsets[i];
+      }
     }
     calibrations_.emplace(model, Calibration{laser_corrections, resolutions[model]});
   }

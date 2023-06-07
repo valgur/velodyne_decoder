@@ -257,17 +257,20 @@ void PacketDecoder::setupSinCosCache() {
 
 void PacketDecoder::setupCalibrationCache(const Calibration &calibration) {
   apply_advanced_calibration_ = calibration.isAdvancedCalibration();
+  distance_resolution_ = calibration.distance_resolution_m;
   cos_rot_correction_.resize(calibration.num_lasers);
   sin_rot_correction_.resize(calibration.num_lasers);
   cos_vert_correction_.resize(calibration.num_lasers);
   sin_vert_correction_.resize(calibration.num_lasers);
   ring_cache_.resize(calibration.num_lasers);
+  vert_offset_cache_.resize(calibration.num_lasers);
   for (int i = 0; i < calibration.num_lasers; i++) {
     cos_rot_correction_[i]  = cosf(calibration.laser_corrections[i].rot_correction);
     sin_rot_correction_[i]  = sinf(calibration.laser_corrections[i].rot_correction);
     cos_vert_correction_[i] = cosf(calibration.laser_corrections[i].vert_correction);
     sin_vert_correction_[i] = sinf(calibration.laser_corrections[i].vert_correction);
     ring_cache_[i]          = calibration.laser_corrections[i].laser_ring;
+    vert_offset_cache_[i]   = calibration.laser_corrections[i].vert_offset_correction;
   }
 }
 
@@ -657,7 +660,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimu
                                 const raw_measurement_t measurement,
                                 ReturnModeFlag return_mode_flag) const {
   uint16_t raw_distance   = measurement.distance;
-  float measured_distance = raw_distance * calibration_.distance_resolution_m;
+  float measured_distance = raw_distance * distance_resolution_;
 
   float cos_vert_angle     = cos_vert_correction_[laser_idx];
   float sin_vert_angle     = sin_vert_correction_[laser_idx];
@@ -685,7 +688,7 @@ void PacketDecoder::unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimu
     // Use the standard ROS coordinate system (x - forward, y - left, z - up)
     float x = xy_distance * cos_rot_angle;
     float y = -xy_distance * sin_rot_angle;
-    float z = measured_distance * sin_vert_angle;
+    float z = measured_distance * sin_vert_angle + vert_offset_cache_[laser_idx];
 
     uint16_t ring = ring_cache_[laser_idx] | return_mode_flag;
 

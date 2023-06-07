@@ -79,9 +79,7 @@ template <> struct convert<velodyne_decoder::LaserCorrection> {
     }
     node[ROT_CORRECTION]  = correction.rot_correction;
     node[VERT_CORRECTION] = correction.vert_correction;
-    if (correction.vert_offset_correction != 0) {
-      node[VERT_OFFSET_CORRECTION] = correction.vert_offset_correction;
-    }
+    node[VERT_OFFSET_CORRECTION] = correction.vert_offset_correction;
     return node;
   }
 };
@@ -148,8 +146,6 @@ bool Calibration::isAdvancedCalibration() const {
     if (corr.dist_correction_x != 0)
       return true;
     if (corr.dist_correction_y != 0)
-      return true;
-    if (corr.vert_offset_correction != 0)
       return true;
     if (corr.horiz_offset_correction != 0)
       return true;

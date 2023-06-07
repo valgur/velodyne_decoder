@@ -86,11 +86,13 @@ private:
 
   // Cache of basic calibration parameters
   bool apply_advanced_calibration_;
+  float distance_resolution_;
   std::vector<float> cos_rot_correction_;  ///< cosine of rot_corrections
   std::vector<float> sin_rot_correction_;  ///< sine of rot_corrections
   std::vector<float> cos_vert_correction_; ///< cosine of vert_corrections
   std::vector<float> sin_vert_correction_; ///< sine of vert_corrections
   std::vector<uint16_t> ring_cache_;       ///< cache for ring lookup
+  std::vector<float> vert_offset_cache_;   ///< cache for vertical offsets
 
   // timing offset lookup table
   std::array<std::array<float, 32>, 12> timing_offsets_;
