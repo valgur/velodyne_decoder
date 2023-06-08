@@ -33,11 +33,12 @@ inline py::array_t<dtype> as_pyarray(Sequence &&seq) {
 }
 
 py::array as_contiguous(const PointCloud &cloud) {
-  const int ncols = 7;
+  const int ncols = 8;
   std::vector<std::array<float, ncols>> arr;
   arr.reserve(cloud.size());
   for (const auto &p : cloud) {
-    arr.push_back({p.x, p.y, p.z, p.intensity, (float)p.ring, p.time, (float)p.return_type});
+    arr.push_back(
+        {p.x, p.y, p.z, p.intensity, p.time, (float)p.column, (float)p.ring, (float)p.return_type});
   }
   return as_pyarray<decltype(arr), float>(std::move(arr));
 }
@@ -121,7 +122,7 @@ PYBIND11_MODULE(velodyne_decoder_pylib, m) {
 
   py::bind_vector<std::vector<VelodynePacket>>(m, "PacketVector");
 
-  PYBIND11_NUMPY_DTYPE(VelodynePoint, x, y, z, intensity, return_type, ring, time);
+  PYBIND11_NUMPY_DTYPE(VelodynePoint, x, y, z, intensity, time, column, ring, return_type);
 
   py::class_<ScanDecoder>(m, "ScanDecoder")
       .def(py::init<const Config &>(), py::arg("config") = Config())

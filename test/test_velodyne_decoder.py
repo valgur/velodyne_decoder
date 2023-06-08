@@ -4,14 +4,15 @@
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 import velodyne_decoder as vd
 import yaml
 
 pcl_struct_dtype = {
-    "names": ["x", "y", "z", "intensity", "ring", "time", "return_type"],
-    "formats": ["<f4", "<f4", "<f4", "<f4", "u1", "<f4", "u1"],
-    "offsets": [0, 4, 8, 12, 16, 20, 24],
+    "names": ["x", "y", "z", "intensity", "time", "column", "ring", "return_type"],
+    "formats": ["<f4", "<f4", "<f4", "<f4", "<f4", "<u2", "u1", "u1"],
+    "offsets": [0, 4, 8, 12, 16, 20, 22, 23],
     "itemsize": 32,
 }
 calib_data_dir = Path(__file__).parent.parent / "src/velodyne_decoder/calibrations"
@@ -31,8 +32,11 @@ def test_pcap_as_contiguous_array(sample_pcap_path):
     assert len(pcds) == 94
     stamp, pcd = pcds[0]
     assert stamp.host == 1427759049.259595
-    assert pcd.shape == (27657, 7)
+    assert pcd.shape == (27657, 8)
     assert pcd.dtype.name == "float32"
+    # Check that the column index is monotonically increasing
+    column_idx = pcd[:, 5].astype(int)
+    assert np.diff(column_idx).min() == 0
 
 
 def test_pcap_as_struct_array(sample_pcap_path):
@@ -42,6 +46,9 @@ def test_pcap_as_struct_array(sample_pcap_path):
     assert stamp.host == 1427759049.259595
     assert pcd.shape == (27657,)
     assert pcd.dtype == pcl_struct_dtype
+    # Check that the column index is monotonically increasing
+    column_idx = pcd["column"].astype(int)
+    assert np.diff(column_idx).min() == 0
 
 
 def test_pcap_time_range(sample_pcap_path):
@@ -58,7 +65,7 @@ def test_bag_as_contiguous_array(sample_bag_path):
     stamp, pcd, topic, frame_id = pcds[0]
     assert topic == "/velodyne_packets"
     assert stamp.host == 1636622716.742135
-    assert pcd.shape == (27300, 7)
+    assert pcd.shape == (27300, 8)
     assert pcd.dtype.name == "float32"
     assert frame_id == "velodyne"
 
@@ -80,7 +87,7 @@ def test_bag_automatic_topic(sample_bag_path):
     stamp, pcd, topic, frame_id = pcds[0]
     assert topic == "/velodyne_packets"
     assert stamp.host == 1636622716.742135
-    assert pcd.shape == (27300, 7)
+    assert pcd.shape == (27300, 8)
     assert frame_id == "velodyne"
 
 

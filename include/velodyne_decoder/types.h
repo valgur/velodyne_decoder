@@ -64,13 +64,14 @@ struct alignas(16) VelodynePoint {
     float z;
     float intensity;
   };
-  uint8_t ring;
   float time;
+  uint16_t column;
+  uint8_t ring;
   ReturnMode return_type;
 
   VelodynePoint() = default;
-  VelodynePoint(float x, float y, float z, float intensity, uint8_t ring, float time,
-                ReturnMode return_type);
+  VelodynePoint(float x, float y, float z, float intensity, float time, uint16_t column,
+                uint8_t ring, ReturnMode return_type);
 };
 static_assert(sizeof(VelodynePoint) == 32, "VelodynePoint is not 32 bytes");
 using PointCloud = std::vector<VelodynePoint>;

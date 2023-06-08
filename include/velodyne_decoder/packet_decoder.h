@@ -60,9 +60,9 @@ private:
   void unpack_vls128(const raw_packet_t &raw, float rel_packet_stamp, PointCloud &cloud);
 
   void unpackPointDual(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
-                       raw_measurement_t last, raw_measurement_t strongest) const;
+                       uint16_t column, raw_measurement_t last, raw_measurement_t strongest) const;
 
-  void unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time,
+  void unpackPoint(PointCloud &cloud, int laser_idx, uint16_t azimuth, float time, uint16_t column,
                    raw_measurement_t measurement, ReturnMode return_mode) const;
 
   /** in-line test whether a point is in range */
