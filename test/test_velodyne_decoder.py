@@ -35,7 +35,7 @@ def test_pcap_as_contiguous_array(sample_pcap_path):
     assert pcd.shape == (27657, 8)
     assert pcd.dtype.name == "float32"
     # Check that the column index is monotonically increasing
-    column_idx = pcd[:, 5].astype(int)
+    column_idx = pcd[:, vd.PointField.column].astype(int)
     assert np.diff(column_idx).min() == 0
 
 
