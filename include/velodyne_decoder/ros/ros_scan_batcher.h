@@ -12,9 +12,11 @@
 #include <string>
 
 namespace velodyne_decoder {
-inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet) {
-  return {packet.stamp.toSec(),
-          gsl::span<const uint8_t, velodyne_decoder::PACKET_SIZE>{packet.data}};
+inline PacketView toPacketView(const velodyne_msgs::VelodynePacket &packet_msg) {
+  return {packet_msg.stamp.toSec(), gsl::span<const uint8_t, PACKET_SIZE>{packet_msg.data}};
+}
+inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet_msg) {
+  return toPacketView(packet_msg).stamp;
 }
 } // namespace velodyne_decoder
 
