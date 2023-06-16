@@ -27,13 +27,13 @@ public:
   using Base = ScanBatcher<velodyne_msgs::VelodynePacket>;
 
   inline explicit RosScanBatcher(const Config &config, const std::string frame_id)
-      : scan_batcher_(config), frame_id_(frame_id) {
+      : frame_id_(frame_id), timestamp_first_packet_(config.timestamp_first_packet),
+        scan_batcher_(config) {
     reset();
   }
 
   inline void reset() {
-    scan_msg_                  = boost::make_shared<velodyne_msgs::VelodyneScan>();
-    scan_msg_->header.frame_id = frame_id_;
+    scan_msg_ = boost::make_shared<velodyne_msgs::VelodyneScan>();
     scan_batcher_.reset({&scan_msg_->packets, [](auto *) {}});
   }
 
@@ -44,12 +44,15 @@ public:
   [[nodiscard]] inline bool scanComplete() const { return scan_batcher_.scanComplete(); }
 
   [[nodiscard]] inline const boost::shared_ptr<velodyne_msgs::VelodyneScan> &scanMsg() const {
-    scan_msg_->header.stamp = scan_msg_->packets.front().stamp;
+    scan_msg_->header.frame_id = frame_id_;
+    scan_msg_->header.stamp    = timestamp_first_packet_ ? scan_msg_->packets.front().stamp
+                                                         : scan_msg_->packets.back().stamp;
     return scan_msg_;
   }
 
 private:
   std::string frame_id_;
+  bool timestamp_first_packet_;
   ScanBatcher<velodyne_msgs::VelodynePacket> scan_batcher_;
   boost::shared_ptr<velodyne_msgs::VelodyneScan> scan_msg_;
 };
