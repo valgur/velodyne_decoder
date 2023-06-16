@@ -15,9 +15,6 @@ namespace velodyne_decoder {
 inline PacketView toPacketView(const velodyne_msgs::VelodynePacket &packet_msg) {
   return {packet_msg.stamp.toSec(), gsl::span<const uint8_t, PACKET_SIZE>{packet_msg.data}};
 }
-inline TimePair getPacketTime(const velodyne_msgs::VelodynePacket &packet_msg) {
-  return toPacketView(packet_msg).stamp;
-}
 } // namespace velodyne_decoder
 
 #include <velodyne_decoder/config.h>

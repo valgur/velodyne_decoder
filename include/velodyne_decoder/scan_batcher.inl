@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "velodyne_decoder/config.h"
+#include "velodyne_decoder/scan_batcher.h"
 #include "velodyne_decoder/time_conversion.h"
 #include "velodyne_decoder/types.h"
 
@@ -12,12 +13,10 @@
 
 namespace velodyne_decoder {
 
-TimePair getPacketTime(const VelodynePacket &packet) { return packet.stamp; }
-
-template <typename PacketT> int getPacketAzimuth(const PacketT &data) {
+inline int getAzimuth(const PacketView &packet) {
   // get the azimuth of the last block
   uint16_t azimuth = 0;
-  memcpy(&azimuth, &data[(BLOCKS_PER_PACKET - 1) * SIZE_BLOCK + 2], sizeof(azimuth));
+  memcpy(&azimuth, &packet.data[(BLOCKS_PER_PACKET - 1) * SIZE_BLOCK + 2], sizeof(azimuth));
   return (int)azimuth;
 }
 
@@ -33,7 +32,8 @@ ScanBatcher<T>::ScanBatcher(const Config &config)
 }
 
 template <typename T> bool ScanBatcher<T>::push(const T &packet) {
-  TimePair stamp = getPacketTime(packet);
+  PacketView packet_view = toPacketView(packet);
+  TimePair stamp         = packet_view.stamp;
   if (!is_device_time_valid_) {
     // HDL-64E S1 does not contain device time info in its packets.
     stamp.device = stamp.host;
@@ -43,12 +43,12 @@ template <typename T> bool ScanBatcher<T>::push(const T &packet) {
     reset();
   }
 
-  int azimuth = getPacketAzimuth(packet.data);
+  int azimuth = getAzimuth(packet_view);
   if (initial_azimuth_ < 0) {
     initial_azimuth_ = azimuth;
   }
 
-  double duration = empty() ? 0.0 : stamp.host - getPacketTime(scan_packets_->front()).host;
+  double duration = empty() ? 0.0 : stamp.host - toPacketView(scan_packets_->front()).stamp.host;
   if (duration > duration_threshold_) {
     kept_last_packet_ = packet;
     scan_complete_    = true;
@@ -76,7 +76,7 @@ template <typename T> const std::shared_ptr<std::vector<T>> &ScanBatcher<T>::sca
 
 template <typename T> void ScanBatcher<T>::reset(std::shared_ptr<std::vector<T>> scan_packets) {
   if (cut_angle_ < 0) {
-    initial_azimuth_ = empty() ? -1 : getPacketAzimuth(scan_packets_->back().data);
+    initial_azimuth_ = empty() ? -1 : getAzimuth(toPacketView(scan_packets_->back()));
   } else {
     initial_azimuth_ = cut_angle_;
   }

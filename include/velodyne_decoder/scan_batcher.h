@@ -51,10 +51,7 @@ private:
   const double duration_threshold_ = 0.3; // max scan duration at ~4 Hz
 };
 
-// Traits to access the default PacketT=VelodynePacket fields.
-// Intended to be overriden for custom packet types.
-inline TimePair getPacketTime(const VelodynePacket &packet);
-template <typename PacketT> int getPacketAzimuth(const PacketT &data);
+inline PacketView toPacketView(const VelodynePacket &packet) { return {packet}; }
 
 extern template class ScanBatcher<VelodynePacket>;
 
