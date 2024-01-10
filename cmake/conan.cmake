@@ -9,7 +9,7 @@ endif()
 
 if(USE_CONAN AND NOT BUILD_TRIGGERED_BY_CONAN)
   if(CMAKE_VERSION GREATER_EQUAL 3.24)
-    list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/conan_provider.cmake)
+    list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/conan_support.cmake)
   else()
     message(WARNING
       "CMake 3.24 or greater is required to use Conan dependencies automatically. "

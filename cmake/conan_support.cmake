@@ -354,3 +354,8 @@ macro(conan_provide_dependency package_name)
     endif()
     find_package(${ARGN} BYPASS_PROVIDER)
 endmacro()
+
+cmake_language(
+        SET_DEPENDENCY_PROVIDER conan_provide_dependency
+        SUPPORTED_METHODS FIND_PACKAGE
+)
