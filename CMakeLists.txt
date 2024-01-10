@@ -46,7 +46,7 @@ add_library(velodyne_decoder
   src/types.cpp
 )
 target_link_libraries(velodyne_decoder
-  PRIVATE yaml-cpp
+  PRIVATE yaml-cpp::yaml-cpp
   PUBLIC Microsoft.GSL::GSL
 )
 target_include_directories(velodyne_decoder

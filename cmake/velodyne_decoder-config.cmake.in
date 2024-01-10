@@ -12,6 +12,7 @@ if(velodyne_decoder_BUNDLED_THIRD_PARTY_LIBS)
     # TODO: This info could be generated with a custom Conan deployer instead
     # e.g. https://github.com/conan-io/conan-extensions/blob/main/extensions/deployers/runtime_zip_deploy.py
     add_library(velodyne_decoder_third_party INTERFACE)
+    add_library(yaml-cpp::yaml-cpp ALIAS velodyne_decoder_third_party)
     add_library(Microsoft.GSL::GSL ALIAS velodyne_decoder_third_party)
 
     target_include_directories(velodyne_decoder_third_party INTERFACE "@PACKAGE_THIRD_PARTY_INCLUDEDIR@")
