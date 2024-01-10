@@ -1,16 +1,11 @@
-include(cmake/conan.cmake)
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
+include(cmake/third_party.cmake)
 project(velodyne_decoder CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-if(NOT CMAKE_BUILD_TYPE)
-  message(STATUS "No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
 
 if(MSVC)
   add_compile_options(/W4 /O2)
@@ -22,8 +17,6 @@ else()
     -Wall
     -Wno-sign-compare
     -Wextra
-    # disabled since pedantic complains about 'ISO C++ prohibits anonymous structs' for PointXYZIRT
-    # -Wpedantic
   )
 endif()
 
@@ -63,6 +56,10 @@ if(BUILD_PYTHON OR SKBUILD)
   install(TARGETS ${PROJECT_NAME}_pylib LIBRARY DESTINATION .)
 endif()
 
+if(MSVC)
+  copy_third_party_dlls()
+endif()
+
 ## Install
 if(NOT SKBUILD)
   include(GNUInstallDirs)
@@ -71,5 +68,9 @@ if(NOT SKBUILD)
           ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
           LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-  install(DIRECTORY ${PROJECT_SOURCE_DIR}/include DESTINATION .)
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+  if(INSTALL_THIRD_PARTY)
+    install_third_party_libs()
+  endif()
 endif()
