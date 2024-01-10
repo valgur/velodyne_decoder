@@ -14,44 +14,138 @@ on:
       - 'assets/**'
 jobs:
   python:
-    runs-on: ${{ matrix.os }}
+    name: Python - ${{ matrix.platform[0] }} - ${{ matrix.platform[2] }}
+    runs-on: ${{ matrix.platform[1] }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-        python-version: [ '3.7', '3.11' ]
+        platform:
+          - [Linux, ubuntu-latest, x86_64]
+          - [Linux, ubuntu-latest, i686]
+          - [Windows, windows-latest, AMD64]
+          - [Windows, windows-latest, x86]
+          - [Windows, windows-latest, ARM64]
+          - [MacOS, macos-latest, x86_64]
+          - [MacOS, macos-latest, arm64]
+          # universal2 is not compatible with Conan dependencies
+          # - [MacOS, macos-latest, universal2]
+          # aarch64 with QEMU works, but builds 10x slower than the rest
+          # - [Linux, ubuntu-latest, aarch64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          platforms: all
 
-      - name: Build and install
-        run: pip install . -v
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-      - name: Install test dependencies
-        run: pip install -r requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade cibuildwheel
 
-      - name: Run tests
-        run: pytest test --color=yes -vs
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.platform[2] }}
+          CIBW_BUILD: cp38* cp312*
+          CIBW_SKIP: "*-musllinux*"
+
+      - name: Inspect
+        run: ls wheelhouse/
 
   conan:
-    runs-on: ${{ matrix.os }}
+    name: Conan - ${{ matrix.platform[0] }} - ${{ matrix.platform[2] }}
+    runs-on: ${{ matrix.platform[1] }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        platform:
+          - [Linux, ubuntu-latest, gcc]
+          - [Linux, ubuntu-latest, clang]
+          - [Windows, windows-latest, msvc]
+          - [MacOS, macos-latest, apple-clang]
     steps:
       - uses: actions/checkout@v3
+
+      - name: Install Clang
+        if: matrix.platform[2] == 'clang'
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "17.0"
+
+      - name: Set env vars for Clang
+        if: matrix.platform[2] == 'clang'
+        run: echo "CC=clang" >> $GITHUB_ENV && echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Install Conan
         id: conan
         uses: turtlebrowser/get-conan@main
 
-      - name: Create default profile
-        run: conan profile detect
+      - name: Create default Conan profile
+        shell: bash
+        run: |
+          conan profile detect
+          if [[ "$RUNNER_OS" == "macOS" ]]; then sed_i='sed -i ""'; else sed_i='sed -i'; fi
+          $sed_i 's/compiler.cppstd=.*/compiler.cppstd=17/' "$(conan config home)/profiles/default"
 
-      - name: Build Conan package
+      - name: Build Conan package - static
         run: conan create . --build missing
+
+      - name: Build Conan package - shared
+        run: conan create . --build missing -o "*/*:shared=True"
+
+  standalone:
+    name: CMake - ${{ matrix.platform[0] }} - ${{ matrix.platform[2] }}
+    runs-on: ${{ matrix.platform[1] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - [Linux, ubuntu-latest, gcc]
+          - [Linux, ubuntu-latest, clang]
+          - [Windows, windows-latest, msvc]
+          - [MacOS, macos-11, apple-clang]
+          # macos-latest with v12.7 is too new for Conan at the moment
+          # - [MacOS, macos-latest, apple-clang]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Clang
+        if: matrix.platform[2] == 'clang'
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "17.0"
+
+      - name: Set env vars for Clang
+        if: matrix.platform[2] == 'clang'
+        run: echo "CC=clang" >> $GITHUB_ENV && echo "CXX=clang++" >> $GITHUB_ENV
+
+      - uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.15"
+
+      - name: Install Conan
+        id: conan
+        uses: turtlebrowser/get-conan@main
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel --config Release
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release
+
+      - name: Install
+        run: cmake --install build --prefix install --config Release
+
+      - name: Test installed library
+        shell: bash
+        run: |
+          cmake -S test_package/ -B build/test_install -Dvelodyne_decoder_ROOT=$(pwd)/install/lib/cmake/velodyne_decoder/
+          cmake --build build/test_install --config Release
