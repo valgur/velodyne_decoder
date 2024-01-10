@@ -1,0 +1,15 @@
+{
+  "name": "velodyne-decoder",
+  "description": "Decoder for raw Velodyne packet data",
+  "version-string": "3.0.0",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/valgur/velodyne_decoder",
+  "maintainers": [
+    "Martin Valgur <martin.valgur@gmail.com>"
+  ],
+  "builtin-baseline": "c9919121dde6f61c0436adda94624636e041226b",
+  "dependencies": [
+    "yaml-cpp",
+    "ms-gsl"
+  ]
+}
