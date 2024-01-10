@@ -65,7 +65,7 @@ skip = "pp*"
 before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/ --upgrade --upgrade-strategy eager"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
-archs = "auto"
+archs = "auto64"
 
 # Needed for full C++17 support
 [tool.cibuildwheel.macos.environment]
