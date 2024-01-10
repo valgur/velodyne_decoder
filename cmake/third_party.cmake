@@ -7,9 +7,13 @@ if(FOUND_CONAN_TOOLCHAIN GREATER_EQUAL 0)
     set(BUILD_TRIGGERED_BY_CONAN TRUE)
 endif()
 
-if(DEFINED VCPKG_TOOLCHAIN OR BUILD_TRIGGERED_BY_CONAN)
+
+if(DEFINED VCPKG_TOOLCHAIN)
+    message(NOTICE "Vcpkg toolchain detected, disabling automatic dependency management")
     set(USE_CONAN FALSE)
-    message(NOTICE "Vcpkg or Conan toolchain detected, disabling automatic dependency management")
+elseif(BUILD_TRIGGERED_BY_CONAN)
+    message(NOTICE "Conan toolchain already in use, disabling automatic dependency management")
+    set(USE_CONAN FALSE)
 else()
     option(USE_CONAN "Use Conan to automatically manage dependencies" TRUE)
 endif()
@@ -18,11 +22,27 @@ include(CMakeDependentOption)
 cmake_dependent_option(INSTALL_THIRD_PARTY "Install third-party dependencies alongside the project" TRUE "USE_CONAN" FALSE)
 
 if(USE_CONAN)
-    set(CONAN_EXTRA_INSTALL_ARGS
-        # Deploy the installed dependencies in the build dir for easier installation
-        --deployer=full_deploy --deployer-folder=${CMAKE_BINARY_DIR}
-    )
-    list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/conan_provider.cmake)
+    if(CMAKE_VERSION GREATER_EQUAL 3.24)
+        set(CONAN_EXTRA_INSTALL_ARGS
+            # Deploy the installed dependencies in the build dir for easier installation
+            --deployer=full_deploy --deployer-folder=${CMAKE_BINARY_DIR}
+        )
+        list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/conan_provider.cmake)
+    else()
+        if(NOT EXISTS "${CMAKE_BINARY_DIR}/full_deploy")
+            message(FATAL_ERROR
+                "CMake 3.24 or greater is required to install Conan dependencies automatically. "
+                "You will have to run\n"
+                "'conan install . --build=missing --deployer=full_deploy --deployer-folder=build/Release'\n"
+                "manually in the repository root instead."
+            )
+        endif()
+        # To use the output from the Conan CMakeDeps generator
+        list(PREPEND CMAKE_PREFIX_PATH
+            ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/generators
+            ${CMAKE_CURRENT_BINARY_DIR}/build/${CMAKE_BUILD_TYPE}/generators
+        )
+    endif()
 endif()
 
 set(CONAN_DEPLOYER_DIR "${CMAKE_BINARY_DIR}/full_deploy/host")
