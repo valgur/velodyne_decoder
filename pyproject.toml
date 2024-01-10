@@ -13,7 +13,7 @@ keywords = [
     "pointcloud",
     "PCL",
 ]
-license = {file = "LICENSE"}
+license = {text = "BSD-3-Clause"}
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 2",
@@ -39,14 +39,24 @@ include-package-data = true
 
 [build-system]
 requires = [
-    "setuptools >= 42",
-    "wheel",
-    "scikit-build >= 0.16.7",
-    "cmake >= 3.24",
-    "ninja",
-    "conan >= 2",
+    "scikit-build-core >=0.4.3",
+    "conan >=2.0.5",
+    "pybind11"
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+cmake.minimum-version = "3.15"
+cmake.targets = ["python_bindings"]
+install.components = ["python"]
+wheel.license-files = ["LICENSE"]
+build-dir = "build/{wheel_tag}"
+# Build stable ABI wheels for CPython 3.12+
+wheel.py-api = "cp312"
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON = true
+BUILD_SHARED_LIBS = false
 
 [tool.cibuildwheel]
 build = "*"
@@ -55,4 +65,8 @@ skip = "pp*"
 before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
-archs = "auto64"
+archs = "auto"
+
+# Needed for full C++17 support
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.15"
