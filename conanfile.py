@@ -64,3 +64,4 @@ class VelodyneDecoderConan(ConanFile):
         self.cpp_info.set_property("pkg_config_name", "velodyne_decoder")
 
         self.cpp_info.libs = ["velodyne_decoder"]
+        self.cpp_info.defines = ["_USE_MATH_DEFINES"]

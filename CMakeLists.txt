@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.15)
 include(cmake/third_party.cmake)
-project(velodyne_decoder CXX)
+project(velodyne_decoder VERSION 3.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+endif()
+if(NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 if(MSVC)
   add_compile_options(/W4 /O2)
@@ -23,7 +27,7 @@ endif()
 find_package(yaml-cpp 0.7 REQUIRED)
 find_package(Microsoft.GSL REQUIRED)
 
-add_library(${PROJECT_NAME}
+add_library(velodyne_decoder
   src/calibration.cpp
   src/calib_db.cpp
   src/packet_decoder.cpp
@@ -34,26 +38,24 @@ add_library(${PROJECT_NAME}
   src/time_conversion.cpp
   src/types.cpp
 )
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(velodyne_decoder
   PRIVATE yaml-cpp
   PUBLIC Microsoft.GSL::GSL
 )
-target_include_directories(${PROJECT_NAME} PUBLIC include)
-target_compile_definitions(${PROJECT_NAME} PUBLIC _USE_MATH_DEFINES)
+target_include_directories(velodyne_decoder PUBLIC include)
+target_compile_definitions(velodyne_decoder PUBLIC _USE_MATH_DEFINES)
 
 set(BUILD_PYTHON FALSE CACHE BOOL "Whether to build a Python module in addition to the library")
 if(BUILD_PYTHON OR SKBUILD)
   find_package(pybind11 2.6 REQUIRED)
-  pybind11_add_module(${PROJECT_NAME}_pylib src/python.cpp)
-  target_include_directories(${PROJECT_NAME}_pylib PRIVATE include)
-  target_link_libraries(${PROJECT_NAME}_pylib PRIVATE ${PROJECT_NAME})
+  pybind11_add_module(velodyne_decoder_pylib src/python.cpp)
+  target_include_directories(velodyne_decoder_pylib PRIVATE include)
+  target_link_libraries(velodyne_decoder_pylib PRIVATE velodyne_decoder)
 
-  if (EXISTS VERSION_INFO)
-    target_compile_definitions(${PROJECT_NAME}_pylib PRIVATE VERSION_INFO=${VERSION_INFO})
-  endif()
+  target_compile_definitions(velodyne_decoder_pylib PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
   # Install directive for scikit-build
-  install(TARGETS ${PROJECT_NAME}_pylib LIBRARY DESTINATION .)
+  install(TARGETS velodyne_decoder_pylib LIBRARY DESTINATION .)
 endif()
 
 if(MSVC)
@@ -63,8 +65,8 @@ endif()
 ## Install
 if(NOT SKBUILD)
   include(GNUInstallDirs)
-  install(TARGETS ${PROJECT_NAME}
-          EXPORT ${PROJECT_NAME}_Targets
+  install(TARGETS velodyne_decoder
+          EXPORT velodyne_decoder_Targets
           ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
           LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
