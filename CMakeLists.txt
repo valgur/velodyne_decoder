@@ -46,7 +46,10 @@ target_link_libraries(velodyne_decoder
   PRIVATE yaml-cpp
   PUBLIC Microsoft.GSL::GSL
 )
-target_include_directories(velodyne_decoder PUBLIC include)
+target_include_directories(velodyne_decoder
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    PUBLIC "$<INSTALL_INTERFACE:include>"
+)
 target_compile_definitions(velodyne_decoder PUBLIC _USE_MATH_DEFINES)
 
 if(MSVC)
@@ -73,23 +76,56 @@ if(BUILD_PYTHON)
   endif()
 
   install(TARGETS python_bindings
-          LIBRARY DESTINATION ${PYTHON_INSTALL_DIR}
-          COMPONENT python)
+      LIBRARY DESTINATION ${PYTHON_INSTALL_DIR}
+      COMPONENT python)
   install(DIRECTORY src/velodyne_decoder/
-          DESTINATION ${PYTHON_INSTALL_DIR}
-          COMPONENT python)
+      DESTINATION ${PYTHON_INSTALL_DIR}
+      COMPONENT python)
 endif()
 
 ## Install
 
 include(GNUInstallDirs)
 install(TARGETS velodyne_decoder
-        EXPORT velodyne_decoder_Targets
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    EXPORT velodyne_decoder-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+set(CMAKE_INSTALL_DIR lib/cmake/velodyne_decoder)
+install(EXPORT velodyne_decoder-targets
+    NAMESPACE velodyne_decoder::
+    DESTINATION "${CMAKE_INSTALL_DIR}"
+    FILE velodyne_decoder-targets.cmake
+    COMPONENT velodyne_decoder
+)
+
+set(THIRD_PARTY_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/velodyne_decoder/third_party")
+set(THIRD_PARTY_LIBDIR "${CMAKE_INSTALL_LIBDIR}/velodyne_decoder/third_party")
+set(THIRD_PARTY_BINDIR "${CMAKE_INSTALL_BINDIR}/velodyne_decoder/third_party")
 if(INSTALL_THIRD_PARTY)
   install_third_party_libs()
 endif()
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/velodyne_decoder-config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/velodyne_decoder-config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_DIR}
+    PATH_VARS
+        CMAKE_INSTALL_INCLUDEDIR
+        CMAKE_INSTALL_LIBDIR
+        THIRD_PARTY_INCLUDEDIR
+        THIRD_PARTY_LIBDIR
+        THIRD_PARTY_BINDIR
+)
+
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/velodyne_decoder-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/velodyne_decoder-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/velodyne_decoder-config-version.cmake"
+    DESTINATION "${CMAKE_INSTALL_DIR}"
+)

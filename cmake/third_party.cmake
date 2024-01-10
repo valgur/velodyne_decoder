@@ -9,11 +9,13 @@ endif()
 
 if(DEFINED VCPKG_TOOLCHAIN OR BUILD_TRIGGERED_BY_CONAN)
     set(USE_CONAN FALSE)
+    message(NOTICE "Vcpkg or Conan toolchain detected, disabling automatic dependency management")
 else()
     option(USE_CONAN "Use Conan to automatically manage dependencies" TRUE)
 endif()
 
-option(INSTALL_THIRD_PARTY "Install third-party dependencies alongside the project" TRUE)
+include(CMakeDependentOption)
+cmake_dependent_option(INSTALL_THIRD_PARTY "Install third-party dependencies alongside the project" TRUE "USE_CONAN" FALSE)
 
 if(USE_CONAN)
     set(CONAN_EXTRA_INSTALL_ARGS
@@ -42,7 +44,7 @@ function(install_third_party_libs)
         # Copy includes
         if(EXISTS "${package_root}/include")
             install(DIRECTORY "${package_root}/include/"
-                    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/third_party")
+                    DESTINATION "${THIRD_PARTY_INCLUDEDIR}")
         endif()
         foreach(config ${configurations})
             if(NOT rel_conaninfo_path MATCHES ".+/${config}/.+")
@@ -53,7 +55,7 @@ function(install_third_party_libs)
             foreach(lib ${lib_files})
                 if(lib MATCHES "\\.(a|so[^/]*]|lib|dylib)$")
                     install(FILES "${lib}"
-                            DESTINATION "${CMAKE_INSTALL_LIBDIR}/third_party"
+                            DESTINATION "${THIRD_PARTY_LIBDIR}"
                             CONFIGURATIONS ${config})
                 endif()
             endforeach()
@@ -62,7 +64,7 @@ function(install_third_party_libs)
             foreach(dll ${dll_files})
                 if(dll MATCHES "\\.dll$")
                     install(FILES "${dll}"
-                            DESTINATION "${CMAKE_INSTALL_BINDIR}/third_party"
+                            DESTINATION "${THIRD_PARTY_BINDIR}"
                             CONFIGURATIONS ${config})
                 endif()
             endforeach()

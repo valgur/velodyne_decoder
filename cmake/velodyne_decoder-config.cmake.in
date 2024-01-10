@@ -1,0 +1,25 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/velodyne_decoder-targets.cmake")
+set_and_check(velodyne_decoder_INCLUDE_DIRS "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set_and_check(velodyne_decoder_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set_and_check(velodyne_decoder_LIBRARY_DIR "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+set(velodyne_decoder_LIBRARIES velodyne_decoder::velodyne_decoder)
+check_required_components(velodyne_decoder)
+
+set(velodyne_decoder_BUNDLED_THIRD_PARTY_LIBS @INSTALL_THIRD_PARTY@)
+if(velodyne_decoder_BUNDLED_THIRD_PARTY_LIBS)
+    # TODO: This info could be generated with a custom Conan deployer instead
+    # e.g. https://github.com/conan-io/conan-extensions/blob/main/extensions/deployers/runtime_zip_deploy.py
+    add_library(velodyne_decoder_third_party INTERFACE)
+    add_library(Microsoft.GSL::GSL ALIAS velodyne_decoder_third_party)
+
+    target_include_directories(velodyne_decoder_third_party INTERFACE "@PACKAGE_THIRD_PARTY_INCLUDEDIR@")
+    target_link_directories(velodyne_decoder_third_party INTERFACE "@PACKAGE_THIRD_PARTY_LIBDIR@")
+    target_link_libraries(velodyne_decoder_third_party INTERFACE yaml-cpp)
+    target_compile_definitions(velodyne_decoder_third_party INTERFACE YAML_CPP_STATIC_DEFINE)
+else()
+    include(CMakeFindDependencyMacro)
+    find_dependency(yaml-cpp REQUIRED CONFIG)
+    find_dependency(Microsoft.GSL REQUIRED CONFIG)
+endif()
