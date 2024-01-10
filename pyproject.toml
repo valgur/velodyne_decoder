@@ -3,7 +3,7 @@ name = "velodyne-decoder"
 version = "3.0.0"
 description = "Decoder for raw Velodyne packet data"
 readme = "README.md"
-requires-python = ">= 3.7"
+requires-python = ">= 3.8"
 authors = [{name = "Martin Valgur", email = "martin.valgur@gmail.com"}]
 urls."Homepage" = "https://github.com/valgur/velodyne_decoder"
 urls."Bug Reports" = "https://github.com/valgur/velodyne_decoder/issues"
@@ -62,7 +62,7 @@ BUILD_SHARED_LIBS = false
 build = "*"
 # Disable building of PyPy wheels on all platforms
 skip = "pp*"
-before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/"
+before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/ --upgrade --upgrade-strategy eager"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
 archs = "auto"
