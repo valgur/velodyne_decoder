@@ -6,12 +6,14 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - 'assets/**'
+      - '.github/workflows/publish.yml'
   pull_request:
     paths-ignore:
       - '**.md'
       - 'LICENSE'
       - '.gitignore'
       - 'assets/**'
+      - '.github/workflows/publish.yml'
 jobs:
   python:
     name: Python - ${{ matrix.platform[0] }} - ${{ matrix.platform[2] }}
@@ -38,7 +40,7 @@ jobs:
         with:
           platforms: all
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -67,7 +69,7 @@ jobs:
           - [Windows, windows-latest, msvc]
           - [MacOS, macos-latest, apple-clang]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Clang
         if: matrix.platform[2] == 'clang'
@@ -106,11 +108,9 @@ jobs:
           - [Linux, ubuntu-latest, gcc]
           - [Linux, ubuntu-latest, clang]
           - [Windows, windows-latest, msvc]
-          - [MacOS, macos-11, apple-clang]
-          # macos-latest with v12.7 is too new for Conan at the moment
-          # - [MacOS, macos-latest, apple-clang]
+          - [MacOS, macos-latest, apple-clang]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Clang
         if: matrix.platform[2] == 'clang'
