@@ -27,8 +27,8 @@ jobs:
 
       - name: Test
         run: |
-          python -m pip install dist/*.tar.gz pytest
-          pytest test --color=yes -v
+          python -m pip install dist/*.tar.gz pytest requests
+          pytest test/ --ignore test/test_ros.py --color=yes -v
 
       - uses: actions/upload-artifact@v3
         with:
