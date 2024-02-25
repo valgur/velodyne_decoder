@@ -24,6 +24,7 @@ dependencies = [
     "numpy",
     "importlib_resources",
     "dpkt",
+    "pyyaml",
 ]
 dynamic = ["optional-dependencies"]
 
