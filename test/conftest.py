@@ -10,8 +10,9 @@ import requests
 # https://github.com/ros/ros_comm/blob/842f0f02/tools/rosgraph/src/rosgraph/roslogging.py#L64-L71
 # going into an infinite loop for some reason.
 import logging
-logging.getLogger('rosout').setLevel(logging.CRITICAL)
+logging.getLogger("rosout").setLevel(logging.CRITICAL)
 
+root_dir = Path(__file__).parent.parent
 data_dir = Path(__file__).parent / "data"
 base_url = "https://github.com/valgur/velodyne_decoder/releases/download/v1.0.1/"
 
@@ -35,3 +36,18 @@ def sample_pcap_path():
 @pytest.fixture
 def sample_bag_path():
     return fetch("vlp16.bag")
+
+
+@pytest.fixture(scope="module")
+def pcl_struct_dtype():
+    return {
+        "names": ["x", "y", "z", "intensity", "time", "column", "ring", "return_type"],
+        "formats": ["<f4", "<f4", "<f4", "<f4", "<f4", "<u2", "u1", "u1"],
+        "offsets": [0, 4, 8, 12, 16, 20, 22, 23],
+        "itemsize": 32,
+    }
+
+
+@pytest.fixture(scope="module")
+def calib_data_dir():
+    return root_dir / "src/velodyne_decoder/calibrations"
