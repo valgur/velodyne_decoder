@@ -3,6 +3,7 @@
 
 import struct
 from contextlib import contextmanager
+import warnings
 
 import dpkt
 import numpy as np
@@ -28,8 +29,11 @@ def iter_pcap(pcap_file, time_range=(None, None)):
 
 
 def iter_bag(bag_file, topics=None, default_msg_types=None, time_range=(None, None)):
-    from rosbag import Bag
-    from rospy import Time
+    with warnings.catch_warnings():
+        # Suppress an irrelevant deprecation warning from the Cryptodome package due to 'import imp'
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        from rosbag import Bag
+        from rospy import Time
 
     if isinstance(bag_file, Bag):
         bag = bag_file
