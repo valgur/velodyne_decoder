@@ -1,4 +1,4 @@
-# --extra-index-url https://rospypi.github.io/simple/
+--extra-index-url https://rospypi.github.io/simple/
 pytest
 requests
 rosbag

@@ -60,9 +60,8 @@ if(MSVC)
 endif()
 
 ## Python bindings
-
-set(BUILD_PYTHON FALSE CACHE BOOL "Build a Python module in addition to the library")
-if(BUILD_PYTHON)
+option(BUILD_PYTHON "Build velodyne_decoder_pylib Python module" FALSE)
+if(BUILD_PYTHON OR SKBUILD)
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
   find_package(pybind11 CONFIG REQUIRED)
 

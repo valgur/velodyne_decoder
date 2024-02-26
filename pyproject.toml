@@ -16,7 +16,6 @@ keywords = [
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 2",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
@@ -26,10 +25,6 @@ dependencies = [
     "dpkt",
     "pyyaml",
 ]
-dynamic = ["optional-dependencies"]
-
-[tool.setuptools.dynamic]
-optional-dependencies.tests = { file = ["requirements-dev.txt"] }
 
 [project.scripts]
 extract-hdl64e-calibration = "velodyne_decoder.hdl64e:cli"
@@ -63,7 +58,7 @@ BUILD_SHARED_LIBS = false
 build = "*"
 # Disable building of PyPy wheels on all platforms
 skip = "pp*"
-before-test = "pip install -r {project}/requirements-dev.txt --extra-index-url https://rospypi.github.io/simple/ --upgrade --upgrade-strategy eager"
+before-test = "pip install -r {project}/requirements-dev.txt"
 test-command = "pytest {project}/test --color=yes -v"
 build-verbosity = 1
 archs = "auto64"
