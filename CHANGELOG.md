@@ -2,7 +2,7 @@
 
 ## [3.0.0] – 2024-02-25
 
-This release introduces significant improvements to the accuracy of the decoded data and ease of use of the library.
+This release significantly improves the ease of use of the library and precise timing info capabilities. Dual-return data is now supported as well.
 
 As a major release, it includes a few breaking changes:
 
