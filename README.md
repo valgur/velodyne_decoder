@@ -4,7 +4,13 @@
 Python package and C++ library for Velodyne packet decoding. Point cloud extraction from PCAP and ROS bag files is
 supported out of the box.
 
-The decoded point clouds are provided either as a structured NumPy array:
+All non-solid-state Velodyne lidar models are fully supported. The model type and RPM are detected automatically from the data and no configuration is necessary to start using the library.
+
+Notably, the library also includes support for dual-return data and decoding of telemetry packets. Precise timing info is available for all models.
+
+The decoded point clouds have been validated to match the official [VeloView ground truth data](https://gitlab.kitware.com/LidarView/velodyneplugin/-/tree/master/Testing/Data?ref_type=heads) for all models.
+
+In Python, the decoded point clouds are provided either as a structured NumPy array:
 
 ```python
 array([(2.6912806, 1.1651788 , -0.47706223,  9., -0.10085896,   0, 16, 1),
