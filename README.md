@@ -37,6 +37,8 @@ array([[2.691281, 1.165179, -0.477062,  9., -0.100859,   0., 16., 1.],
        [2.908243, 0.809808,  0.563337,  1.,  0.000543, 923., 31., 1.]], dtype=float32)
 ```
 
+The decoded point cloud follows ROS conventions for its coordinate axes: x – forward, y – left, z – up.
+
 ## Installation
 
 Wheels are available from PyPI for Linux, MacOS and Windows. Python versions 3.7+ are supported.
