@@ -26,9 +26,10 @@ cmake_dependent_option(INSTALL_THIRD_PARTY "Install third-party dependencies alo
 
 if(USE_CONAN)
     if(CMAKE_VERSION GREATER_EQUAL 3.24)
-        set(CONAN_EXTRA_INSTALL_ARGS
+        set(CONAN_INSTALL_ARGS
+            --build=missing
             # Deploy the installed dependencies in the build dir for easier installation
-            --deployer=full_deploy --deployer-folder=${CMAKE_BINARY_DIR}
+            --deployer=full_deploy "--deployer-folder=${CMAKE_BINARY_DIR}"
         )
         list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/conan_provider.cmake)
     else()
