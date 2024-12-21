@@ -62,10 +62,12 @@ endif()
 ## Python bindings
 option(BUILD_PYTHON "Build velodyne_decoder_pylib Python module" FALSE)
 if(BUILD_PYTHON OR SKBUILD)
-  find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-  find_package(pybind11 CONFIG REQUIRED)
+  find_package(Python
+      REQUIRED COMPONENTS Interpreter Development.Module
+      OPTIONAL_COMPONENTS Development.SABIModule)
+  find_package(nanobind CONFIG REQUIRED)
 
-  pybind11_add_module(python_bindings src/python.cpp)
+  nanobind_add_module(python_bindings STABLE_ABI NB_STATIC src/python.cpp)
   set_target_properties(python_bindings PROPERTIES OUTPUT_NAME velodyne_decoder_pylib)
   target_include_directories(python_bindings PRIVATE include)
   target_link_libraries(python_bindings PRIVATE velodyne_decoder)
