@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.1] – 2024-12-21
+
+Python-only release. Re-built the PyPI binaries with NumPy 2.x to fix compatibility issues. 
+
 ## [3.0.0] – 2024-02-25
 
 This release significantly improves the ease of use of the library and precise timing info capabilities. Dual-return data is now supported as well.
@@ -128,6 +132,8 @@ As a major release, it includes a few breaking changes:
 ## [1.0.1] – 2021-05-19
 
 Initial release.
+
+[3.0.1]: https://github.com/valgur/velodyne_decoder/compare/v3.0.0...v3.0.1
 
 [3.0.0]: https://github.com/valgur/velodyne_decoder/compare/v2.3.0...v3.0.0
 
