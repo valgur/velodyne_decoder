@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.0] – 2024-12-22
+
+Python-only release. Replaced pybind11 with nanobind for the Python bindings. This allows Python 3.12+ binaries to be
+built against the stable CPython ABI, making the binaries compatible with any future Python versions. 
+
 ## [3.0.1] – 2024-12-21
 
 Python-only release. Re-built the PyPI binaries with NumPy 2.x to fix compatibility issues. 
@@ -132,6 +137,8 @@ As a major release, it includes a few breaking changes:
 ## [1.0.1] – 2021-05-19
 
 Initial release.
+
+[3.1.0]: https://github.com/valgur/velodyne_decoder/compare/v3.0.1...v3.1.0
 
 [3.0.1]: https://github.com/valgur/velodyne_decoder/compare/v3.0.0...v3.0.1
 

@@ -1,6 +1,6 @@
 [project]
 name = "velodyne-decoder"
-version = "3.0.1"
+version = "3.1.0"
 description = "Decoder for raw Velodyne packet data"
 readme = "README.md"
 requires-python = ">= 3.8"
