@@ -41,7 +41,7 @@ The decoded point cloud follows ROS conventions for its coordinate axes: x – f
 
 ## Installation
 
-Wheels are available from PyPI for Linux, MacOS and Windows. Python versions 3.7+ are supported.
+Wheels are available from PyPI for Linux, MacOS and Windows. Python versions 3.8+ are supported.
 
 ```bash
 pip install velodyne-decoder
